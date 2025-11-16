@@ -1,10 +1,8 @@
-// src/pages/api/sync-db.js (გასწორებული გზებით)
-import { query } from '../../lib/db'; // <-- გზა გასწორებულია: ორი დონე ზემოთ
-import { slugify } from '../../lib/utils'; // <-- გზა გასწორებულია: ორი დონე ზემოთ
+// src/pages/api/sync-db.js (გაძლიერებული, უსაფრთხო ვერსია)
+import { query } from '../../lib/db';
+import { slugify } from '../../lib/utils'; 
 
 const PLAYER_API_ENDPOINT = 'https://kinobd.net/api/films';
-
-// ... (დანარჩენი კოდი უცვლელია) ...
 
 async function insertMovie(movie) {
   const {
@@ -12,8 +10,16 @@ async function insertMovie(movie) {
     time_minutes, small_poster, big_poster, rating_kp,
     rating_imdb, genre_ru, name_original
   } = movie;
-
-  const movieSlug = slugify(name_russian || name_original);
+  
+  // --- 1. კრიტიკული შემოწმებები ---
+  // ვამოწმებთ, რომ აუცილებელი ველები არსებობს (tmdb_id, title_ru, slug)
+  if (!tmdb_id) return { status: 'skipped', reason: 'Missing TMDB ID' };
+  
+  const movieTitle = name_russian || name_original || 'Неизвестное название';
+  const movieSlug = slugify(movieTitle);
+  
+  if (!movieSlug) return { status: 'skipped', reason: 'Could not create slug' };
+  // --- დასასრული ---
 
   const insertQuery = `
     INSERT INTO movies(
@@ -26,20 +32,21 @@ async function insertMovie(movie) {
   `;
   
   const values = [
-    tmdb_id,
-    kinopoisk_id,
+    parseInt(tmdb_id), // უზრუნველყოფს, რომ ID იყოს რიცხვი
+    kinopoisk_id ? parseInt(kinopoisk_id) : null, // უსაფრთხო კონვერტაცია
     movieSlug,
-    name_russian || name_original,
+    movieTitle,
     description,
-    year ? `${year}-01-01` : null,
-    time_minutes,
+    year ? `${year}-01-01` : null, 
+    time_minutes || null,
     small_poster,
     big_poster,
-    rating_kp || rating_imdb,
-    genre_ru,
+    rating_kp || rating_imdb || null,
+    genre_ru, 
   ];
 
   await query(insertQuery, values);
+  return { status: 'inserted' };
 }
 
 
@@ -51,6 +58,7 @@ export default async function handler(req, res) {
   let currentPage = 1;
   let hasMore = true;
   let moviesInserted = 0;
+  let moviesSkipped = 0;
   
   const MAX_PAGES_TO_FETCH = 5; 
 
@@ -67,16 +75,19 @@ export default async function handler(req, res) {
       
       if (result.data && Array.isArray(result.data)) {
         for (const movie of result.data) {
-          if (movie.tmdb_id) { 
              try {
-                await insertMovie(movie);
-                moviesInserted++;
+                const result = await insertMovie(movie);
+                if (result.status === 'inserted') {
+                  moviesInserted++;
+                } else if (result.status === 'skipped') {
+                  moviesSkipped++;
+                }
               } catch (insertError) {
+                // თუ ეს არის დუბლიკატი (უკვე არსებობს), უბრალოდ გამოვტოვოთ
                 if (!insertError.message.includes('duplicate key')) {
-                  console.error(`Failed to insert movie ${movie.tmdb_id}`, insertError.message);
+                  console.error(`DB Insert Error for TMDB ID ${movie.tmdb_id}:`, insertError.message);
                 }
               }
-          }
         }
       }
 
@@ -89,7 +100,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ 
       success: true, 
-      message: `Successfully synced ${moviesInserted} movies. Fetched ${currentPage - 1} pages.` 
+      message: `Successfully synced ${moviesInserted} new movies. Skipped ${moviesSkipped} items due to missing data. Fetched ${currentPage - 1} pages.` 
     });
 
   } catch (error) {
