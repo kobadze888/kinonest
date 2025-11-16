@@ -23,10 +23,10 @@ export async function getServerSideProps(context) {
     return { notFound: true };
   }
 
-  // --- ახალი: Postgres ბაზის Lookup ---
+  // --- Postgres ბაზის Lookup: ეძებს kinopoisk_id-ს ჩვენს ბაზაში ---
   let kinopoisk_id = null;
   try {
-    // ვეძებთ kinopoisk_id-ს ჩვენს 'movies' ცხრილში tmdb_id-ის მიხედვით
+    // TMDB ID-ს ვიყენებთ ჩვენს 'movies' ცხრილში მოსაძებნად
     const dbResult = await query('SELECT kinopoisk_id FROM movies WHERE tmdb_id = $1', [tmdbId]);
     
     if (dbResult.rows.length > 0) {
@@ -34,7 +34,7 @@ export async function getServerSideProps(context) {
     }
   } catch (e) {
     console.error("Database lookup failed:", e);
-    // თუ ბაზა ჩამოვარდა, მაინც ვაგრძელებთ TMDB მონაცემებით
+    // თუ ბაზის ძებნა ვერ მოხერხდა, kinopoisk_id რჩება null
   }
   // --- დასასრული ---
 
@@ -53,11 +53,8 @@ const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentC
 
 export default function MoviePage({ movie, kinopoisk_id }) {
   
-  // --- უსაფრთხოების შემოწმება ---
-  if (!movie) {
-    return <div>Фильм не найден.</div>;
-  }
-  // ... (ტრეილერის მოდულის ლოგიკა, უცვლელად) ...
+  if (!movie) { return <div>Фильм не найден.</div>; }
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
@@ -117,7 +114,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         videoHtml={modalVideoHtml}
       />
 
-      {/* --- 1. პლეერის ახალი სექცია (ჩვენი ბაზიდან) --- */}
+      {/* --- 1. პლეერის სექცია (ახლა უკვე სწორი ID-ით ბაზიდან) --- */}
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-16 md:pt-20"> 
           <div className="max-w-7xl mx-auto"> 
@@ -197,7 +194,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
                   {movie.revenue ? `$${movie.revenue.toLocaleString()}` : 'N/A'}
                 </div>
                 <div className="col-span-2 md:col-span-3">
-                  <span className="font-semibold text-gray-500 block">Жанры:</span>
+                  <span className="font-semibold text-gray-500 block">Жანრები:</span>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {(movie.genres || []).map(g => (
                       <span key={g.id} className="py-1 px-3 bg-gray-800 text-gray-300 rounded-full text-sm">

@@ -23,7 +23,7 @@ export async function getServerSideProps(context) {
     return { notFound: true };
   }
 
-  // --- ახალი: Postgres ბაზის Lookup ---
+  // --- Postgres ბაზის Lookup: ეძებს kinopoisk_id-ს ჩვენს ბაზაში ---
   let kinopoisk_id = null;
   try {
     const dbResult = await query('SELECT kinopoisk_id FROM movies WHERE tmdb_id = $1', [tmdbId]);
@@ -51,10 +51,7 @@ const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentC
 
 export default function TVPage({ tvShow, kinopoisk_id }) {
   
-  // --- უსაფრთხოების შემოწმება ---
-  if (!tvShow) {
-    return <div>Сериал не найден.</div>;
-  }
+  if (!tvShow) { return <div>Сериал не найден.</div>; }
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
@@ -115,7 +112,7 @@ export default function TVPage({ tvShow, kinopoisk_id }) {
         videoHtml={modalVideoHtml}
       />
 
-      {/* --- 1. პლეერის ახალი სექცია (ბაზიდან) --- */}
+      {/* --- 1. პლეერის სექცია (ახლა უკვე სწორი ID-ით ბაზიდან) --- */}
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-16 md:pt-20">
           <div className="max-w-7xl mx-auto"> 

@@ -1,13 +1,12 @@
-// src/pages/api/sync-db.js (მონაცემთა ბაზის სინქრონიზაციის სკრიპტი)
-import { query } from '../../../lib/db';
-import { slugify } from '../../../lib/utils';
+// src/pages/api/sync-db.js (გასწორებული გზებით)
+import { query } from '../../lib/db'; // <-- გზა გასწორებულია: ორი დონე ზემოთ
+import { slugify } from '../../lib/utils'; // <-- გზა გასწორებულია: ორი დონე ზემოთ
 
-// მონაცემთა წყარო
 const PLAYER_API_ENDPOINT = 'https://kinobd.net/api/films';
 
-// დამხმარე ფუნქცია ბაზაში ჩასაწერად
+// ... (დანარჩენი კოდი უცვლელია) ...
+
 async function insertMovie(movie) {
-  // ჩვენ ვვარაუდობთ, რომ ეს ველები არსებობს kinobd-ის პასუხში:
   const {
     tmdb_id, kinopoisk_id, name_russian, description, year,
     time_minutes, small_poster, big_poster, rating_kp,
@@ -32,12 +31,12 @@ async function insertMovie(movie) {
     movieSlug,
     name_russian || name_original,
     description,
-    year ? `${year}-01-01` : null, // თარიღის კონვერტაცია (წლიდან თარიღში)
+    year ? `${year}-01-01` : null,
     time_minutes,
     small_poster,
     big_poster,
-    rating_kp || rating_imdb, // უპირატესობა მივანიჭოთ KP-ს
-    genre_ru, 
+    rating_kp || rating_imdb,
+    genre_ru,
   ];
 
   await query(insertQuery, values);
@@ -53,7 +52,6 @@ export default async function handler(req, res) {
   let hasMore = true;
   let moviesInserted = 0;
   
-  // უსაფრთხოების ლიმიტი: ვინაიდან ბაზა დიდია, პირველ 5 გვერდს (დაახლ. 100 ფილმს) ამოვიღებთ, რომ Vercel-ის ფუნქცია არ ჩამოვარდეს.
   const MAX_PAGES_TO_FETCH = 5; 
 
   try {
@@ -69,12 +67,11 @@ export default async function handler(req, res) {
       
       if (result.data && Array.isArray(result.data)) {
         for (const movie of result.data) {
-          if (movie.tmdb_id) { // ვამოწმებთ, რომ TMDB ID არსებობს
+          if (movie.tmdb_id) { 
              try {
                 await insertMovie(movie);
                 moviesInserted++;
               } catch (insertError) {
-                // იგნორირება თუ კონფლიქტია (ფილმი უკვე არსებობს)
                 if (!insertError.message.includes('duplicate key')) {
                   console.error(`Failed to insert movie ${movie.tmdb_id}`, insertError.message);
                 }
@@ -86,7 +83,6 @@ export default async function handler(req, res) {
       hasMore = result.has_more || false;
       if (hasMore) {
         currentPage++;
-        // API-სთან თავაზიანობისთვის
         await new Promise(resolve => setTimeout(resolve, 500)); 
       }
     }
