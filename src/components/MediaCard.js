@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { IMAGE_BASE_URL } from '../lib/api';
-import { slugify } from '../lib/utils'; // დავაიმპორტეთ ჩვენი ახალი ფუნქცია
+import { slugify } from '../lib/utils';
 
 export default function MediaCard({ item, type = 'movie' }) {
   const title = type === 'movie' ? item.title : item.name;
@@ -12,12 +12,15 @@ export default function MediaCard({ item, type = 'movie' }) {
     ? `${IMAGE_BASE_URL}${item.poster_path}` 
     : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
 
-  // --- SEO URL-ის გენერაცია ---
-  // ვქმნით slug-ს (მაგ: "frankenshteyn")
-  const titleSlug = slugify(title); 
-  // ვაერთიანებთ ID-ს და slug-ს (მაგ: "/movie/12345-frankenshteyn")
-  // ეს არის საუკეთესო პრაქტიკა: ID გვჭირდება მონაცემების მოსაძებნად, slug კი SEO-სთვის.
-  const linkHref = `/${type}/${item.id}-${titleSlug}`;
+  // --- SEO URL-ის გაძლიერებული გენერაცია ---
+  const titleSlug = slugify(title);
+  
+  // რუსული ფრაზა "смотреть онлайн бесплатно" ტრანსლიტერაციით
+  const seoSuffix = 'smotret-onlain-besplatno';
+  
+  // ვაერთიანებთ ID-ს, სათაურს და SEO ფრაზას
+  const linkHref = `/${type}/${item.id}-${titleSlug}-${seoSuffix}`;
+  // შედეგი: /movie/123-krestniy-otec-smotret-onlain-besplatno
   // --- დასასრული ---
 
   return (
