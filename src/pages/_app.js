@@ -1,17 +1,14 @@
-// --- ОБНОВЛЕННЫЙ ФАЙЛ ---
+// src/pages/_app.js-ის ახალი შიგთავსი
 import '../styles/globals.css';
 
-// --- ИЗМЕНЕНИЕ ЗДЕСЬ: ---
-// ვაბრუნებთ Swiper-ის სრულ სტილებს
+// Swiper-ის სრული სტილები
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-fade';
-// --- ---
 
 import Head from 'next/head';
 
-// გლობალური სტილები (без изменений)
 const GlobalStyles = () => (
   <style jsx global>{`
     /* Swiper სლაიდერისთვის სიმაღლის დაყენება */
@@ -152,7 +149,6 @@ const GlobalStyles = () => (
         width: 100%;
         height: 100%;
     }
-
   `}</style>
 );
 
