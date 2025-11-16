@@ -2,8 +2,11 @@
 import '../styles/globals.css';
 
 // --- ИЗМЕНЕНИЕ ЗДЕСЬ: ---
-// ვიყენებთ მხოლოდ Swiper-ის ძირითად სტილს
+// ვაბრუნებთ Swiper-ის სრულ სტილებს
 import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import 'swiper/css/effect-fade';
 // --- ---
 
 import Head from 'next/head';
