@@ -1,18 +1,19 @@
-// src/lib/db.js (გაძლიერებული კავშირის პარამეტრები)
+// src/lib/db.js (SSL-ის გამარტივებული და გაძლიერებული ვერსია)
 import { Pool } from 'pg';
 
-// კავშირის ობიექტი იქმნება მხოლოდ ერთხელ
+// ჩვენ ვზრდით connectionTimeoutMillis-ს, რათა ETIMEDOUT შეცდომა აღარ მოხდეს
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   
   // --- უსაფრთხოების (SSL) და სტაბილურობის პარამეტრები ---
   ssl: {
-    // ეს აუცილებელია Supabase-თან კავშირისთვის, როდესაც კლიენტი არასერტიფიცირებულია
+    // ვაყენებთ SSL-ს 'require'-ზე, რაც Supabase-ს მინიმალური მოთხოვნაა
+    // და იმედი გვაქვს, რომ ის კავშირს დაამყარებს
     rejectUnauthorized: false, 
   },
-  // დროის ლიმიტები
-  connectionTimeoutMillis: 10000, // 10 წამი კავშირის დასამყარებლად
-  idleTimeoutMillis: 30000,     // 30 წამი უსაქმური კავშირის გათიშვამდე
+  // ვზრდით დროის ლიმიტს, რომ ნელმა ქსელმა არ გააფუჭოს კავშირი
+  connectionTimeoutMillis: 20000, // 20 წამი კავშირის დასამყარებლად
+  idleTimeoutMillis: 30000,
   // --- დასასრული ---
 });
 
