@@ -1,14 +1,15 @@
-// src/pages/movie/[slug].js (ბაზის ინტეგრაციით)
+// src/pages/movie/[slug].js (Postgres კავშირი ამოღებულია)
 import React, { useState, useCallback } from 'react';
 import Head from 'next/head';
 import Script from 'next/script';
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '../../lib/api';
-import { query } from '../../lib/db'; // <-- ახალი: ჩვენი Postgres კავშირი
+// import { query } from '../../lib/db'; // <-- ამოღებულია!
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import MediaCarousel from '../../components/MediaCarousel';
 import TrailerModal from '../../components/TrailerModal';
 
+// დროებით ვითიშავთ kinopoisk-ის ID-სთვის ბაზის ძებნას
 export async function getServerSideProps(context) {
   const { slug } = context.params;
   const tmdbId = slug.split('-')[0];
@@ -23,33 +24,20 @@ export async function getServerSideProps(context) {
     return { notFound: true };
   }
 
-  // --- Postgres ბაზის Lookup: ეძებს kinopoisk_id-ს ჩვენს ბაზაში ---
-  let kinopoisk_id = null;
-  try {
-    // TMDB ID-ს ვიყენებთ ჩვენს 'movies' ცხრილში მოსაძებნად
-    const dbResult = await query('SELECT kinopoisk_id FROM movies WHERE tmdb_id = $1', [tmdbId]);
-    
-    if (dbResult.rows.length > 0) {
-      kinopoisk_id = dbResult.rows[0].kinopoisk_id;
-    }
-  } catch (e) {
-    console.error("Database lookup failed:", e);
-    // თუ ბაზის ძებნა ვერ მოხერხდა, kinopoisk_id რჩება null
-  }
-  // --- დასასრული ---
+  // kinopoisk_id დროებით null-ია, სანამ Vercel-ზე არ შევამოწმებთ სინქრონიზაციას
+  let kinopoisk_id = null; 
 
   return {
     props: {
       movie: movieData,
-      kinopoisk_id: kinopoisk_id, // ახლა ეს მოვა ჩვენი ბაზიდან
+      kinopoisk_id: kinopoisk_id, 
     },
   };
 }
 
-// ... SVG ხატულები (PlayIcon, StarIcon) ...
-const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg> );
-const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
+// ... (დანარჩენი კოდი უცვლელია, ისევ იყენებს movie და kinopoisk_id-ს) ...
 
+// ... (SVG ხატულები) ...
 
 export default function MoviePage({ movie, kinopoisk_id }) {
   
@@ -98,6 +86,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         <meta name="keywords" content={keywords} />
       </Head>
       
+      {/* ვტვირთავთ kinobd-ის პლეერის სკრიპტს *მხოლოდ* თუ kinopoisk_id არსებობს */}
       {kinopoisk_id && (
         <Script 
           src="http://kinobd.net/js/player_.js"
@@ -114,9 +103,9 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         videoHtml={modalVideoHtml}
       />
 
-      {/* --- 1. პლეერის სექცია (ახლა უკვე სწორი ID-ით ბაზიდან) --- */}
+      {/* --- 1. პლეერის სექცია (რომელიც არ ჩაიტვირთება, რადგან kinopoisk_id=null) --- */}
       {kinopoisk_id && (
-        <section className="bg-[#10141A] pt-16 md:pt-20"> 
+        <section className="bg-[#10141A] pt-16 md:pt-20">
           <div className="max-w-7xl mx-auto"> 
             <div className="relative w-full overflow-hidden" style={{ paddingBottom: '42.55%' }}> 
               <div 
@@ -129,7 +118,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         </section>
       )}
 
-      {/* --- 2. Hero სექცია --- */}
+      {/* --- 2. Hero სექცია (დიდი ფონით) --- */}
       <section 
         className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full bg-cover bg-center"
         style={{ backgroundImage: `url(${backdropPath})` }}
@@ -194,7 +183,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
                   {movie.revenue ? `$${movie.revenue.toLocaleString()}` : 'N/A'}
                 </div>
                 <div className="col-span-2 md:col-span-3">
-                  <span className="font-semibold text-gray-500 block">Жანრები:</span>
+                  <span className="font-semibold text-gray-500 block">Жанры:</span>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {(movie.genres || []).map(g => (
                       <span key={g.id} className="py-1 px-3 bg-gray-800 text-gray-300 rounded-full text-sm">
