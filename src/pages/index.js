@@ -231,21 +231,21 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
             title="Топ фильмы"
             items={topMovies}
             swiperKey="top-movies"
-            onShowTrailer={handleShowTrailer}
+           
             cardType="movie"
           />
           <MediaCarousel 
             title="Популярные сериалы"
             items={popularTv}
             swiperKey="popular-tv"
-            onShowTrailer={handleShowTrailer}
+           
             cardType="tv"
           />
           <MediaCarousel 
             title="Фильмы ужасов"
             items={horrorMovies}
             swiperKey="horror-movies"
-            onShowTrailer={handleShowTrailer}
+           
             cardType="movie"
           />
           <MediaCarousel 
