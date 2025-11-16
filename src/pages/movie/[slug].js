@@ -1,8 +1,9 @@
-// src/pages/movie/[slug].js (გასუფთავებული ვერსია)
+// src/pages/movie/[slug].js (ბაზის ინტეგრაციით)
 import React, { useState, useCallback } from 'react';
 import Head from 'next/head';
-// Script-ს და kinobd API-ს დროებით ვიღებთ
+import Script from 'next/script';
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '../../lib/api';
+import { query } from '../../lib/db'; // <-- ახალი: ჩვენი Postgres კავშირი
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import MediaCarousel from '../../components/MediaCarousel';
@@ -10,24 +11,37 @@ import TrailerModal from '../../components/TrailerModal';
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
-  const id = slug.split('-')[0];
-  if (!id) return { notFound: true }; 
+  const tmdbId = slug.split('-')[0];
+  if (!tmdbId) return { notFound: true };
 
   const movieData = await fetchData(
-    `/movie/${id}`, 
+    `/movie/${tmdbId}`, 
     '&append_to_response=videos,credits,recommendations'
   );
 
-  // თუ ფილმი TMDB-ზე ვერ მოიძებნა, ვაბრუნებთ 404
   if (!movieData) {
     return { notFound: true };
   }
 
-  // დროებით წავშალეთ kinobd-ის ლოგიკა, სანამ ბაზას არ ავაწყობთ
+  // --- ახალი: Postgres ბაზის Lookup ---
+  let kinopoisk_id = null;
+  try {
+    // ვეძებთ kinopoisk_id-ს ჩვენს 'movies' ცხრილში tmdb_id-ის მიხედვით
+    const dbResult = await query('SELECT kinopoisk_id FROM movies WHERE tmdb_id = $1', [tmdbId]);
+    
+    if (dbResult.rows.length > 0) {
+      kinopoisk_id = dbResult.rows[0].kinopoisk_id;
+    }
+  } catch (e) {
+    console.error("Database lookup failed:", e);
+    // თუ ბაზა ჩამოვარდა, მაინც ვაგრძელებთ TMDB მონაცემებით
+  }
+  // --- დასასრული ---
+
   return {
     props: {
       movie: movieData,
-      // kinopoisk_id: null,
+      kinopoisk_id: kinopoisk_id, // ახლა ეს მოვა ჩვენი ბაზიდან
     },
   };
 }
@@ -37,13 +51,13 @@ const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
 
 
-export default function MoviePage({ movie }) { // წავშალეთ kinopoisk_id
+export default function MoviePage({ movie, kinopoisk_id }) {
   
-  // --- უსაფრთხოების შემოწმება (კრახის საწინააღმდეგოდ) ---
+  // --- უსაფრთხოების შემოწმება ---
   if (!movie) {
-    return <div>იტვირთება...</div>; // ან 404 გვერდი
+    return <div>Фильм не найден.</div>;
   }
-
+  // ... (ტრეილერის მოდულის ლოგიკა, უცვლელად) ...
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
@@ -73,12 +87,11 @@ export default function MoviePage({ movie }) { // წავშალეთ kinop
   const backdropPath = movie.backdrop_path ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
   const actors = movie.credits?.cast?.slice(0, 10) || [];
   const director = movie.credits?.crew?.find(person => person.job === 'Director');
-  
-  // --- უსაფრთხოების შემოწმება კრახის წინააღმდეგ ---
   const releaseYear = (movie.release_date || '').split('-')[0];
-  const pageTitle = `${movie.title || 'Фильм'} (${releaseYear || 'N/A'}, фильм) | ${movie.original_title || ''} | смотреть онлайн бесплатно - KinoNest`;
+  const pageTitle = `${movie.title} (${releaseYear}, фильм) | ${movie.original_title} | смотреть онлайн бесплатно - KinoNest`;
   const genreKeywords = (movie.genres || []).map(g => g.name).join(', ');
   const keywords = [ movie.title, movie.original_title, `${movie.title} смотреть онлайн`, `${movie.title} смотреть онлайн бесплатно`, `${movie.title} ${releaseYear}`, `фильм ${movie.title}`, "смотреть фильм онлайн", genreKeywords ].filter(Boolean).join(', ');
+
 
   return (
     <div className="bg-[#10141A] text-white font-sans">
@@ -87,6 +100,13 @@ export default function MoviePage({ movie }) { // წავშალეთ kinop
         <meta name="description" content={movie.overview} />
         <meta name="keywords" content={keywords} />
       </Head>
+      
+      {kinopoisk_id && (
+        <Script 
+          src="http://kinobd.net/js/player_.js"
+          strategy="lazyOnload"
+        />
+      )}
       
       <Header onSearchSubmit={() => alert('Поиск скоро будет!')} />
 
@@ -97,8 +117,22 @@ export default function MoviePage({ movie }) { // წავშალეთ kinop
         videoHtml={modalVideoHtml}
       />
 
-      {/* პლეერის სექცია წაშლილია */}
+      {/* --- 1. პლეერის ახალი სექცია (ჩვენი ბაზიდან) --- */}
+      {kinopoisk_id && (
+        <section className="bg-[#10141A] pt-16 md:pt-20"> 
+          <div className="max-w-7xl mx-auto"> 
+            <div className="relative w-full overflow-hidden" style={{ paddingBottom: '42.55%' }}> 
+              <div 
+                data-kinopoisk={kinopoisk_id} 
+                id="kinobd" 
+                className="absolute top-0 left-0 w-full h-full"
+              ></div>
+            </div>
+          </div>
+        </section>
+      )}
 
+      {/* --- 2. Hero სექცია --- */}
       <section 
         className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full bg-cover bg-center"
         style={{ backgroundImage: `url(${backdropPath})` }}
@@ -133,6 +167,7 @@ export default function MoviePage({ movie }) { // წავშალეთ kinop
         </div>
       </section>
 
+      {/* --- 3. დანარჩენი კონტენტი --- */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2">
