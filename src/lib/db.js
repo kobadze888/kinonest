@@ -1,10 +1,8 @@
-// src/lib/db.js (Final Connection Setup)
-const { Pool } = require('pg');
+// src/lib/db.js (Reverted to ES Module + SSL fix)
+import { Pool } from 'pg'; // <-- დავაბრუნეთ import-ზე
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  
-  // SSL-ის გაძლიერებული პარამეტრები Vercel/Supabase-სთვის
   ssl: {
     rejectUnauthorized: false, 
   },
@@ -12,10 +10,6 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
 });
 
-const query = (text, params) => pool.query(text, params);
-const getClient = () => pool.connect();
-
-module.exports = {
-  query,
-  getClient
-};
+// დავაბრუნეთ export-ზე
+export const query = (text, params) => pool.query(text, params);
+export const getClient = () => pool.connect();

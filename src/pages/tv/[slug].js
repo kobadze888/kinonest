@@ -2,12 +2,12 @@
 import React, { useState, useCallback } from 'react';
 import Head from 'next/head';
 import Script from 'next/script';
-import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '../../lib/api';
-import { query } from '../../lib/db'; 
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
-import MediaCarousel from '../../components/MediaCarousel';
-import TrailerModal from '../../components/TrailerModal';
+import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; // ვიყენებთ @/ გზას
+import { query } from '@/lib/db'; // ვიყენებთ @/ გზას
+import Header from '@/components/Header'; // ვიყენებთ @/ გზას
+import Footer from '@/components/Footer'; // ვიყენებთ @/ გზას
+import MediaCarousel from '@/components/MediaCarousel'; // ვიყენებთ @/ გზას
+import TrailerModal from '@/components/TrailerModal'; // ვიყენებთ @/ გზას
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -38,14 +38,15 @@ export async function getServerSideProps(context) {
   return {
     props: {
       tvShow: tvData,
-      kinopoisk_id: kinopoisk_id, 
+      kinopoisk_id: kinopoisk_id,
     },
   };
 }
 
-// ... SVG ხატულები (PlayIcon, StarIcon) ...
+// --- ხატულების დეკლარაცია (სწორი ადგილი) ---
 const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg> );
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
+// --- დასასრული ---
 
 
 export default function TVPage({ tvShow, kinopoisk_id }) {
@@ -84,6 +85,7 @@ export default function TVPage({ tvShow, kinopoisk_id }) {
   const originalTitle = tvShow.original_name;
   const releaseYear = (tvShow.first_air_date || '').split('-')[0];
   const genreKeywords = (tvShow.genres || []).map(g => g.name).join(', ');
+  const pageTitle = `${title} (${releaseYear}, сериал) | ${originalTitle} | смотреть онлайн бесплатно - KinoNest`;
   const keywords = [ title, originalTitle, `${title} смотреть онлайн`, `${title} смотреть онлайн бесплатно`, `${title} ${releaseYear}`, `сериал ${title}`, "смотреть сериал онлайн", genreKeywords ].filter(Boolean).join(', ');
 
   return (
