@@ -1,15 +1,14 @@
-// src/pages/movie/[slug].js (Postgres კავშირი ამოღებულია)
+// src/pages/movie/[slug].js (DB კავშირის ამოღება)
 import React, { useState, useCallback } from 'react';
 import Head from 'next/head';
 import Script from 'next/script';
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '../../lib/api';
-// import { query } from '../../lib/db'; // <-- ამოღებულია!
+// import { query } from '../../lib/db'; // <-- ამოღებულია
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import MediaCarousel from '../../components/MediaCarousel';
 import TrailerModal from '../../components/TrailerModal';
 
-// დროებით ვითიშავთ kinopoisk-ის ID-სთვის ბაზის ძებნას
 export async function getServerSideProps(context) {
   const { slug } = context.params;
   const tmdbId = slug.split('-')[0];
@@ -24,7 +23,7 @@ export async function getServerSideProps(context) {
     return { notFound: true };
   }
 
-  // kinopoisk_id დროებით null-ია, სანამ Vercel-ზე არ შევამოწმებთ სინქრონიზაციას
+  // kinopoisk_id დროებით null-ია, რადგან DB კავშირი გათიშულია
   let kinopoisk_id = null; 
 
   return {
@@ -35,7 +34,7 @@ export async function getServerSideProps(context) {
   };
 }
 
-// ... (დანარჩენი კოდი უცვლელია, ისევ იყენებს movie და kinopoisk_id-ს) ...
+// ... (დანარჩენი კომპონენტი უცვლელია) ...
 
 // ... (SVG ხატულები) ...
 
@@ -86,7 +85,6 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         <meta name="keywords" content={keywords} />
       </Head>
       
-      {/* ვტვირთავთ kinobd-ის პლეერის სკრიპტს *მხოლოდ* თუ kinopoisk_id არსებობს */}
       {kinopoisk_id && (
         <Script 
           src="http://kinobd.net/js/player_.js"
@@ -103,7 +101,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         videoHtml={modalVideoHtml}
       />
 
-      {/* --- 1. პლეერის სექცია (რომელიც არ ჩაიტვირთება, რადგან kinopoisk_id=null) --- */}
+      {/* --- 1. პლეერის სექცია (არ გამოჩნდება) --- */}
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-16 md:pt-20">
           <div className="max-w-7xl mx-auto"> 
@@ -118,7 +116,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         </section>
       )}
 
-      {/* --- 2. Hero სექცია (დიდი ფონით) --- */}
+      {/* --- 2. Hero სექცია --- */}
       <section 
         className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full bg-cover bg-center"
         style={{ backgroundImage: `url(${backdropPath})` }}
