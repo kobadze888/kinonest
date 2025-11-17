@@ -1,10 +1,12 @@
-// src/lib/db.js (CommonJS ფორმატი)
+// src/lib/db.js (Final Connection Setup)
 const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  
+  // SSL-ის გაძლიერებული პარამეტრები Vercel/Supabase-სთვის
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, 
   },
   connectionTimeoutMillis: 20000, 
   idleTimeoutMillis: 30000,
