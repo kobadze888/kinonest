@@ -1,4 +1,4 @@
-// --- ФИНАЛЬНАЯ ВЕРСИЯ index.js (FIX: Убрали Promise.all) ---
+// --- ОБНОВЛЕННЫЙ ФАЙЛ index.js (Загружаем "Фильмы ужасов") ---
 import React, { useState, useRef, useCallback } from 'react';
 
 import { fetchData } from '../lib/api';
@@ -10,7 +10,7 @@ import Footer from '../components/Footer';
 import TrailerModal from '../components/TrailerModal'; 
 
 /**
- * 💡 ОБНОВЛЕННАЯ СЕРВЕРНАЯ ФУНКЦИЯ (Без Promise.all)
+ * 💡 ОБНОВЛЕННАЯ СЕРВЕРНАЯ ФУНКЦИЯ
  */
 export async function getServerSideProps() {
   
@@ -22,11 +22,8 @@ export async function getServerSideProps() {
   `;
 
   try {
-    // 💡 --- ВОТ ИЗМЕНЕНИЕ --- 💡
-    // Выполняем запросы ПО ОЧЕРЕДИ, чтобы использовать только 1 соединение.
-    
     // 1. Для Слайдера
-    const heroResult = await query(
+    const heroQuery = query(
       `SELECT ${columns} FROM media 
        WHERE type = 'movie' AND backdrop_path IS NOT NULL AND rating_tmdb > 7.0 
        ORDER BY rating_tmdb DESC 
@@ -34,7 +31,7 @@ export async function getServerSideProps() {
     );
 
     // 2. Топ Фильмов
-    const topResult = await query(
+    const topQuery = query(
       `SELECT ${columns} FROM media 
        WHERE type = 'movie' 
        ORDER BY rating_tmdb DESC 
@@ -42,20 +39,33 @@ export async function getServerSideProps() {
     );
 
     // 3. Популярные Сериалы
-    const tvResult = await query(
+    const tvQuery = query(
       `SELECT ${columns} FROM media 
        WHERE type = 'tv' 
        ORDER BY rating_tmdb DESC 
        LIMIT 10`
     );
-    // 💡 --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+    // 4. 💡 --- НОВЫЙ ЗАПРОС: Фильмы ужасов --- 💡
+    const horrorQuery = query(
+      `SELECT ${columns} FROM media
+       WHERE type = 'movie' AND genres_names @> ARRAY['ужасы']
+       ORDER BY rating_tmdb DESC
+       LIMIT 10`
+    );
+    
+    // Выполняем все запросы ПО ОЧЕРЕДИ
+    const heroResult = await heroQuery;
+    const topResult = await topQuery;
+    const tvResult = await tvQuery;
+    const horrorResult = await horrorQuery;
 
     return {
       props: {
         heroMovies: heroResult.rows,
         topMovies: topResult.rows,
         popularTv: tvResult.rows,
-        horrorMovies: [], 
+        horrorMovies: horrorResult.rows, 
         popularActors: [], 
       },
     };
@@ -80,22 +90,16 @@ export async function getServerSideProps() {
 export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, popularActors }) {
   
   const [searchQuery, setSearchQuery] = useState('');
-
-  // --- Состояния для модального окна ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   
-  
-  // --- ОБНОВЛЕННАЯ функция открытия модала ---
   const handleShowTrailer = useCallback(async (movie) => {
-    // 'movie' - это теперь полный объект из нашей базы
     setIsModalOpen(true);
     setModalIsLoading(true);
 
     let playerFound = false;
     
-    // 1. Проверяем kinopoisk_id ПРЯМО из объекта (который пришел из props)
     if (movie.kinopoisk_id) {
         setModalVideoHtml(`
           <div data-kinopoisk="${movie.kinopoisk_id}" id="kinobd" style="width:100%; height:100%;"></div>
@@ -105,16 +109,13 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
         if (oldScript) oldScript.remove();
         
         const playerScript = document.createElement('script');
-        
         playerScript.src = 'https://kinobd.net/js/player_.js';
-        
         playerScript.id = 'kinobd-player-script';
         document.body.appendChild(playerScript); 
 
         playerFound = true;
     }
 
-    // 2. Fallback: Если 'kinopoisk_id' нет, ищем трейлер на YouTube
     if (!playerFound) {
       console.log(`Плеер не найден в нашей базе (TMDB ID: ${movie.tmdb_id}). Используем резервный метод YouTube.`);
       
@@ -142,7 +143,6 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     setModalIsLoading(false);
   }, [fetchData]);
 
-  // --- Функция закрытия модала (без изменений) ---
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setModalVideoHtml(''); 
@@ -151,13 +151,11 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     if (oldScript) oldScript.remove();
   }, []);
 
-  // --- Поиск (без изменений) ---
   const handleSearch = () => {
      console.log('Searching for:', searchQuery);
      alert(`(временно) Поиск: ${searchQuery}.`);
   }
 
-  // --- JSX (Рендеринг) ---
   return (
     <div className="bg-[#10141A] text-white font-sans">
       <Header 

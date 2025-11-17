@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-// 💡 'fetchData' больше не нужен для 'movieData', но нужен для 'handleShowTrailer'
+
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; 
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
@@ -18,10 +18,7 @@ export async function getServerSideProps(context) {
   let movie = null;
   let kinopoisk_id = null;
   
-  // 💡 --- ГЛАВНОЕ ИЗМЕНЕНИЕ --- 💡
-  // Мы больше не ходим в TMDB. Мы делаем ОДИН запрос в нашу быструю базу 'media'.
   try {
-    // 💡 Превращаем даты в TEXT, чтобы избежать ошибки гидратации (как на index.js)
     const columns = `
       tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
       poster_path, backdrop_path, release_year, rating_tmdb,
@@ -37,19 +34,15 @@ export async function getServerSideProps(context) {
   } catch (e) {
     console.error("Database lookup failed during SSR:", e.message);
   }
-  // 💡 --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
   if (!movie) {
     return { notFound: true };
   }
 
-  // 💡 Мы больше не получаем 'credits' и 'recommendations' от TMDB.
-  // Мы вернем 'movie' из нашей базы.
   return {
     props: {
-      movie: movie, // 💡 Это 'movie' из НАШЕЙ базы
+      movie: movie,
       kinopoisk_id: kinopoisk_id, 
-      // 💡 ВРЕМЕННО: убираем актеров и рекомендации, пока не загрузим их
       actors: [],
       recommendations: []
     },
@@ -71,7 +64,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   const router = useRouter();
 
-  // 💡 Ручная загрузка скрипта (без изменений)
   useEffect(() => {
     if (kinopoisk_id) {
       const oldScript = document.getElementById('kinobd-player-script');
@@ -88,12 +80,10 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
     }
   }, [kinopoisk_id, router.asPath]);
 
-  // 💡 'handleShowTrailer' теперь использует 'fetchData' (резервный вариант)
   const handleShowTrailer = useCallback(async () => {
     setIsModalOpen(true);
     setModalIsLoading(true);
     
-    // Используем fetchData для поиска трейлера
     const data = await fetchData(`/movie/${movie.tmdb_id}/videos`);
     let trailer = null;
     if (data && data.results) {
@@ -106,20 +96,19 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Трейлер не найден.</p></div>`);
     }
     setModalIsLoading(false);
-  }, [movie.tmdb_id]); // 💡 Зависим от tmdb_id
+  }, [movie.tmdb_id, fetchData]); // 💡 Добавил fetchData в зависимости
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setModalVideoHtml(''); 
   }, []);
 
-  // 💡 --- Читаем данные из НАШЕЙ базы 'media' ---
   const title = movie.title_ru;
   const originalTitle = movie.title_en;
   const releaseYear = movie.release_year || 'N/A';
   const posterPath = movie.poster_path ? `${IMAGE_BASE_URL}${movie.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
   const backdropPath = movie.backdrop_path ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
-  const genreKeywords = (movie.genres_names || []).join(', '); // 💡 Читаем 'genres_names'
+  const genreKeywords = (movie.genres_names || []).join(', ');
   
   const pageTitle = `${title} (${releaseYear}, фильм) | ${originalTitle} | смотреть онлайн бесплатно - KinoNest`;
   const keywords = [ title, originalTitle, `${title} смотреть онлайн`, `${title} смотреть онлайн бесплатно`, `${title} ${releaseYear}`, `фильм ${title}`, "смотреть фильм онлайн", genreKeywords ].filter(Boolean).join(', ');
@@ -170,14 +159,8 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
               <span>•</span>
               <div className="flex items-center">
                 <StarIcon />
-                {/* 💡 Читаем 'rating_tmdb' (это уже строка) */}
                 <span className="ml-1 font-semibold">{movie.rating_tmdb ? movie.rating_tmdb : 'N/A'}</span>
               </div>
-              {/* 💡 (ВРЕМЕННО) Мы больше не получаем 'runtime' из TMDB,
-                  поэтому пока скроем его. Его нужно будет добавить в 'sync.js'
-              */}
-              {/* <span>•</span>
-              <span>{movie.runtime || 'N/A'} мин.</span> */}
             </div>
             <p className="max-w-xl text-md text-gray-200 mt-4 line-clamp-3">{movie.overview}</p>
             <div className="flex items-center space-x-4 mt-6">
@@ -196,7 +179,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2">
-            {/* 💡 ВРЕМЕННО: 'actors' теперь пустой массив */}
             <MediaCarousel 
               title="В ролях"
               items={actors}
@@ -206,13 +188,9 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
             <div className="mt-8 p-4 bg-gray-900/50 rounded-lg">
               <h3 className="text-2xl font-bold text-white mb-4">Детали</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-gray-300">
-                {/* 💡 ВРЕМЕННО: 'status', 'director', 'budget', 'revenue'
-                    больше не приходят из TMDB. Мы их добавим в 'sync.js' позже.
-                */}
                 <div className="col-span-2 md:col-span-3">
                   <span className="font-semibold text-gray-500 block">Жанры:</span>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {/* 💡 Читаем 'genres_names' из нашей базы */}
                     {(movie.genres_names || []).map((genreName, index) => (
                       <span key={index} className="py-1 px-3 bg-gray-800 text-gray-300 rounded-full text-sm">
                         {genreName}
@@ -231,7 +209,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
              />
           </div>
         </div>
-        {/* 💡 ВРЕМЕННО: 'recommendations' теперь пустой массив */}
         {recommendations?.length > 0 && (
           <MediaCarousel 
             title="Рекомендации"

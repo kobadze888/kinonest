@@ -1,4 +1,4 @@
-// src/pages/_app.js-ის ახალი შიგთავსი
+// src/pages/_app.js (ИСПРАВЛЕННЫЙ КОД)
 import '../styles/globals.css';
 
 // Swiper-ის სრული სტილები
@@ -24,7 +24,7 @@ const GlobalStyles = () => (
       background: linear-gradient(to top, rgba(16, 20, 26, 1) 20%, rgba(16, 20, 26, 0.5) 50%, rgba(16, 20, 26, 0) 100%);
     }
 
-    /* --- Swiper-ის ისრების სტილები --- */
+    /* --- 💡 ИСПРАВЛЕНИЕ 1: Стрелки слайдера --- */
     :root {
       --swiper-theme-color: #e50914; /* ბრენდის წითელი */
       --swiper-navigation-size: 30px; 
@@ -38,7 +38,9 @@ const GlobalStyles = () => (
       height: 50px;
       border-radius: 50%;
       transition: all 0.3s ease;
-      transform: translateY(-50px);
+      /* 💡 ИСПРАВЛЕНИЕ: Мы убираем 'transform' и ставим 'top: 50%' для центрирования */
+      top: 50%;
+      transform: translateY(-50%);
     }
     .hero-slider .swiper-button-next:hover,
     .hero-slider .swiper-button-prev:hover {
@@ -83,13 +85,14 @@ const GlobalStyles = () => (
       width: auto; /* აუცილებელია slidesPerView: 'auto'-სთვის */
     }
     
-    /* ასპექტის თანაფარდობა */
+    /* 💡 --- ИСПРАВЛЕНИЕ 2: Красные постеры --- */
      .aspect-2-3 {
         position: relative;
         padding-bottom: 150%; /* 2:3 */
         height: 0;
         overflow: hidden;
     }
+    /* 💡 ИСПРАВЛЕНИЕ: Правило должно применяться ТОЛЬКО к 'img' */
     .aspect-2-3 img {
         position: absolute;
         top: 0;
@@ -98,7 +101,7 @@ const GlobalStyles = () => (
         height: 100%;
         object-fit: cover;
     }
-    .aspect-square { {/* <-- Добавили для актеров */}
+    .aspect-square { 
         position: relative;
         padding-bottom: 100%; /* 1:1 */
         height: 0;
@@ -113,7 +116,7 @@ const GlobalStyles = () => (
         object-fit: cover;
     }
     
-    /* ხაზების შეზღუდვა */
+    /* (Остальной код без изменений) */
     .line-clamp-3 {
         overflow: hidden;
         display: -webkit-box;
@@ -121,7 +124,6 @@ const GlobalStyles = () => (
         -webkit-line-clamp: 3;
     }
 
-    {/* --- НОВЫЕ СТИЛИ ДЛЯ МОДАЛА --- */}
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -134,7 +136,6 @@ const GlobalStyles = () => (
       transition: opacity 0.3s ease;
     }
     
-    /* Класс для aspect-video (если Tailwind v2) */
     .aspect-video {
         position: relative;
         padding-bottom: 56.25%; /* 16:9 */

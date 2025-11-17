@@ -1,5 +1,5 @@
 // scripts/sync.js
-// ВЕРСИЯ 3: Тестовый режим (1 страница)
+// ВЕРСИЯ 6: Пакетный режим (Batch Mode)
 
 import { Pool } from 'pg';
 
@@ -7,24 +7,25 @@ import { Pool } from 'pg';
 const KINOBD_API_URL = 'https://kinobd.net/api/films';
 const TMDB_API_KEY = 'f44912cf0212276fe1d1c6149f14803a';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const PAGES_PER_BATCH = 50; // 💡 Загружаем по 50 страниц за раз (~2500 фильмов)
 // --- Конец Конфигурации ---
 
 // Вспомогательная функция для задержки
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Шаг 1: Загружаем ВСЕ фильмы с kinobd.net
+ * Шаг 1: Загружаем ПАРТИЮ фильмов с kinobd.net
  */
-async function fetchAllKinobdMovies() {
+async function fetchKinobdBatch(startPage) {
   let allMovies = [];
-  let currentPage = 1;
+  let currentPage = startPage;
   let hasMore = true;
+  // 💡 Определяем, на какой странице остановиться
+  const endPage = startPage + PAGES_PER_BATCH - 1;
 
-  // --- 💡 ИЗМЕНЕНИЕ: Добавили (ТЕСТОВЫЙ РЕЖИМ) в лог ---
-  console.log('[Шаг 1] Начинаем загрузку с kinobd.net (ТЕСТОВЫЙ РЕЖИМ - 1 СТРАНИЦА)...');
+  console.log(`[Шаг 1] Начинаем загрузку ПАРТИИ (Страницы ${startPage} - ${endPage})...`);
 
-  // --- 💡 ИЗМЕНЕНИЕ: Добавили `&& currentPage <= 1` для теста ---
-  while (hasMore && currentPage <= 1) { 
+  while (hasMore && currentPage <= endPage) { 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.log(`  - Страница ${currentPage}: Превышен 10-секундный лимит. Прерываем.`);
@@ -54,7 +55,7 @@ async function fetchAllKinobdMovies() {
       hasMore = data.has_more || false;
       currentPage++;
       
-      if (hasMore) {
+      if (hasMore && currentPage <= endPage) {
         await delay(1000); // 1 секунда
       }
       
@@ -65,11 +66,11 @@ async function fetchAllKinobdMovies() {
       } else {
         console.error(`  - Ошибка на странице ${currentPage}: ${error.message}. Прерываем.`);
       }
-      hasMore = false;
+      hasMore = false; // Останавливаем цикл в случае ошибки
     }
   }
 
-  console.log(`[Шаг 1] Готово (ТЕСТ). Загружено ${allMovies.length} записей с kinobd.net.`);
+  console.log(`[Шаг 1] Готово. Загружено ${allMovies.length} записей.`);
   return allMovies;
 }
 
@@ -178,10 +179,25 @@ async function upsertMediaToDB(client, kinobdItem, tmdbItem) {
 
 // --- Главная функция Скрипта ---
 async function main() {
-  console.log('Подключаемся к базе данных...');
+  
+  // 💡 --- ЧИТАЕМ АРГУМЕНТЫ КОМАНДНОЙ СТРОКИ ---
+  const args = process.argv.slice(2);
+  const startPageArg = args.find(arg => arg.startsWith('--start='));
+  const startPage = startPageArg ? parseInt(startPageArg.split('=')[1]) : 1;
+  // 💡 --- КОНЕЦ ---
+
+  // Шаг 1
+  const kinobdMovies = await fetchKinobdBatch(startPage);
+  
+  if (kinobdMovies.length === 0) {
+    console.log('Не удалось загрузить фильмы с kinobd.net (или в этой партии нет фильмов). Завершение.');
+    return;
+  }
+  
+  // Подключаемся к базе ТОЛЬКО СЕЙЧАС
+  console.log('Подключаемся к базе данных (Neon)...');
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL
   });
   
   let client;
@@ -190,11 +206,8 @@ async function main() {
     console.log('...Успешно подключено.');
   } catch (err) {
     console.error('КРИТИЧЕСКАЯ ОШИБКА ПОДКЛЮЧЕНИЯ:', err.message);
-    return; // Завершаем скрипт, если не можем подключиться
+    return;
   }
-
-  // Шаг 1
-  const kinobdMovies = await fetchAllKinobdMovies();
 
   // Шаг 2 и 3
   console.log(`[Шаг 2/3] Начинаем обработку ${kinobdMovies.length} записей...`);
@@ -232,7 +245,7 @@ async function main() {
     await delay(200); 
   }
 
-  console.log('--- СИНХРОНИЗАЦИЯ (ТЕСТ) ЗАВЕРШЕНА ---');
+  console.log(`--- СИНХРОНИЗАЦИЯ ПАРТИИ (НАЧИНАЯ С ${startPage}) ЗАВЕРШЕНА ---`);
   console.log(`Успешно добавлено/обновлено: ${successCount}`);
   console.log(`Пропущено/ошибки: ${skippedCount}`);
 

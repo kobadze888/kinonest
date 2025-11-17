@@ -17,7 +17,6 @@ export async function getServerSideProps(context) {
   let tvShow = null;
   let kinopoisk_id = null;
   
-  // 💡 --- ГЛАВНОЕ ИЗМЕНЕНИЕ --- 💡
   try {
     const columns = `
       tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
@@ -41,9 +40,8 @@ export async function getServerSideProps(context) {
 
   return {
     props: {
-      tvShow: tvShow, // 💡 Это 'tvShow' из НАШЕЙ базы
+      tvShow: tvShow, 
       kinopoisk_id: kinopoisk_id,
-      // 💡 ВРЕМЕННО: убираем актеров и рекомендации
       actors: [],
       recommendations: []
     },
@@ -65,7 +63,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   const router = useRouter();
 
-  // 💡 Ручная загрузка скрипта (без изменений)
   useEffect(() => {
     if (kinopoisk_id) {
       const oldScript = document.getElementById('kinobd-player-script');
@@ -82,7 +79,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
     }
   }, [kinopoisk_id, router.asPath]);
   
-  // 💡 'handleShowTrailer' теперь использует 'fetchData' (резервный вариант)
   const handleShowTrailer = useCallback(async () => {
     setIsModalOpen(true);
     setModalIsLoading(true);
@@ -98,14 +94,13 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
       setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Трейлер не найден.</p></div>`);
     }
     setModalIsLoading(false);
-  }, [tvShow.tmdb_id]);
+  }, [tvShow.tmdb_id, fetchData]); // 💡 Добавил fetchData в зависимости
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setModalVideoHtml(''); 
   }, []);
 
-  // 💡 --- Читаем данные из НАШЕЙ базы 'media' ---
   const title = tvShow.title_ru;
   const originalTitle = tvShow.title_en;
   const releaseYear = tvShow.release_year || 'N/A';
@@ -164,11 +159,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
                 <StarIcon />
                 <span className="ml-1 font-semibold">{tvShow.rating_tmdb ? tvShow.rating_tmdb : 'N/A'}</span>
               </div>
-              {/* 💡 (ВРЕМЕННО) Мы больше не получаем 'number_of_seasons' из TMDB,
-                  поэтому пока скроем его. Его нужно будет добавить в 'sync.js'
-              */}
-              {/* <span>•</span>
-              <span>{tvShow.number_of_seasons || 'N/A'} {tvShow.number_of_seasons > 1 || tvShow.number_of_seasons === 0 ? 'сезонов' : 'сезон'}</span> */}
             </div>
             <p className="max-w-xl text-md text-gray-200 mt-4 line-clamp-3">{tvShow.overview}</p>
             <div className="flex items-center space-x-4 mt-6">
@@ -187,7 +177,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2">
-            {/* 💡 ВРЕМЕННО: 'actors' теперь пустой массив */}
             <MediaCarousel 
               title="В ролях"
               items={actors}
@@ -203,7 +192,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
              />
           </div>
         </div>
-        {/* 💡 ВРЕМЕННО: 'recommendations' теперь пустой массив */}
         {recommendations?.length > 0 && (
           <MediaCarousel 
             title="Рекомендации"

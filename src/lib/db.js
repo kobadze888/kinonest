@@ -12,8 +12,7 @@ if (!globalForPool.pgPool) {
   console.log("Creating NEW PostgreSQL connection pool (Neon)...");
   globalForPool.pgPool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    // 💡 SSL теперь обязателен для Neon (он в строке ?sslmode=require)
-    // ssl: { rejectUnauthorized: false }, // 💡 Это больше не нужно
+    // 💡 'sslmode=require' уже находится в process.env.DATABASE_URL
     
     // 💡 Возвращаем нормальный лимит
     max: 10, 
