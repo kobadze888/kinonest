@@ -1,72 +1,104 @@
-// src/pages/movie/[slug].js (Final version)
-import React, { useState, useCallback } from 'react';
+// src/pages/movie/[slug].js (FIX: 100% из НАШЕЙ БАЗЫ)
+import React, { useState, useCallback, useEffect } from 'react';
 import Head from 'next/head';
-import Script from 'next/script';
-import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; //.js]
-import { query } from '@/lib/db'; //.js]
-import Header from '@/components/Header'; //.js]
-import Footer from '@/components/Footer'; //.js]
-import MediaCarousel from '@/components/MediaCarousel'; //.js]
-import TrailerModal from '@/components/TrailerModal'; //.js]
+import { useRouter } from 'next/router';
+// 💡 'fetchData' больше не нужен для 'movieData', но нужен для 'handleShowTrailer'
+import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; 
+import { query } from '@/lib/db';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import MediaCarousel from '@/components/MediaCarousel';
+import TrailerModal from '@/components/TrailerModal';
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
   const tmdbId = slug.split('-')[0];
   if (!tmdbId) return { notFound: true };
 
-  const movieData = await fetchData(
-    `/movie/${tmdbId}`, 
-    '&append_to_response=videos,credits,recommendations'
-  );
-
-  if (!movieData) {
-    return { notFound: true };
-  }
-
-  // --- Postgres ბაზის Lookup ---
+  let movie = null;
   let kinopoisk_id = null;
+  
+  // 💡 --- ГЛАВНОЕ ИЗМЕНЕНИЕ --- 💡
+  // Мы больше не ходим в TMDB. Мы делаем ОДИН запрос в нашу быструю базу 'media'.
   try {
-    // 💡 --- ВОТ ИЗМЕНЕНИЕ --- 💡
-    // Мы ищем в 'media', а не в 'movies'
-    const dbResult = await query('SELECT kinopoisk_id FROM media WHERE tmdb_id = $1', [tmdbId]);
+    // 💡 Превращаем даты в TEXT, чтобы избежать ошибки гидратации (как на index.js)
+    const columns = `
+      tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
+      poster_path, backdrop_path, release_year, rating_tmdb,
+      genres_ids, genres_names,
+      created_at::TEXT, updated_at::TEXT 
+    `;
+    const dbResult = await query(`SELECT ${columns} FROM media WHERE tmdb_id = $1`, [tmdbId]);
     
     if (dbResult.rows.length > 0) {
-      kinopoisk_id = dbResult.rows[0].kinopoisk_id;
+      movie = dbResult.rows[0];
+      kinopoisk_id = movie.kinopoisk_id;
     }
   } catch (e) {
     console.error("Database lookup failed during SSR:", e.message);
   }
-  // --- დასასრული ---
+  // 💡 --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
+  if (!movie) {
+    return { notFound: true };
+  }
+
+  // 💡 Мы больше не получаем 'credits' и 'recommendations' от TMDB.
+  // Мы вернем 'movie' из нашей базы.
   return {
     props: {
-      movie: movieData,
+      movie: movie, // 💡 Это 'movie' из НАШЕЙ базы
       kinopoisk_id: kinopoisk_id, 
+      // 💡 ВРЕМЕННО: убираем актеров и рекомендации, пока не загрузим их
+      actors: [],
+      recommendations: []
     },
   };
 }
 
-// --- ხატულების დეკლარაცია (სწორი ადგილი) ---
+// --- Icons (no change) ---
 const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg> );
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
-// --- დასასრული ---
+// --- End Icons ---
 
 
-export default function MoviePage({ movie, kinopoisk_id }) {
+export default function MoviePage({ movie, kinopoisk_id, actors, recommendations }) {
   
   if (!movie) { return <div>Фильм не найден.</div>; }
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
+  const router = useRouter();
 
+  // 💡 Ручная загрузка скрипта (без изменений)
+  useEffect(() => {
+    if (kinopoisk_id) {
+      const oldScript = document.getElementById('kinobd-player-script');
+      if (oldScript) oldScript.remove();
+      const playerScript = document.createElement('script');
+      playerScript.src = 'https://kinobd.net/js/player_.js';
+      playerScript.id = 'kinobd-player-script';
+      playerScript.async = true;
+      document.body.appendChild(playerScript);
+      return () => {
+        const script = document.getElementById('kinobd-player-script');
+        if (script) script.remove();
+      };
+    }
+  }, [kinopoisk_id, router.asPath]);
+
+  // 💡 'handleShowTrailer' теперь использует 'fetchData' (резервный вариант)
   const handleShowTrailer = useCallback(async () => {
     setIsModalOpen(true);
     setModalIsLoading(true);
+    
+    // Используем fetchData для поиска трейлера
+    const data = await fetchData(`/movie/${movie.tmdb_id}/videos`);
     let trailer = null;
-    if (movie.videos && movie.videos.results) {
-      trailer = movie.videos.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer' && vid.iso_639_1 === 'ru') 
-             || movie.videos.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer');
+    if (data && data.results) {
+      trailer = data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer' && vid.iso_639_1 === 'ru') 
+             || data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer');
     }
     if (trailer) {
       setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&rel=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`);
@@ -74,22 +106,23 @@ export default function MoviePage({ movie, kinopoisk_id }) {
       setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Трейлер не найден.</p></div>`);
     }
     setModalIsLoading(false);
-  }, [movie.videos]);
+  }, [movie.tmdb_id]); // 💡 Зависим от tmdb_id
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setModalVideoHtml(''); 
   }, []);
 
+  // 💡 --- Читаем данные из НАШЕЙ базы 'media' ---
+  const title = movie.title_ru;
+  const originalTitle = movie.title_en;
+  const releaseYear = movie.release_year || 'N/A';
   const posterPath = movie.poster_path ? `${IMAGE_BASE_URL}${movie.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
   const backdropPath = movie.backdrop_path ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
-  const actors = movie.credits?.cast?.slice(0, 10) || [];
-  const director = movie.credits?.crew?.find(person => person.job === 'Director');
-  const releaseYear = (movie.release_date || '').split('-')[0];
-  const pageTitle = `${movie.title} (${releaseYear}, фильм) | ${movie.original_title} | смотреть онлайн бесплатно - KinoNest`;
-  const genreKeywords = (movie.genres || []).map(g => g.name).join(', ');
-  const keywords = [ movie.title, movie.original_title, `${movie.title} смотреть онлайн`, `${movie.title} смотреть онлайн бесплатно`, `${movie.title} ${releaseYear}`, `фильм ${movie.title}`, "смотреть фильм онлайн", genreKeywords ].filter(Boolean).join(', ');
-
+  const genreKeywords = (movie.genres_names || []).join(', '); // 💡 Читаем 'genres_names'
+  
+  const pageTitle = `${title} (${releaseYear}, фильм) | ${originalTitle} | смотреть онлайн бесплатно - KinoNest`;
+  const keywords = [ title, originalTitle, `${title} смотреть онлайн`, `${title} смотреть онлайн бесплатно`, `${title} ${releaseYear}`, `фильм ${title}`, "смотреть фильм онлайн", genreKeywords ].filter(Boolean).join(', ');
 
   return (
     <div className="bg-[#10141A] text-white font-sans">
@@ -98,13 +131,6 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         <meta name="description" content={movie.overview} />
         <meta name="keywords" content={keywords} />
       </Head>
-      
-      {kinopoisk_id && (
-        <Script 
-          src="https://kinobd.net/js/player_.js"
-          strategy="lazyOnload"
-        />
-      )}
       
       <Header onSearchSubmit={() => alert('Поиск скоро будет!')} />
 
@@ -115,9 +141,6 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         videoHtml={modalVideoHtml}
       />
 
-      {/* 💡 ЭТОТ БЛОК ТЕПЕРЬ РАБОТАЕТ!
-        Если kinopoisk_id найден в НАШЕЙ базе, он отобразит плеер.
-      */}
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-16 md:pt-20"> 
           <div className="max-w-7xl mx-auto"> 
@@ -132,10 +155,6 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         </section>
       )}
 
-      {/* Весь остальной контент страницы (постер, описание, актеры)
-        по-прежнему берется из 'movie' (объект TMDB),
-        поэтому здесь ничего менять не нужно.
-      */}
       <section 
         className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full bg-cover bg-center"
         style={{ backgroundImage: `url(${backdropPath})` }}
@@ -145,16 +164,20 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end pb-16">
           <div className="w-full md:w-2/3 lg:w-1/2">
-            <h1 className="text-4xl md:text-6xl font-black text-white shadow-lg">{movie.title}</h1>
+            <h1 className="text-4xl md:text-6xl font-black text-white shadow-lg">{title}</h1>
             <div className="flex items-center space-x-4 mt-4 text-gray-300">
               <span>{releaseYear}</span>
               <span>•</span>
               <div className="flex items-center">
                 <StarIcon />
-                <span className="ml-1 font-semibold">{movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}</span>
+                {/* 💡 Читаем 'rating_tmdb' (это уже строка) */}
+                <span className="ml-1 font-semibold">{movie.rating_tmdb ? movie.rating_tmdb : 'N/A'}</span>
               </div>
-              <span>•</span>
-              <span>{movie.runtime || 'N/A'} мин.</span>
+              {/* 💡 (ВРЕМЕННО) Мы больше не получаем 'runtime' из TMDB,
+                  поэтому пока скроем его. Его нужно будет добавить в 'sync.js'
+              */}
+              {/* <span>•</span>
+              <span>{movie.runtime || 'N/A'} мин.</span> */}
             </div>
             <p className="max-w-xl text-md text-gray-200 mt-4 line-clamp-3">{movie.overview}</p>
             <div className="flex items-center space-x-4 mt-6">
@@ -173,6 +196,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2">
+            {/* 💡 ВРЕМЕННО: 'actors' теперь пустой массив */}
             <MediaCarousel 
               title="В ролях"
               items={actors}
@@ -182,28 +206,16 @@ export default function MoviePage({ movie, kinopoisk_id }) {
             <div className="mt-8 p-4 bg-gray-900/50 rounded-lg">
               <h3 className="text-2xl font-bold text-white mb-4">Детали</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-gray-300">
-                <div>
-                  <span className="font-semibold text-gray-500 block">Статус:</span>
-                  {movie.status || 'N/A'}
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-500 block">Режиссёр:</span>
-                  {director ? director.name : 'N/A'}
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-500 block">Бюджет:</span>
-                  {movie.budget ? `$${movie.budget.toLocaleString()}` : 'N/A'}
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-500 block">Сборы:</span>
-                  {movie.revenue ? `$${movie.revenue.toLocaleString()}` : 'N/A'}
-                </div>
+                {/* 💡 ВРЕМЕННО: 'status', 'director', 'budget', 'revenue'
+                    больше не приходят из TMDB. Мы их добавим в 'sync.js' позже.
+                */}
                 <div className="col-span-2 md:col-span-3">
                   <span className="font-semibold text-gray-500 block">Жанры:</span>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {(movie.genres || []).map(g => (
-                      <span key={g.id} className="py-1 px-3 bg-gray-800 text-gray-300 rounded-full text-sm">
-                        {g.name}
+                    {/* 💡 Читаем 'genres_names' из нашей базы */}
+                    {(movie.genres_names || []).map((genreName, index) => (
+                      <span key={index} className="py-1 px-3 bg-gray-800 text-gray-300 rounded-full text-sm">
+                        {genreName}
                       </span>
                     ))}
                   </div>
@@ -214,15 +226,16 @@ export default function MoviePage({ movie, kinopoisk_id }) {
           <div className="hidden md:block">
              <img 
                src={posterPath} 
-               alt={movie.title}
+               alt={title}
                className="w-full rounded-lg shadow-xl"
              />
           </div>
         </div>
-        {movie.recommendations?.results?.length > 0 && (
+        {/* 💡 ВРЕМЕННО: 'recommendations' теперь пустой массив */}
+        {recommendations?.length > 0 && (
           <MediaCarousel 
             title="Рекомендации"
-            items={movie.recommendations.results}
+            items={recommendations}
             swiperKey="movie-recommendations"
             cardType="movie"
           />

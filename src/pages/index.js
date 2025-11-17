@@ -1,7 +1,6 @@
-// --- ФИНАЛЬНАЯ ВЕРСИЯ index.js ---
+// --- ФИНАЛЬНАЯ ВЕРСИЯ index.js (FIX: Убрали Promise.all) ---
 import React, { useState, useRef, useCallback } from 'react';
 
-// 'fetchData' нужен только для YouTube
 import { fetchData } from '../lib/api';
 import { query } from '../lib/db';
 import Header from '../components/Header';
@@ -11,7 +10,7 @@ import Footer from '../components/Footer';
 import TrailerModal from '../components/TrailerModal'; 
 
 /**
- * 💡 Серверная функция (без изменений)
+ * 💡 ОБНОВЛЕННАЯ СЕРВЕРНАЯ ФУНКЦИЯ (Без Promise.all)
  */
 export async function getServerSideProps() {
   
@@ -23,32 +22,33 @@ export async function getServerSideProps() {
   `;
 
   try {
-    const heroQuery = query(
+    // 💡 --- ВОТ ИЗМЕНЕНИЕ --- 💡
+    // Выполняем запросы ПО ОЧЕРЕДИ, чтобы использовать только 1 соединение.
+    
+    // 1. Для Слайдера
+    const heroResult = await query(
       `SELECT ${columns} FROM media 
        WHERE type = 'movie' AND backdrop_path IS NOT NULL AND rating_tmdb > 7.0 
        ORDER BY rating_tmdb DESC 
        LIMIT 5`
     );
 
-    const topQuery = query(
+    // 2. Топ Фильмов
+    const topResult = await query(
       `SELECT ${columns} FROM media 
        WHERE type = 'movie' 
        ORDER BY rating_tmdb DESC 
        LIMIT 10`
     );
 
-    const tvQuery = query(
+    // 3. Популярные Сериалы
+    const tvResult = await query(
       `SELECT ${columns} FROM media 
        WHERE type = 'tv' 
        ORDER BY rating_tmdb DESC 
        LIMIT 10`
     );
-    
-    const [
-      heroResult,
-      topResult,
-      tvResult
-    ] = await Promise.all([heroQuery, topQuery, tvQuery]);
+    // 💡 --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     return {
       props: {
@@ -86,11 +86,8 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   
-  // 💡 --- УБРАЛИ ВСЮ ЛОГИКУ 'loadPlayerDatabase', 'playerDbStatus' и 'useEffect' ---
-  // Они нам больше не нужны!
-
   
-  // --- 💡 ОБНОВЛЕННАЯ функция открытия модала ---
+  // --- ОБНОВЛЕННАЯ функция открытия модала ---
   const handleShowTrailer = useCallback(async (movie) => {
     // 'movie' - это теперь полный объект из нашей базы
     setIsModalOpen(true);
@@ -108,7 +105,9 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
         if (oldScript) oldScript.remove();
         
         const playerScript = document.createElement('script');
+        
         playerScript.src = 'https://kinobd.net/js/player_.js';
+        
         playerScript.id = 'kinobd-player-script';
         document.body.appendChild(playerScript); 
 
@@ -119,7 +118,6 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     if (!playerFound) {
       console.log(`Плеер не найден в нашей базе (TMDB ID: ${movie.tmdb_id}). Используем резервный метод YouTube.`);
       
-      // 'movie.type' и 'movie.tmdb_id' приходят из нашей базы
       const data = await fetchData(`/${movie.type}/${movie.tmdb_id}/videos`);
       let trailer = null;
       if (data && data.results) {
@@ -142,7 +140,7 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
       }
     }
     setModalIsLoading(false);
-  }, [fetchData]); // Теперь зависим только от fetchData
+  }, [fetchData]);
 
   // --- Функция закрытия модала (без изменений) ---
   const closeModal = useCallback(() => {
@@ -175,10 +173,7 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
         videoHtml={modalVideoHtml}
       />
       
-      {/* 💡 УБРАЛИ '{playerDbStatus && ...}' отсюда */}
-
       <>
-        {/* HeroSlider теперь передает 'movie' (объект) в onShowTrailer */}
         <HeroSlider movies={heroMovies} onShowTrailer={handleShowTrailer} /> 
         
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20" id="main-container">
