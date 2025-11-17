@@ -1,27 +1,26 @@
 // src/components/MediaCard.js-ის განახლებული შიგთავსი
 import React from 'react';
 import Link from 'next/link';
-import { IMAGE_BASE_URL } from '../lib/api';
+// 💡 Убираем 'IMAGE_BASE_URL', т.к. мы будем использовать полный путь из нашей базы
+// import { IMAGE_BASE_URL } from '../lib/api'; 
 import { slugify } from '../lib/utils';
 
 export default function MediaCard({ item, type = 'movie' }) {
-  const title = type === 'movie' ? item.title : item.name;
-  const releaseDate = (type === 'movie' ? item.release_date : item.first_air_date) || 'N/A';
-  const year = releaseDate.split('-')[0];
+  // 💡 'title' приходит из 'title_ru'
+  const title = item.title_ru; 
+  // 💡 'year' приходит из 'release_year'
+  const year = item.release_year || 'N/A'; 
+  
+  // ВРЕМЕННОЕ РЕШЕНИЕ для постера (пока не обновим скрипт):
   const posterPath = item.poster_path 
-    ? `${IMAGE_BASE_URL}${item.poster_path}` 
+    ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
     : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
 
-  // --- SEO URL-ის გაძლიერებული გენერაცია ---
   const titleSlug = slugify(title);
-  
-  // რუსული ფრაზა "смотреть онлайн бесплатно" ტრანსლიტერაციით
   const seoSuffix = 'smotret-onlain-besplatno';
   
-  // ვაერთიანებთ ID-ს, სათაურს და SEO ფრაზას
-  const linkHref = `/${type}/${item.id}-${titleSlug}-${seoSuffix}`;
-  // შედეგი: /movie/123-krestniy-otec-smotret-onlain-besplatno
-  // --- დასასრული ---
+  // 💡 'item.id' теперь 'item.tmdb_id'
+  const linkHref = `/${type}/${item.tmdb_id}-${titleSlug}-${seoSuffix}`;
 
   return (
     <Link href={linkHref} className="block w-full">
@@ -33,7 +32,12 @@ export default function MediaCard({ item, type = 'movie' }) {
         </div>
         <div className="p-3">
           <h3 className="font-semibold text-white truncate">{title}</h3>
-          <p className="text-sm text-gray-400">{year} • ⭐️ {item.vote_average.toFixed(1)}</p>
+          
+          {/* 💡 --- ВОТ ИСПРАВЛЕНИЕ --- 💡 */}
+          <p className="text-sm text-gray-400">
+            {year} • ⭐️ {item.rating_tmdb ? item.rating_tmdb : 'N/A'}
+          </p>
+          
         </div>
       </div>
     </Link>

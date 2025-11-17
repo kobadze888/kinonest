@@ -1,39 +1,45 @@
 // scripts/sync.js
-// Этот скрипт запускается из терминала: node scripts/sync.js
+// ВЕРСИЯ 3: Тестовый режим (1 страница)
 
-import { Pool } from 'pg'; // Используем 'pg' из вашего package.json
-import dotenv from 'dotenv'; // Используем 'dotenv' из вашего package.json
+import { Pool } from 'pg';
 
 // --- Конфигурация ---
-// Загружаем переменные окружения (DATABASE_URL)
-dotenv.config();
-
-// API плеера (отсюда берем kinopoisk_id)
 const KINOBD_API_URL = 'https://kinobd.net/api/films';
-
-// TMDB API (отсюда берем всю информацию)
-const TMDB_API_KEY = 'f44912cf0212276fe1d1c6149f14803a'; //
+const TMDB_API_KEY = 'f44912cf0212276fe1d1c6149f14803a';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 // --- Конец Конфигурации ---
 
-// Вспомогательная функция для небольшой задержки
+// Вспомогательная функция для задержки
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Шаг 1: Загружаем ВСЕ фильмы с kinobd.net (все страницы)
+ * Шаг 1: Загружаем ВСЕ фильмы с kinobd.net
  */
 async function fetchAllKinobdMovies() {
   let allMovies = [];
   let currentPage = 1;
   let hasMore = true;
 
-  console.log('[Шаг 1] Начинаем загрузку с kinobd.net...');
+  // --- 💡 ИЗМЕНЕНИЕ: Добавили (ТЕСТОВЫЙ РЕЖИМ) в лог ---
+  console.log('[Шаг 1] Начинаем загрузку с kinobd.net (ТЕСТОВЫЙ РЕЖИМ - 1 СТРАНИЦА)...');
 
-  while (hasMore) {
+  // --- 💡 ИЗМЕНЕНИЕ: Добавили `&& currentPage <= 1` для теста ---
+  while (hasMore && currentPage <= 1) { 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log(`  - Страница ${currentPage}: Превышен 10-секундный лимит. Прерываем.`);
+      controller.abort();
+    }, 10000); // 10 секунд
+
     try {
       const url = `${KINOBD_API_URL}?page=${currentPage}`;
       console.log(`  - Загружаем страницу ${currentPage}...`);
-      const response = await fetch(url);
+      
+      const response = await fetch(url, {
+        signal: controller.signal 
+      });
+
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error(`Ошибка API kinobd: ${response.status}`);
@@ -48,24 +54,27 @@ async function fetchAllKinobdMovies() {
       hasMore = data.has_more || false;
       currentPage++;
       
-      // Будем вежливы к API kinobd
       if (hasMore) {
-        await delay(250); // 250мс задержка
+        await delay(1000); // 1 секунда
       }
       
     } catch (error) {
-      console.error(`  - Ошибка на странице ${currentPage}: ${error.message}. Прерываем.`);
+      clearTimeout(timeoutId); 
+      if (error.name === 'AbortError') {
+        console.error(`  - Ошибка на странице ${currentPage}: Запрос отменен (тайм-аут). Прерываем.`);
+      } else {
+        console.error(`  - Ошибка на странице ${currentPage}: ${error.message}. Прерываем.`);
+      }
       hasMore = false;
     }
   }
 
-  console.log(`[Шаг 1] Готово. Загружено ${allMovies.length} записей с kinobd.net.`);
+  console.log(`[Шаг 1] Готово (ТЕСТ). Загружено ${allMovies.length} записей с kinobd.net.`);
   return allMovies;
 }
 
 /**
  * Шаг 2: Получаем полную информацию с TMDB.
- * Мы не знаем, 'movie' это или 'tv', поэтому пробуем оба варианта.
  */
 async function fetchTmdbDetails(tmdbId) {
   if (!tmdbId) return null;
@@ -74,27 +83,33 @@ async function fetchTmdbDetails(tmdbId) {
     `${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=ru-RU`,
     `${TMDB_BASE_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=ru-RU`
   ];
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 сек
 
   try {
-    // Пробуем /movie
-    let response = await fetch(urlsToTry[0]);
+    let response = await fetch(urlsToTry[0], { signal: controller.signal });
     if (response.ok) {
+      clearTimeout(timeoutId);
       const data = await response.json();
       return { ...data, media_type: 'movie' };
     }
 
-    // Если не /movie, пробуем /tv
-    response = await fetch(urlsToTry[1]);
+    response = await fetch(urlsToTry[1], { signal: controller.signal });
     if (response.ok) {
+      clearTimeout(timeoutId);
       const data = await response.json();
       return { ...data, media_type: 'tv' };
     }
     
-    // Если не нашли ни там, ни там
+    clearTimeout(timeoutId);
     return null;
 
   } catch (error) {
-    console.error(`  - Ошибка при запросе к TMDB (ID: ${tmdbId}): ${error.message}`);
+    clearTimeout(timeoutId);
+    if (error.name !== 'AbortError') {
+      console.error(`  - Ошибка при запросе к TMDB (ID: ${tmdbId}): ${error.message}`);
+    }
     return null;
   }
 }
@@ -103,20 +118,17 @@ async function fetchTmdbDetails(tmdbId) {
  * Шаг 3: Сохраняем объединенные данные в нашу базу Postgres
  */
 async function upsertMediaToDB(client, kinobdItem, tmdbItem) {
-  // 1. Готовим данные для SQL
   const tmdb_id = parseInt(kinobdItem.tmdb_id);
   const kinopoisk_id = parseInt(kinobdItem.kinopoisk_id);
-  const type = tmdbItem.media_type; // 'movie' или 'tv'
+  const type = tmdbItem.media_type;
   
-  // Русское название берем из kinobd, оно там обычно лучше
-  const title_ru = kinobdItem.name_russian || tmdbItem.title || tmdbItem.name;
+  const title_ru = kinobdItem.name_russian || tmdbItem.title || tmdbItem.name || 'Без названия';
   const title_en = tmdbItem.original_title || tmdbItem.original_name;
   
   const overview = tmdbItem.overview;
   const poster_path = tmdbItem.poster_path;
   const backdrop_path = tmdbItem.backdrop_path;
 
-  // Нормализуем год (у сериалов 'first_air_date')
   const release_date = tmdbItem.release_date || tmdbItem.first_air_date;
   const release_year = release_date ? parseInt(release_date.split('-')[0]) : null;
 
@@ -125,9 +137,6 @@ async function upsertMediaToDB(client, kinobdItem, tmdbItem) {
   const genres_ids = (tmdbItem.genres || []).map(g => g.id);
   const genres_names = (tmdbItem.genres || []).map(g => g.name);
 
-  // 2. SQL-Запрос (UPSERT)
-  // Пытаемся вставить (INSERT). Если `tmdb_id` уже существует (ON CONFLICT),
-  // то обновляем (UPDATE) существующую запись.
   const query = `
     INSERT INTO media (
       tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
@@ -158,27 +167,31 @@ async function upsertMediaToDB(client, kinobdItem, tmdbItem) {
     genres_ids, genres_names
   ];
 
-  // 3. Выполняем запрос
   try {
     await client.query(query, values);
-    return true;
+    return { success: true, title: title_ru };
   } catch (error) {
     console.error(`  - Ошибка SQL (ID: ${tmdb_id}): ${error.message}`);
-    return false;
+    return { success: false };
   }
 }
 
 // --- Главная функция Скрипта ---
 async function main() {
-  // Подключаемся к базе данных
-  // (Берет `DATABASE_URL` из .env файла)
   console.log('Подключаемся к базе данных...');
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Как в вашем src/lib/db.js
+    ssl: { rejectUnauthorized: false }
   });
-  const client = await pool.connect();
-  console.log('...Успешно подключено.');
+  
+  let client;
+  try {
+    client = await pool.connect();
+    console.log('...Успешно подключено.');
+  } catch (err) {
+    console.error('КРИТИЧЕСКАЯ ОШИБКА ПОДКЛЮЧЕНИЯ:', err.message);
+    return; // Завершаем скрипт, если не можем подключиться
+  }
 
   // Шаг 1
   const kinobdMovies = await fetchAllKinobdMovies();
@@ -198,40 +211,37 @@ async function main() {
       continue;
     }
 
-    // Получаем детали с TMDB
     const tmdbItem = await fetchTmdbDetails(kinobdItem.tmdb_id);
 
     if (!tmdbItem) {
-      console.log(`${logPrefix} Пропуск (не найден на TMDB).`);
+      console.log(`${logPrefix} Пропуск (не найден на TMDB или тайм-аут).`);
       skippedCount++;
-      await delay(100); // Задержка, чтобы не "атаковать" TMDB
+      await delay(200); // Небольшая задержка
       continue;
     }
 
-    // Сохраняем в базу
-    const success = await upsertMediaToDB(client, kinobdItem, tmdbItem);
+    const { success, title } = await upsertMediaToDB(client, kinobdItem, tmdbItem);
+    
     if (success) {
-      console.log(`${logPrefix} Успешно (${tmdbItem.media_type}) "${title_ru}"`);
+      console.log(`${logPrefix} Успешно (${tmdbItem.media_type}) "${title}"`);
       successCount++;
     } else {
       skippedCount++;
     }
     
-    // ВАЖНО: Задержка, чтобы не превысить лимиты TMDB API (у них ~50 запросов/сек)
-    await delay(100); // 100мс = 10 запросов в секунду. Безопасно.
+    await delay(200); 
   }
 
-  console.log('--- СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА ---');
+  console.log('--- СИНХРОНИЗАЦИЯ (ТЕСТ) ЗАВЕРШЕНА ---');
   console.log(`Успешно добавлено/обновлено: ${successCount}`);
   console.log(`Пропущено/ошибки: ${skippedCount}`);
 
-  // Закрываем соединение с базой
   await client.release();
   await pool.end();
 }
 
 // Запускаем
 main().catch(err => {
-  console.error('КРИТИЧЕСКАЯ ОШИБКА:', err);
+  console.error('КРИТИЧЕСКАЯ НЕОБРАБОТАННАЯ ОШИБКА:', err);
   process.exit(1);
 });

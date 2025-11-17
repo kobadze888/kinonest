@@ -2,12 +2,12 @@
 import React, { useState, useCallback } from 'react';
 import Head from 'next/head';
 import Script from 'next/script';
-import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; // ვიყენებთ @/ გზას
-import { query } from '@/lib/db'; // ვიყენებთ @/ გზას
-import Header from '@/components/Header'; // ვიყენებთ @/ გზას
-import Footer from '@/components/Footer'; // ვიყენებთ @/ გზას
-import MediaCarousel from '@/components/MediaCarousel'; // ვიყენებთ @/ გზას
-import TrailerModal from '@/components/TrailerModal'; // ვიყენებთ @/ გზას
+import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; //.js]
+import { query } from '@/lib/db'; //.js]
+import Header from '@/components/Header'; //.js]
+import Footer from '@/components/Footer'; //.js]
+import MediaCarousel from '@/components/MediaCarousel'; //.js]
+import TrailerModal from '@/components/TrailerModal'; //.js]
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -26,7 +26,10 @@ export async function getServerSideProps(context) {
   // --- Postgres ბაზის Lookup ---
   let kinopoisk_id = null;
   try {
-    const dbResult = await query('SELECT kinopoisk_id FROM movies WHERE tmdb_id = $1', [tmdbId]);
+    // 💡 --- ВОТ ИЗМЕНЕНИЕ --- 💡
+    // Мы ищем в 'media', а не в 'movies'
+    const dbResult = await query('SELECT kinopoisk_id FROM media WHERE tmdb_id = $1', [tmdbId]);
+    
     if (dbResult.rows.length > 0) {
       kinopoisk_id = dbResult.rows[0].kinopoisk_id;
     }
@@ -112,6 +115,9 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         videoHtml={modalVideoHtml}
       />
 
+      {/* 💡 ЭТОТ БЛОК ТЕПЕРЬ РАБОТАЕТ!
+        Если kinopoisk_id найден в НАШЕЙ базе, он отобразит плеер.
+      */}
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-16 md:pt-20"> 
           <div className="max-w-7xl mx-auto"> 
@@ -126,6 +132,10 @@ export default function MoviePage({ movie, kinopoisk_id }) {
         </section>
       )}
 
+      {/* Весь остальной контент страницы (постер, описание, актеры)
+        по-прежнему берется из 'movie' (объект TMDB),
+        поэтому здесь ничего менять не нужно.
+      */}
       <section 
         className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full bg-cover bg-center"
         style={{ backgroundImage: `url(${backdropPath})` }}

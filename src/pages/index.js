@@ -1,6 +1,12 @@
-// --- ОБНОВЛЕННЫЙ ФАЙЛ ---
+// --- ОБНОВЛЕННЫЙ ФАЙЛ (с исправлением serializing) ---
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+// 1. Мы по-прежнему используем 'fetchData' для YouTube трейлеров (fallback)
 import { fetchData } from '../lib/api';
+// 2. Мы добавляем 'query' для работы с НАШЕЙ базой данных на сервере
+import { query } from '../lib/db';
+
+// Импорт компонентов (без изменений)
 import Header from '../components/Header';
 import HeroSlider from '../components/HeroSlider';
 import MediaCarousel from '../components/MediaCarousel';
@@ -8,39 +14,82 @@ import Footer from '../components/Footer';
 import TrailerModal from '../components/TrailerModal'; 
 
 // --- Конфиг для API плеера ---
-const NEW_PLAYER_API_ENDPOINT = 'https://kinobd.net/api/films'; 
+const NEW_PLAYER_API_ENDPOINT = 'https://kinobd.net/api/films';
 
 /**
- * Серверная функция
+ * 💡 ОБНОВЛЕННАЯ СЕРВЕРНАЯ ФУНКЦИЯ (с исправлением 'created_at::TEXT')
  */
 export async function getServerSideProps() {
-  const [
-    heroData,
-    topData,
-    tvData,
-    horrorData,
-    actorsData 
-  ] = await Promise.all([
-    fetchData('/movie/popular'),
-    fetchData('/movie/top_rated'),
-    fetchData('/tv/popular'),
-    fetchData('/discover/movie', '&with_genres=27'),
-    fetchData('/person/popular') 
-  ]);
+  
+  // 💡 Список полей, которые мы хотим получить (даты конвертируем в TEXT)
+  // Это исправляет ошибку 'Error serializing .created_at'
+  const columns = `
+    tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
+    poster_path, backdrop_path, release_year, rating_tmdb,
+    genres_ids, genres_names,
+    created_at::TEXT, updated_at::TEXT 
+  `;
 
-  return {
-    props: {
-      heroMovies: heroData?.results?.slice(0, 5) || [],
-      topMovies: topData?.results || [],
-      popularTv: tvData?.results || [],
-      horrorMovies: horrorData?.results || [],
-      popularActors: actorsData?.results || [], 
-    },
-  };
+  try {
+    // 1. Для Слайдера
+    const heroQuery = query(
+      `SELECT ${columns} FROM media 
+       WHERE type = 'movie' AND backdrop_path IS NOT NULL AND rating_tmdb > 7.0 
+       ORDER BY rating_tmdb DESC 
+       LIMIT 5`
+    );
+
+    // 2. Топ Фильмов
+    const topQuery = query(
+      `SELECT ${columns} FROM media 
+       WHERE type = 'movie' 
+       ORDER BY rating_tmdb DESC 
+       LIMIT 10`
+    );
+
+    // 3. Популярные Сериалы
+    const tvQuery = query(
+      `SELECT ${columns} FROM media 
+       WHERE type = 'tv' 
+       ORDER BY rating_tmdb DESC 
+       LIMIT 10`
+    );
+    
+    // Выполняем все запросы одновременно
+    const [
+      heroResult,
+      topResult,
+      tvResult
+    ] = await Promise.all([heroQuery, topQuery, tvQuery]);
+
+    return {
+      props: {
+        heroMovies: heroResult.rows,
+        topMovies: topResult.rows,
+        popularTv: tvResult.rows,
+        horrorMovies: [], // 💡 Пока пусто
+        popularActors: [], // 💡 Пока пусто
+      },
+    };
+
+  } catch (error) {
+    console.error("Home Page SSR Error (Database):", error.message);
+    // В случае ошибки, возвращаем пустые массивы, чтобы сайт не "упал"
+    return {
+      props: {
+        heroMovies: [],
+        topMovies: [],
+        popularTv: [],
+        horrorMovies: [],
+        popularActors: [],
+      },
+    };
+  }
 }
 
 /**
  * Главный компонент страницы
+ * (ОН ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ!)
  */
 export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, popularActors }) {
   
@@ -56,7 +105,7 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
   const playerDatabase = useRef([]); 
   const isPlayerDbLoading = useRef(false);
 
-  // --- Функция загрузки базы kinobd (из прототипа) ---
+  // --- Функция загрузки базы kinobd (без изменений) ---
   const loadPlayerDatabase = useCallback(async () => {
     if (isPlayerDbLoading.current || !NEW_PLAYER_API_ENDPOINT) {
       if (!NEW_PLAYER_API_ENDPOINT) console.log('NEW_PLAYER_API_ENDPOINT не указан, будет использоваться резервный метод YouTube.');
@@ -71,19 +120,15 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     let hasMore = true;
     let loadedItems = [];
 
-    // --- ИЗМЕНЕНИЕ ЗДЕСЬ (Добавили try...catch внутрь цикла) ---
-    // Это предотвратит "краш" всего сайта из-за ошибки 429
     while (hasMore) {
       setPlayerDbStatus(`Загрузка базы плеера... (Страница ${currentPage})`);
       try {
         const response = await fetch(`${NEW_PLAYER_API_ENDPOINT}?page=${currentPage}`);
         
-        // Если ответ НЕ 'ok' (например, 429 Too Many Requests)
         if (!response.ok) {
-          // Не выбрасываем ошибку, а просто логируем и выходим из цикла
           console.error(`Ошибка загрузки страницы ${currentPage} базы плеера. Статус: ${response.status}`);
-          hasMore = false; // Прекращаем попытки
-          throw new Error(`API page ${currentPage} fetch failed`); // Бросаем ошибку, чтобы ее поймал catch
+          hasMore = false; 
+          throw new Error(`API page ${currentPage} fetch failed`);
         }
         
         const result = await response.json();
@@ -99,17 +144,14 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
           await new Promise(resolve => setTimeout(resolve, 100)); 
         }
       } catch (error) {
-        // Ловим ошибку (включая 429) и выходим из цикла
         console.error('Не удалось полностью загрузить базу плеера:', error.message);
         setPlayerDbStatus('Ошибка загрузки базы плеера.');
-        hasMore = false; // Прекращаем цикл
+        hasMore = false;
       }
     }
-    // --- Конец ИЗМЕНЕНИЯ ---
 
     isPlayerDbLoading.current = false;
     
-    // Если мы что-то загрузили, обновляем статус
     if (loadedItems.length > 0) {
       playerDatabase.current = loadedItems;
       setPlayerDbStatus(`База плеера загружена (${loadedItems.length} фильмов).`);
@@ -118,13 +160,13 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     }
   }, []);
 
-  // --- Запускаем загрузку базы плеера один раз при загрузке страницы ---
+  // --- Запускаем загрузку базы плеера (без изменений) ---
   useEffect(() => {
     loadPlayerDatabase();
   }, [loadPlayerDatabase]);
 
   
-  // --- Новая функция для открытия модала ---
+  // --- Функция открытия модала (без изменений) ---
   const handleShowTrailer = useCallback(async (movieId, mediaType = 'movie') => {
     setIsModalOpen(true);
     setModalIsLoading(true);
@@ -159,7 +201,7 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
       }
     }
 
-    // 2. Fallback: Если не нашли, ищем трейлер на YouTube
+    // 2. Fallback: (без изменений) Используем fetchData для YouTube
     if (!playerFound) {
       console.log(`Плеер не найден в локальной базе (TMDB ID: ${movieId}). Используем резервный метод YouTube.`);
       
@@ -185,9 +227,9 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
       }
     }
     setModalIsLoading(false);
-  }, []); 
+  }, [fetchData]); // Добавили fetchData в зависимости
 
-  // --- Функция закрытия модала ---
+  // --- Функция закрытия модала (без изменений) ---
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setModalVideoHtml(''); 
@@ -196,12 +238,13 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     if (oldScript) oldScript.remove();
   }, []);
 
-  // --- Поиск (пока просто) ---
+  // --- Поиск (без изменений) ---
   const handleSearch = () => {
      console.log('Searching for:', searchQuery);
-     alert(`(дровременно) Поиск: ${searchQuery}.`);
+     alert(`(временно) Поиск: ${searchQuery}.`);
   }
 
+  // --- JSX (Рендеринг) (без изменений) ---
   return (
     <div className="bg-[#10141A] text-white font-sans">
       <Header 
@@ -227,25 +270,23 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
         <HeroSlider movies={heroMovies} onShowTrailer={handleShowTrailer} />
         
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20" id="main-container">
+          
           <MediaCarousel 
             title="Топ фильмы"
             items={topMovies}
             swiperKey="top-movies"
-           
             cardType="movie"
           />
           <MediaCarousel 
             title="Популярные сериалы"
             items={popularTv}
             swiperKey="popular-tv"
-           
             cardType="tv"
           />
           <MediaCarousel 
             title="Фильмы ужасов"
             items={horrorMovies}
             swiperKey="horror-movies"
-           
             cardType="movie"
           />
           <MediaCarousel 
