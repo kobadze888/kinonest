@@ -1,6 +1,6 @@
 // src/pages/api/admin/add-movie.js
-import { query } from '../../lib/db';
-import { slugify } from '../../lib/utils';
+import { query } from '@/lib/db';
+import { slugify } from '@/lib/utils';
 
 export default async function handler(req, res) {
   // TODO: მომავალში დავამატებთ პაროლის შემოწმებას

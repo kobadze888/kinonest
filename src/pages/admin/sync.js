@@ -1,7 +1,7 @@
 // src/pages/admin/sync.js
 import React, { useState, useEffect } from 'react';
-import { fetchData } from '../../lib/api'; // TMDB API
-import Header from '../../components/Header';
+import { fetchData } from '@/lib/api';
+import Header from '@/components/Header';
 
 const PLAYER_API_ENDPOINT = 'https://kinobd.net/api/films';
 
