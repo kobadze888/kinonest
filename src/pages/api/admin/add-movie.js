@@ -1,14 +1,12 @@
-// src/pages/api/admin/add-movie.js (განახლებული)
+// src/pages/api/admin/add-movie.js (დიაგნოსტიკური რეჟიმი)
 import { query } from '@/lib/db';
 import { slugify } from '@/lib/utils';
 
 export default async function handler(req, res) {
-  // TODO: დავამატოთ პაროლის შემოწმება
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  // ახლა ველოდებით მხოლოდ "movie" ობიექტს kinobd-დან
   const { movie } = req.body;
 
   if (!movie || !movie.tmdb_id || !movie.kinopoisk_id) {
@@ -20,10 +18,9 @@ export default async function handler(req, res) {
     
     let movieSlug = slugify(movieTitle);
     if (!movieSlug) {
-      movieSlug = `tmdb-id-${movie.tmdb_id}`; // უსაფრთხო ფოლბექი
+      movieSlug = `tmdb-id-${movie.tmdb_id}`;
     }
 
-    // ვიყენებთ მინიმალურ მონაცემებს, რომლებიც SQL ცხრილს სჭირდება
     const insertQuery = `
       INSERT INTO movies(
         tmdb_id, slug, title_ru, kinopoisk_id
@@ -43,7 +40,15 @@ export default async function handler(req, res) {
     res.status(200).json({ success: true, inserted_id: movie.tmdb_id });
 
   } catch (e) {
+    // --- 💡 მთავარი ცვლილება ---
+    // ჩვენ ახლა ვაბრუნებთ ზუსტ შეცდომის ტექსტს კლიენტთან
     console.error("ADD-MOVIE API FAILED:", e.message);
-    res.status(500).json({ error: 'Database insert failed', message: e.message });
+    res.status(500).json({ 
+      error: 'Database insert failed (სერვერის შეცდომა)', 
+      message: e.message, // (მაგ: "connection timed out")
+      code: e.code,       // (მაგ: "ETIMEDOUT")
+      stack: e.stack      // (სრული სტეკი)
+    });
+    // --- დასასრული ---
   }
 }
