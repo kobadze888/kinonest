@@ -1,6 +1,6 @@
-// src/pages/admin/sync.js
-import React, { useState, useEffect } from 'react';
-import { fetchData } from '@/lib/api';
+// src/pages/admin/sync.js (სწორი ლოგიკით)
+import React, { useState } from 'react';
+// import { fetchData } from '@/lib/api'; // TMDB აღარ გვჭირდება აქ
 import Header from '@/components/Header';
 
 const PLAYER_API_ENDPOINT = 'https://kinobd.net/api/films';
@@ -10,70 +10,66 @@ export default function SyncPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const addLog = (message, isError = false) => {
-    setLog(prev => [...prev, { message, isError }]);
+    setLog(prev => [{ message, isError }, ...prev]); // ახალი ლოგები გამოჩნდეს ზემოთ
   };
 
   const handleSync = async () => {
     setIsLoading(true);
+    setLog([]); // ლოგის გასუფთავება
     addLog('--- Начат процесс синхронизации (Клиент) ---');
     
-    // 1. ვიღებთ პოპულარულ ფილმებს (TMDB)
-    const tmdbList = await fetchData('/movie/popular', '&page=1');
-    const tmdbMovies = tmdbList?.results || [];
-    addLog(`Загружено ${tmdbMovies.length} популярных фильмов с TMDB...`);
+    let kinobdMovies = [];
+    try {
+      // 1. ვიღებთ ფილმებს პირდაპირ KINOBD-დან (რაც მუშაობს თქვენს ბრაუზერში)
+      const response = await fetch(`${PLAYER_API_ENDPOINT}?page=1`);
+      if (!response.ok) throw new Error(`kinobd.net API Error: ${response.status}`);
+      
+      const playerData = await response.json();
+      kinobdMovies = playerData?.data || [];
+      addLog(`Загружено ${kinobdMovies.length} фильмов с kinobd.net...`);
+
+    } catch (e) {
+      addLog(`[КРИТИЧЕСКАЯ ОШИБКА] Не удалось загрузить список плееров: ${e.message}`, true);
+      setIsLoading(false);
+      return;
+    }
 
     let successCount = 0;
     let skippedCount = 0;
 
-    for (const tmdbMovie of tmdbMovies) {
-      const tmdbId = tmdbMovie.id;
+    for (const movie of kinobdMovies) {
       
-      // 2. ვეძებთ პლეერს kinobd-ზე (თქვენი ბრაუზერიდან)
-      const playerUrl = `${PLAYER_API_ENDPOINT}/${tmdbId}`;
-      let movieData = null;
-
-      try {
-        const playerResponse = await fetch(playerUrl);
-        if (playerResponse.ok) {
-          const playerData = await playerResponse.json();
-          movieData = playerData?.data ? playerData.data[0] : null;
-        }
-      } catch (e) {
-        addLog(`[ОШИБКА API] TMDB ID ${tmdbId}: Не удалось связаться с kinobd.net.`, true);
+      if (!movie.tmdb_id || !movie.kinopoisk_id) {
+        addLog(`[ПРОПУСК] Фильм "${movie.name_russian}" не имеет TMDB_ID или Kinopoisk_ID.`, true);
         skippedCount++;
         continue;
       }
 
-      if (movieData && movieData.kinopoisk_id) {
-        // 3. თუ ვიპოვეთ, ვაგზავნით ჩვენს სერვერზე ჩასაწერად
-        try {
-          const apiResponse = await fetch('/api/admin/add-movie', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ movie: movieData, tmdbData: tmdbMovie }),
-          });
+      // 2. ვაგზავნით ჩვენს სერვერზე Supabase-ში ჩასაწერად
+      try {
+        const apiResponse = await fetch('/api/admin/add-movie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ movie: movie }), // ვაგზავნით kinobd ობიექტს
+        });
 
-          if (!apiResponse.ok) {
-            throw new Error(`Server returned ${apiResponse.status}`);
-          }
-          
-          addLog(`[УСПЕХ] TMDB ID ${tmdbId} (${tmdbMovie.title}) добавлен в базу.`);
-          successCount++;
-
-        } catch (e) {
-          addLog(`[ОШИBKA БАЗЫ] TMDB ID ${tmdbId}: ${e.message}`, true);
-          skippedCount++;
+        if (!apiResponse.ok) {
+          throw new Error(`Server returned ${apiResponse.status}`);
         }
-      } else {
-        addLog(`[ПРОПУСК] TMDB ID ${tmdbId} (${tmdbMovie.title}): Плеер не найден.`);
+        
+        addLog(`[УСПЕХ] TMDB ID ${movie.tmdb_id} (${movie.name_russian}) добавлен в базу.`);
+        successCount++;
+
+      } catch (e) {
+        addLog(`[ОШИBKA БАЗЫ] TMDB ID ${movie.tmdb_id}: ${e.message}`, true);
         skippedCount++;
       }
       
-      await new Promise(resolve => setTimeout(resolve, 500)); // თავაზიანობა
+      await new Promise(resolve => setTimeout(resolve, 300)); // თავაზიანობა
     }
 
     addLog(`--- Синхронизация завершена ---`);
-    addLog(`Успешно добавлено/обновлено: ${successCount} | Пропущено/Ошибка: ${skippedCount}`);
+    addLog(`Успешно добавлено: ${successCount} | Пропущено/Ошибка: ${skippedCount}`);
     setIsLoading(false);
   };
 
@@ -83,8 +79,7 @@ export default function SyncPage() {
       <div className="max-w-4xl mx-auto pt-32 px-4">
         <h1 className="text-3xl font-bold mb-4">Панель синхронизации</h1>
         <p className="text-gray-400 mb-6">
-          Этот инструмент загружает данные из TMDB и kinobd.net в вашу базу данных Postgres.
-          Процесс выполняется в вашем браузере.
+          Этот инструмент загружает данные из kinobd.net (через ваш браузер) и сохраняет их в базу данных Vercel/Supabase (через сервер).
         </p>
         <button
           onClick={handleSync}
@@ -95,7 +90,7 @@ export default function SyncPage() {
               : 'bg-brand-red hover:bg-red-700'
           }`}
         >
-          {isLoading ? 'Идет синхронизация...' : 'Начать синхронизацию (1-я страница)'}
+          {isLoading ? 'Идет синхронизация...' : 'Синхронизировать 1-ю страницу Kinobd'}
         </button>
 
         <div className="mt-8 bg-black/50 p-4 rounded-lg h-96 overflow-y-auto font-mono text-sm">
