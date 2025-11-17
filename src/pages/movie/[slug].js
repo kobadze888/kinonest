@@ -101,7 +101,7 @@ export default function MoviePage({ movie, kinopoisk_id }) {
       
       {kinopoisk_id && (
         <Script 
-          src="http://kinobd.net/js/player_.js"
+          src="https://kinobd.net/js/player_.js"
           strategy="lazyOnload"
         />
       )}
