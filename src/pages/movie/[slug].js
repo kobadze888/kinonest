@@ -1,7 +1,8 @@
-// src/pages/movie/[slug].js (FIX: 100% из НАШЕЙ БАЗЫ)
+// src/pages/movie/[slug].js (FIX: 100% из НАШЕЙ БАЗЫ + ВСЕ ДАННЫЕ + Date() Fix)
 import React, { useState, useCallback, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; 
 import { query } from '@/lib/db';
@@ -19,11 +20,19 @@ export async function getServerSideProps(context) {
   let kinopoisk_id = null;
   
   try {
+    // 💡 --- ИСПРАВЛЕНИЕ ОШИБКИ 'premiere_ru' [object Date] --- 💡
     const columns = `
       tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
       poster_path, backdrop_path, release_year, rating_tmdb,
       genres_ids, genres_names,
-      created_at::TEXT, updated_at::TEXT 
+      created_at::TEXT, 
+      updated_at::TEXT,
+      trailer_url, runtime, budget, countries, rating_kp, rating_imdb,
+      kinobd_item_id, imdb_id, rating_kp_count, rating_imdb_count,
+      age_restriction, slogan, 
+      premiere_ru::TEXT, 
+      premiere_world::TEXT, 
+      popularity
     `;
     const dbResult = await query(`SELECT ${columns} FROM media WHERE tmdb_id = $1`, [tmdbId]);
     
@@ -64,6 +73,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   const router = useRouter();
 
+  // Ручная загрузка скрипта плеера (без изменений)
   useEffect(() => {
     if (kinopoisk_id) {
       const oldScript = document.getElementById('kinobd-player-script');
@@ -80,10 +90,20 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
     }
   }, [kinopoisk_id, router.asPath]);
 
+  // 'handleShowTrailer' (без изменений)
   const handleShowTrailer = useCallback(async () => {
     setIsModalOpen(true);
     setModalIsLoading(true);
     
+    // 1. СНАЧАЛА проверяем наш быстрый 'trailer_url' из Neon
+    if (movie.trailer_url) {
+      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${movie.trailer_url}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`);
+      setModalIsLoading(false);
+      return; // Готово!
+    }
+
+    // 2. РЕЗЕРВ (Fallback): Если в базе нет, ищем на TMDB
+    console.log("Трейлер не найден в Neon, ищем на TMDB...");
     const data = await fetchData(`/movie/${movie.tmdb_id}/videos`);
     let trailer = null;
     if (data && data.results) {
@@ -96,13 +116,14 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Трейлер не найден.</p></div>`);
     }
     setModalIsLoading(false);
-  }, [movie.tmdb_id, fetchData]); // 💡 Добавил fetchData в зависимости
+  }, [movie, fetchData]);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setModalVideoHtml(''); 
   }, []);
 
+  // Переменные из нашей быстрой базы (без изменений)
   const title = movie.title_ru;
   const originalTitle = movie.title_en;
   const releaseYear = movie.release_year || 'N/A';
@@ -121,7 +142,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
         <meta name="keywords" content={keywords} />
       </Head>
       
-      <Header onSearchSubmit={() => alert('Поиск скоро будет!')} />
+      <Header />
 
       <TrailerModal 
         isOpen={isModalOpen}
@@ -145,9 +166,16 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       )}
 
       <section 
-        className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full bg-cover bg-center"
-        style={{ backgroundImage: `url(${backdropPath})` }}
+        className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full"
       >
+        <Image
+          src={backdropPath}
+          alt={title}
+          fill
+          style={{ objectFit: 'cover' }} 
+          priority={true}
+          sizes="100vw"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
         
@@ -161,7 +189,24 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
                 <StarIcon />
                 <span className="ml-1 font-semibold">{movie.rating_tmdb ? movie.rating_tmdb : 'N/A'}</span>
               </div>
+              {movie.runtime && (
+                <>
+                  <span>•</span>
+                  <span>{movie.runtime} мин.</span>
+                </>
+              )}
+              {movie.age_restriction && (
+                <>
+                  <span>•</span>
+                  <span className="border border-gray-400 px-1.5 rounded text-xs">
+                    {movie.age_restriction}+
+                  </span>
+                </>
+              )}
             </div>
+            {movie.slogan && (
+              <p className="max-w-xl text-md text-gray-400 italic mt-2">«{movie.slogan}»</p>
+            )}
             <p className="max-w-xl text-md text-gray-200 mt-4 line-clamp-3">{movie.overview}</p>
             <div className="flex items-center space-x-4 mt-6">
               <button 
@@ -188,6 +233,46 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
             <div className="mt-8 p-4 bg-gray-900/50 rounded-lg">
               <h3 className="text-2xl font-bold text-white mb-4">Детали</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-gray-300">
+                
+                {movie.rating_imdb > 0 && (
+                  <div>
+                    <span className="font-semibold text-gray-500 block">Рейтинг IMDb:</span>
+                    {movie.rating_imdb} ({movie.rating_imdb_count ? movie.rating_imdb_count.toLocaleString('en-US') : 0})
+                  </div>
+                )}
+                {movie.rating_kp > 0 && (
+                  <div>
+                    <span className="font-semibold text-gray-500 block">Рейтинг КП:</span>
+                    {movie.rating_kp} ({movie.rating_kp_count ? movie.rating_kp_count.toLocaleString('en-US') : 0})
+                  </div>
+                )}
+                {movie.budget > 0 && (
+                  <div>
+                    <span className="font-semibold text-gray-500 block">Бюджет:</span>
+                    ${movie.budget.toLocaleString('en-US')}
+                  </div>
+                )}
+                {movie.countries && movie.countries.length > 0 && (
+                  <div>
+                    <span className="font-semibold text-gray-500 block">Страна:</span>
+                    {movie.countries.join(', ')}
+                  </div>
+                )}
+                {/* 💡 --- ИСПРАВЛЕНИЕ ОШИБКИ 'premiere_ru' [object Date] --- 💡 */}
+                {movie.premiere_world && (
+                  <div>
+                    <span className="font-semibold text-gray-500 block">Премьера в мире:</span>
+                    {/* Теперь 'movie.premiere_world' - это строка, ее не нужно форматировать */}
+                    {new Date(movie.premiere_world).toLocaleDateString('ru-RU')}
+                  </div>
+                )}
+                {movie.premiere_ru && (
+                  <div>
+                    <span className="font-semibold text-gray-500 block">Премьера в РФ:</span>
+                    {new Date(movie.premiere_ru).toLocaleDateString('ru-RU')}
+                  </div>
+                )}
+
                 <div className="col-span-2 md:col-span-3">
                   <span className="font-semibold text-gray-500 block">Жанры:</span>
                   <div className="flex flex-wrap gap-2 mt-1">
@@ -202,10 +287,12 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
             </div>
           </div>
           <div className="hidden md:block">
-             <img 
+             <Image 
                src={posterPath} 
                alt={title}
-               className="w-full rounded-lg shadow-xl"
+               width={500} 
+               height={750} 
+               className="w-full h-auto rounded-lg shadow-xl"
              />
           </div>
         </div>
