@@ -1,4 +1,4 @@
-// src/pages/movies.js
+// src/pages/kids.js
 import React from 'react';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
@@ -19,35 +19,37 @@ export async function getServerSideProps({ query: urlQuery }) {
     created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
   `;
 
-  let movies = [];
+  let items = [];
   let total = 0;
 
   try {
-    const moviesRes = await query(`
+    // Ищем фильмы и сериалы с жанрами "мультфильм" или "семейный"
+    const sql = `
       SELECT ${columns} FROM media 
-      WHERE type = 'movie'
+      WHERE genres_names && ARRAY['мультфильм', 'семейный']
       ORDER BY release_year DESC NULLS LAST, rating_tmdb DESC
       LIMIT $1 OFFSET $2
-    `, [limit, offset]);
-    movies = moviesRes.rows;
+    `;
+    const itemsRes = await query(sql, [limit, offset]);
+    items = itemsRes.rows;
 
-    const countRes = await query(`SELECT COUNT(*) FROM media WHERE type = 'movie'`);
+    const countRes = await query(`SELECT COUNT(*) FROM media WHERE genres_names && ARRAY['мультфильм', 'семейный']`);
     total = parseInt(countRes.rows[0].count);
 
   } catch (e) {
-    console.error("Movies Page Error:", e.message);
+    console.error("Kids Page Error:", e.message);
   }
 
   return {
     props: {
-      movies,
+      items,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
     },
   };
 }
 
-export default function MoviesPage({ movies, currentPage, totalPages }) {
+export default function KidsPage({ items, currentPage, totalPages }) {
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <Header />
@@ -55,25 +57,25 @@ export default function MoviesPage({ movies, currentPage, totalPages }) {
         <FilterBar />
       </div>
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
-        <h1 className="text-3xl font-bold text-white mb-8">Фильмы</h1>
+        <h1 className="text-3xl font-bold text-white mb-8">Детям</h1>
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {movies.map(movie => (
-            <MediaCard key={movie.tmdb_id} item={movie} />
+          {items.map(item => (
+            <MediaCard key={item.tmdb_id} item={item} />
           ))}
         </div>
 
         <div className="flex justify-center mt-12 space-x-4">
           {currentPage > 1 && (
-            <Link href={`/movies?page=${currentPage - 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
+            <Link href={`/kids?page=${currentPage - 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
               ← Назад
             </Link>
           )}
           <span className="px-4 py-2 text-gray-400 bg-gray-900 rounded">
-            Страница {currentPage} из {totalPages}
+             Страница {currentPage} из {totalPages}
           </span>
           {currentPage < totalPages && (
-            <Link href={`/movies?page=${currentPage + 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
+            <Link href={`/kids?page=${currentPage + 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
               Вперед →
             </Link>
           )}

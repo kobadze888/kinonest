@@ -3,12 +3,12 @@ import React from 'react';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import ActorCard from '@/components/ActorCard'; // Используем наш ActorCard
+import ActorCard from '@/components/ActorCard'; 
 import Link from 'next/link';
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
-  const limit = 24; // Показываем больше актеров на странице (они маленькие)
+  const limit = 24; 
   const offset = (page - 1) * limit;
 
   let actors = [];
@@ -61,7 +61,7 @@ export default function ActorsPage({ actors, currentPage, totalPages }) {
               ← Назад
             </Link>
           )}
-          <span className="px-4 py-2 text-gray-400">
+          <span className="px-4 py-2 text-gray-400 bg-gray-900 rounded">
             Страница {currentPage} из {totalPages}
           </span>
           {currentPage < totalPages && (
