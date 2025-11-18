@@ -1,14 +1,67 @@
-// --- ОБНОВЛЕННЫЙ ФАЙЛ (с внутренним состоянием поиска) ---
+// src/components/Header.js (ANIMATED SEARCH RUSSIAN VERSION + SEO)
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router'; // 💡 1. Импортируем useRouter
+import { useRouter } from 'next/router';
+import Head from 'next/head'; 
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
-  
-  // 💡 2. Header теперь сам управляет состоянием поиска
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // 💡 Начальное значение пустое для совпадения с сервером (Hydration fix)
+  const [placeholder, setPlaceholder] = useState(''); 
   const router = useRouter();
+
+  // --- 💡 Анимация печатающей машинки (РУССКИЙ ЯЗЫК) ---
+  useEffect(() => {
+    const phrases = [
+      "Поиск фильма...",        // Основная фраза
+      "Матрица",                // Русский пример
+      "krostni otec",     // Русский пример
+      "goli pistolet",                  // Транслит пример
+      "Зеленая миля",           // Русский пример
+      "boec"                    // Транслит пример
+    ];
+    let phraseIndex = 0;
+    let charIndex = 0;
+    let isDeleting = false;
+    let timeoutId;
+
+    const type = () => {
+      const currentPhrase = phrases[phraseIndex];
+      
+      if (isDeleting) {
+        setPlaceholder(currentPhrase.substring(0, charIndex - 1));
+        charIndex--;
+      } else {
+        setPlaceholder(currentPhrase.substring(0, charIndex + 1));
+        charIndex++;
+      }
+
+      let typeSpeed = 100;
+
+      if (isDeleting) {
+        typeSpeed /= 2; // Стираем быстрее
+      }
+
+      if (!isDeleting && charIndex === currentPhrase.length) {
+        // Фраза напечатана, ждем перед стиранием
+        typeSpeed = 2000;
+        isDeleting = true;
+      } else if (isDeleting && charIndex === 0) {
+        // Фраза стерта, переходим к следующей
+        isDeleting = false;
+        phraseIndex = (phraseIndex + 1) % phrases.length;
+        typeSpeed = 500;
+      }
+
+      timeoutId = setTimeout(type, typeSpeed);
+    };
+
+    type(); 
+
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -18,11 +71,9 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 💡 3. Новая логика поиска
   const handleSearchSubmit = () => {
     const trimmedQuery = searchQuery.trim();
     if (trimmedQuery) {
-      // Перенаправляем на новую страницу /search
       router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
     }
   };
@@ -33,60 +84,94 @@ export default function Header() {
     }
   };
 
-  // 💡 4. (Бонус) Очищаем поле поиска, если мы ушли со страницы поиска
+  // Очистка поля поиска при переходе на другие страницы
   useEffect(() => {
-    if (!router.pathname.startsWith('/search')) {
-      setSearchQuery('');
+    if (router.isReady && !router.pathname.startsWith('/search')) {
+        setSearchQuery('');
+    } else if (router.isReady && router.query.q) {
+        setSearchQuery(router.query.q);
     }
-  }, [router.asPath]);
+  }, [router.isReady, router.pathname, router.query.q]);
 
+  // --- SEO: Schema.org ---
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "url": "https://kinonest.vercel.app/",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://kinonest.vercel.app/search?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-[#10141A]/90 backdrop-blur-sm' : 'bg-gradient-to-b from-[#10141A]/90 to-transparent'}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
-          <div>
-            <Link href="/" className="text-3xl font-black text-brand-red tracking-wider cursor-pointer">
-              KinoNest
-            </Link>
-          </div>
-          <nav className="hidden md:flex items-center space-x-6">
-            <Link href="/" className="text-white font-semibold hover:text-brand-red transition-colors">
-              Главная
-            </Link>
-            <a href="#" className="text-gray-300 hover:text-brand-red transition-colors">Фильмы</a>
-            <a href="#" className="text-gray-300 hover:text-brand-red transition-colors">Сериалы</a>
-            <a href="#" className="text-gray-300 hover:text-brand-red transition-colors">Актеры</a>
-          </nav>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Поиск фильма..." 
-                value={searchQuery} // 💡 Используем внутренний state
-                onChange={(e) => setSearchQuery(e.target.value)} // 💡 Используем внутренний state
-                onKeyPress={handleSearchKey}
-                className="bg-gray-800/50 border border-gray-700 rounded-full py-2 px-4 pl-10 text-sm text-white focus:outline-none focus:bg-gray-700 focus:border-brand-red transition-all w-40 md:w-64"
-              />
-              <svg 
-                onClick={handleSearchSubmit} // 💡 Используем новую логику
-                className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer" 
-                xmlns="http://www.w3.org/2000/svg" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+    <>
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </Head>
+
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-[#10141A]/95 backdrop-blur-md shadow-lg' : 'bg-gradient-to-b from-[#10141A]/90 to-transparent'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-20">
+            
+            <div className="flex-shrink-0">
+              <Link href="/" className="text-3xl font-black text-brand-red tracking-wider cursor-pointer hover:opacity-80 transition-opacity">
+                KinoNest
+              </Link>
             </div>
-            <button className="md:hidden text-white">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
-              </svg>
-            </button>
+
+            <nav className="hidden md:flex items-center space-x-8">
+              <Link href="/" className="text-white font-medium hover:text-brand-red transition-colors">
+                Главная
+              </Link>
+              <Link href="/search?q=фильмы" className="text-gray-300 font-medium hover:text-brand-red transition-colors">
+                Фильмы
+              </Link>
+              <Link href="/search?q=сериалы" className="text-gray-300 font-medium hover:text-brand-red transition-colors">
+                Сериалы
+              </Link>
+              {/* Ссылка на актеров пока неактивна */}
+              <a href="#" className="text-gray-300 font-medium hover:text-brand-red transition-colors">Актеры</a>
+            </nav>
+
+            <div className="flex items-center">
+              <div className="relative group">
+                <input 
+                  type="text" 
+                  // 💡 Используем placeholder, который анимируется на клиенте
+                  placeholder={placeholder || "Поиск..."} 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  onKeyPress={handleSearchKey}
+                  className="bg-gray-800/80 border border-gray-700 rounded-full py-2 px-4 pl-11 text-sm text-white placeholder-gray-400 focus:outline-none focus:bg-gray-900 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all w-40 md:w-64 group-hover:border-gray-600"
+                />
+                <button 
+                  onClick={handleSearchSubmit}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors p-1"
+                >
+                  <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+              
+              <button className="md:hidden ml-4 text-white p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+              </button>
+            </div>
+
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 };

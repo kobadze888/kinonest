@@ -3,21 +3,22 @@ const nextConfig = {
   reactStrictMode: true,
   
   images: {
+    // 💡 Разрешаем SVG (нужно для placehold.co)
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+
     remotePatterns: [
       {
-        // 1. Доверенный домен для TMDB (уже был)
         protocol: 'https',
         hostname: 'image.tmdb.org',
         port: '',
         pathname: '/t/p/**',
       },
-      // 💡 --- ВОТ ИСПРАВЛЕНИЕ --- 💡
       {
-        // 2. Добавляем 'placehold.co' для запасных картинок
         protocol: 'https',
         hostname: 'placehold.co',
         port: '',
-        pathname: '/**', // Разрешаем все пути на этом домене
+        pathname: '/**', 
       },
     ],
   },
