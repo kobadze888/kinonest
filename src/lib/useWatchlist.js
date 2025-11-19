@@ -1,45 +1,82 @@
-// src/lib/useWatchlist.js
+// src/lib/useWatchlist.js (სრული სინქრონიზაციით)
 import { useState, useEffect, useCallback } from 'react';
 
 const WATCHLIST_KEY = 'kinonest_watchlist';
 
+// სპეციალური ივენთის სახელი, რომლითაც კომპონენტები ერთმანეთს დაელაპარაკებიან
+const EVENT_NAME = 'watchlist_updated';
+
 export function useWatchlist() {
-  // 1. იტვირთება ლოკალური მონაცემები
   const [watchlist, setWatchlist] = useState([]);
 
-  // 2. useEffect: იტვირთება ლოკალური მონაცემები საიტის გახსნისას
-  useEffect(() => {
+  // დამხმარე ფუნქცია მონაცემების წასაკითხად
+  const loadWatchlist = useCallback(() => {
+    if (typeof window === 'undefined') return;
     try {
       const stored = localStorage.getItem(WATCHLIST_KEY);
       if (stored) {
-        // ვინახავთ მხოლოდ ID-ებს
         setWatchlist(JSON.parse(stored));
+      } else {
+        setWatchlist([]); // თუ ცარიელია, გასუფთავდეს
       }
     } catch (error) {
-      console.error("Error loading watchlist from localStorage", error);
+      console.error("Error loading watchlist:", error);
     }
   }, []);
 
-  // 3. useCallback: ფილმის დამატება/წაშლა
-  const toggleItem = useCallback((tmdbId) => {
-    setWatchlist(prevList => {
-      const itemId = String(tmdbId); // ვამუშავებთ როგორც სტრინგს
-      const isCurrentlyInList = prevList.includes(itemId);
-      let newList;
+  // 1. ინიციალიზაცია და მოსმენა (Listen)
+  useEffect(() => {
+    loadWatchlist(); // პირველი ჩატვირთვა
 
-      if (isCurrentlyInList) {
-        newList = prevList.filter(id => id !== itemId);
-      } else {
-        newList = [...prevList, itemId];
-      }
-      
-      // ლოკალურად ვინახავთ განახლებულ სიას
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newList));
-      return newList;
-    });
+    // ვუსმენთ ჩვენს ივენთს (როცა სხვა კომპონენტი ცვლის სიას)
+    const handleLocalUpdate = () => loadWatchlist();
+    
+    // ვუსმენთ "storage" ივენთს (როცა სხვა ტაბში იცვლება სია)
+    const handleStorageUpdate = (e) => {
+      if (e.key === WATCHLIST_KEY) loadWatchlist();
+    };
+
+    window.addEventListener(EVENT_NAME, handleLocalUpdate);
+    window.addEventListener('storage', handleStorageUpdate);
+
+    return () => {
+      window.removeEventListener(EVENT_NAME, handleLocalUpdate);
+      window.removeEventListener('storage', handleStorageUpdate);
+    };
+  }, [loadWatchlist]);
+
+  // 2. დამატება/წაშლა (პირდაპირ LocalStorage-თან მუშაობს)
+  const toggleItem = useCallback((tmdbId) => {
+    if (typeof window === 'undefined') return;
+
+    const itemId = String(tmdbId);
+    
+    // მნიშვნელოვანი: ყოველთვის ვიღებთ ახალ სიას პირდაპირ საცავიდან
+    // (რათა სწრაფად დაჭერისას ძველი მონაცემები არ გადაეწეროს)
+    let currentList = [];
+    try {
+      const stored = localStorage.getItem(WATCHLIST_KEY);
+      if (stored) currentList = JSON.parse(stored);
+    } catch (e) {}
+
+    const isCurrentlyInList = currentList.includes(itemId);
+    let newList;
+
+    if (isCurrentlyInList) {
+      newList = currentList.filter(id => id !== itemId);
+    } else {
+      newList = [...currentList, itemId];
+    }
+    
+    // ვინახავთ განახლებულს
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newList));
+    
+    // ვატყობინებთ ყველა კომპონენტს (Header-ს, სხვა Card-ებს)
+    window.dispatchEvent(new Event(EVENT_NAME));
+    
   }, []);
 
-  // 4. სტატუსის შემოწმება
+  // 3. სტატუსის შემოწმება
   const isInWatchlist = useCallback((tmdbId) => {
     return watchlist.includes(String(tmdbId));
   }, [watchlist]);

@@ -1,48 +1,46 @@
-// src/components/FilterBar.js (სრული სიებით - მყარად ჩაწერილი)
+// src/components/FilterBar.js (ფიქსი: სტაბილური სიები და არჩევა)
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
+// --- 💡 სიები გავიტანეთ გარეთ (სტატიკური), რომ რენდერზე არ შეიცვალოს ---
+const fallbackGenres = [
+    "Боевик", "Вестерн", "Военный", "Детектив", "Документальный",
+    "Драма", "История", "Комедия", "Криминал", "Мелодрама", 
+    "Музыка", "Мультфильм", "Приключения", "Семейный", 
+    "Телевизионный фильм", "Триллер", "Ужасы", "Фантастика", "Фэнтези"
+];
+
+const fallbackCountries = [
+    { en: "United States of America", ru: "США" },
+    { en: "Russian Federation", ru: "Россия" },
+    { en: "United Kingdom", ru: "Великобритания" },
+    { en: "France", ru: "Франция" },
+    { en: "Japan", ru: "Япония" },
+    { en: "South Korea", ru: "Южная Корея" },
+    { en: "Germany", ru: "Германия" },
+    { en: "China", ru: "Китай" },
+    { en: "Canada", ru: "Канада" },
+    { en: "Australia", ru: "Австралия" },
+    { en: "India", ru: "Индия" },
+    { en: "Spain", ru: "Испания" },
+    { en: "Italy", ru: "Италия" },
+    { en: "Mexico", ru: "Мексика" },
+    { en: "Brazil", ru: "Бразилия" },
+    { en: "Turkey", ru: "Турция" },
+    { en: "Sweden", ru: "Швеция" },
+    { en: "Denmark", ru: "Дания" },
+    { en: "Norway", ru: "Норвегия" },
+    { en: "Ukraine", ru: "Украина" },
+    { en: "Belarus", ru: "Беларусь" },
+    { en: "Kazakhstan", ru: "Казахстан" }
+];
+
+const years = Array.from({ length: 25 }, (_, i) => (2024 - i).toString()); 
+
 export default function FilterBar({ initialFilters = {}, genres: propGenres = [], countries: propCountries = [] }) {
   const router = useRouter();
-  
-  // --- 1. სრული ჟანრების სია (შენი ბაზიდან) ---
-  const fallbackGenres = [
-      "Боевик", "Вестерн", "Военный", "Детектив", "Документальный",
-      "Драма", "История", "Комедия", "Криминал", "Мелодрама", 
-      "Музыка", "Мультфильм", "Приключения", "Семейный", 
-      "Телевизионный фильм", "Триллер", "Ужасы", "Фантастика", "Фэнтези"
-  ];
 
-  // --- 2. სრული ქვეყნების სია (შენი JSON-დან) ---
-  // აქ ჩავწერე ყველაზე პოპულარული და ხშირად გამოყენებადი ქვეყნები
-  const fallbackCountries = [
-      { en: "United States of America", ru: "США" },
-      { en: "Russian Federation", ru: "Россия" },
-      { en: "United Kingdom", ru: "Великобритания" },
-      { en: "France", ru: "Франция" },
-      { en: "Japan", ru: "Япония" },
-      { en: "South Korea", ru: "Южная Корея" },
-      { en: "Germany", ru: "Германия" },
-      { en: "China", ru: "Китай" },
-      { en: "Canada", ru: "Канада" },
-      { en: "Australia", ru: "Австралия" },
-      { en: "India", ru: "Индия" },
-      { en: "Spain", ru: "Испания" },
-      { en: "Italy", ru: "Италия" },
-      { en: "Mexico", ru: "Мексика" },
-      { en: "Brazil", ru: "Бразилия" },
-      { en: "Turkey", ru: "Турция" },
-      { en: "Sweden", ru: "Швеция" },
-      { en: "Denmark", ru: "Дания" },
-      { en: "Norway", ru: "Норвегия" },
-      { en: "Ukraine", ru: "Украина" },
-      { en: "Belarus", ru: "Беларусь" },
-      { en: "Kazakhstan", ru: "Казахстан" }
-  ];
-  
-  const years = Array.from({ length: 25 }, (_, i) => (2024 - i).toString()); 
-  
-  // ვიყენებთ ამ სიებს პირდაპირ (აღარ ველოდებით API-ს)
+  // ვიყენებთ დინამიურს, თუ გადმოეცა, თუ არა და - ჩაშენებულს
   const genreList = propGenres.length > 0 ? propGenres : fallbackGenres;
   const countryList = propCountries.length > 0 ? propCountries : fallbackCountries;
 
@@ -54,19 +52,28 @@ export default function FilterBar({ initialFilters = {}, genres: propGenres = []
   const [country, setCountry] = useState(initialFilters.country || 'all');
   const [sort, setSort] = useState(initialFilters.sort || 'year_desc');
 
-  // ეფექტი URL-ის ცვლილებისას
+  // ეფექტი URL-ის ცვლილებისას (მხოლოდ მაშინ განახლდება, თუ URL იცვლება)
   useEffect(() => {
+    // ვამოწმებთ, არის თუ არა რეალურად ფილტრები URL-ში (რომ ტყუილად არ განულდეს)
+    if (!router.isReady) return;
+    
     const currentQuery = router.query;
-    setType(currentQuery.type || 'all');
     
-    const countryInUrl = countryList.find(c => c.en === currentQuery.country);
-    setCountry(countryInUrl ? countryInUrl.ru : currentQuery.country || 'all');
+    if (currentQuery.type) setType(currentQuery.type);
+    if (currentQuery.year) setYear(currentQuery.year);
+    if (currentQuery.rating) setRating(currentQuery.rating);
+    if (currentQuery.sort) setSort(currentQuery.sort);
+
+    if (currentQuery.country) {
+      const countryInUrl = countryList.find(c => c.en === currentQuery.country);
+      setCountry(countryInUrl ? countryInUrl.ru : currentQuery.country);
+    }
     
-    setGenre(currentQuery.genre ? (currentQuery.genre.charAt(0).toUpperCase() + currentQuery.genre.slice(1)) : 'all');
-    setYear(currentQuery.year || 'all');
-    setRating(currentQuery.rating || 'all');
-    setSort(currentQuery.sort || 'year_desc');
-  }, [router.query, countryList]);
+    if (currentQuery.genre) {
+       setGenre(currentQuery.genre.charAt(0).toUpperCase() + currentQuery.genre.slice(1));
+    }
+
+  }, [router.query, router.isReady, countryList]); 
 
 
   const handleFilter = () => {
@@ -109,7 +116,7 @@ export default function FilterBar({ initialFilters = {}, genres: propGenres = []
             </select>
           </div>
 
-          {/* Genre (სრული სია) */}
+          {/* Genre */}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-400 ml-1">Жанр</label>
             <select value={genre} onChange={(e) => setGenre(e.target.value)} className={selectClass}>
@@ -131,7 +138,7 @@ export default function FilterBar({ initialFilters = {}, genres: propGenres = []
             </select>
           </div>
           
-          {/* Country (სრული სია) */}
+          {/* Country */}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-400 ml-1">Страна</label>
             <select value={country} onChange={(e) => setCountry(e.target.value)} className={selectClass}>
@@ -182,7 +189,7 @@ export default function FilterBar({ initialFilters = {}, genres: propGenres = []
         </div>
       </div>
       
-      {/* ნავიგაციის ღილაკები (ჟანრები) - ახლა ეგრევე გამოჩნდება */}
+      {/* ნავიგაცია ჟანრებით */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
         <h3 className="text-sm text-gray-400 mb-2">Навигация по жанрам:</h3>
         <div className="flex flex-wrap gap-2">

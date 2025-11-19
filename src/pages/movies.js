@@ -1,11 +1,11 @@
-// src/pages/movies.js
 import React from 'react';
+import { useRouter } from 'next/router'; // 💡 გვჭირდება როუტერი
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
-import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
+import Pagination from '@/components/Pagination'; // 💡 ახალი კომპონენტი
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
@@ -48,6 +48,16 @@ export async function getServerSideProps({ query: urlQuery }) {
 }
 
 export default function MoviesPage({ movies, currentPage, totalPages }) {
+  const router = useRouter();
+
+  // ფუნქცია გვერდის შესაცვლელად
+  const handlePageChange = (newPage) => {
+    router.push({
+      pathname: '/movies',
+      query: { page: newPage },
+    });
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <Header />
@@ -63,20 +73,13 @@ export default function MoviesPage({ movies, currentPage, totalPages }) {
           ))}
         </div>
 
-        <div className="flex justify-center mt-12 space-x-4">
-          {currentPage > 1 && (
-            <Link href={`/movies?page=${currentPage - 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
-              ← Назад
-            </Link>
-          )}
-          <span className="px-4 py-2 text-gray-400 bg-gray-900 rounded">
-            Страница {currentPage} из {totalPages}
-          </span>
-          {currentPage < totalPages && (
-            <Link href={`/movies?page=${currentPage + 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
-              Вперед →
-            </Link>
-          )}
+        {/* 💡 ახალი პაგინაცია */}
+        <div className="mt-12">
+          <Pagination 
+            currentPage={currentPage} 
+            totalPages={totalPages} 
+            onPageChange={handlePageChange} 
+          />
         </div>
       </main>
       <Footer />

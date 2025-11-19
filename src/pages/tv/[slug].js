@@ -1,4 +1,4 @@
-// src/pages/tv/[slug].js (FIX: 100% из НАШЕЙ БАЗЫ + ВСЕ ДАННЫЕ + Date() Fix)
+// src/pages/tv/[slug].js
 import React, { useState, useCallback, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -10,6 +10,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
+import { useWatchlist } from '@/lib/useWatchlist'; // 💡 ახალი იმპორტი
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -20,7 +21,6 @@ export async function getServerSideProps(context) {
   let kinopoisk_id = null;
   
   try {
-    // 💡 --- ИСПРАВЛЕНИЕ ОШИБКИ 'premiere_ru' [object Date] --- 💡
     const columns = `
       tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
       poster_path, backdrop_path, release_year, rating_tmdb,
@@ -58,11 +58,10 @@ export async function getServerSideProps(context) {
   };
 }
 
-// --- Icons (no change) ---
+// --- Icons ---
 const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg> );
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
-// --- End Icons ---
-
+const HeartIcon = ({ isFilled }) => ( <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg> );
 
 export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }) {
   
@@ -71,9 +70,13 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
+  
+  // 💡 Watchlist Hook
+  const { toggleItem, isInWatchlist } = useWatchlist();
+  const isFavorite = isInWatchlist(tvShow.tmdb_id);
+  
   const router = useRouter();
 
-  // Ручная загрузка скрипта плеера (без изменений)
   useEffect(() => {
     if (kinopoisk_id) {
       const oldScript = document.getElementById('kinobd-player-script');
@@ -90,7 +93,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
     }
   }, [kinopoisk_id, router.asPath]);
   
-  // 'handleShowTrailer' (без изменений)
   const handleShowTrailer = useCallback(async () => {
     setIsModalOpen(true);
     setModalIsLoading(true);
@@ -101,7 +103,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
       return; 
     }
 
-    console.log("Трейлер не найден в Neon, ищем на TMDB...");
     const data = await fetchData(`/tv/${tvShow.tmdb_id}/videos`);
     let trailer = null;
     if (data && data.results) {
@@ -121,7 +122,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
     setModalVideoHtml(''); 
   }, []);
 
-  // Переменные из нашей быстрой базы (без изменений)
   const title = tvShow.title_ru;
   const originalTitle = tvShow.title_en;
   const releaseYear = tvShow.release_year || 'N/A';
@@ -209,10 +209,23 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
             <div className="flex items-center space-x-4 mt-6">
               <button 
                 onClick={handleShowTrailer} 
-                className="trailer-button bg-brand-red text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-colors focus:outline-none"
+                className="trailer-button bg-brand-red text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-colors focus:outline-none flex items-center gap-2"
               >
                 <PlayIcon />
                 Трейлер
+              </button>
+
+              {/* 💡 Кнопка "В избранное" */}
+              <button 
+                onClick={() => toggleItem(tvShow.tmdb_id)}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2 
+                  ${isFavorite 
+                    ? 'bg-white/10 border-brand-red text-brand-red hover:bg-brand-red hover:text-white' 
+                    : 'bg-transparent border-gray-500 text-gray-300 hover:border-white hover:text-white'
+                  }`}
+              >
+                <HeartIcon isFilled={isFavorite} />
+                {isFavorite ? 'В избранном' : 'В избранное'}
               </button>
             </div>
           </div>
@@ -250,7 +263,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
                     {tvShow.countries.join(', ')}
                   </div>
                 )}
-                {/* 💡 --- ИСПРАВЛЕНИЕ ОШИБКИ 'premiere_ru' [object Date] --- 💡 */}
                 {tvShow.premiere_world && (
                   <div>
                     <span className="font-semibold text-gray-500 block">Премьера в мире:</span>
