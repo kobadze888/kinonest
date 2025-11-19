@@ -7,7 +7,7 @@ import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar'; 
-import Pagination from '@/components/Pagination';
+import Pagination from '@/components/Pagination'; 
 
 const countryEnToRuMap = {
   "United States of America": "США",
@@ -64,7 +64,6 @@ export async function getServerSideProps({ query: urlQuery }) {
   }
   
   const currentPage = parseInt(page) || 1;
-  // 💡 30-ზე შევცვალეთ, რომ 5 სვეტიან გრიდზე ლამაზად დაჯდეს
   const limit = 30; 
   const offset = (currentPage - 1) * limit;
 
@@ -172,6 +171,40 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
       query: { ...router.query, page: newPage },
     });
   };
+
+  // 💡 აქტიური ფილტრების გენერირება
+  const getActiveFilters = () => {
+    const active = [];
+    
+    if (filters.type && filters.type !== 'all') {
+      active.push({ label: 'Тип', value: filters.type === 'movie' ? 'Фильмы' : 'Сериалы' });
+    }
+    
+    if (filters.genre && filters.genre !== 'all') {
+      // დეკოდირება და დიდი ასოთი დაწყება
+      const genreName = decodeURIComponent(filters.genre);
+      active.push({ label: 'Жанр', value: genreName.charAt(0).toUpperCase() + genreName.slice(1) });
+    }
+
+    if (filters.year && filters.year !== 'all') {
+      active.push({ label: 'Год', value: filters.year });
+    }
+
+    if (filters.country && filters.country !== 'all') {
+      const countryVal = decodeURIComponent(filters.country);
+      // ვპოულობთ რუსულ სახელს ინგლისურის მიხედვით
+      const countryObj = dynamicCountries.find(c => c.en === countryVal);
+      active.push({ label: 'Страна', value: countryObj ? countryObj.ru : countryVal });
+    }
+
+    if (filters.rating && filters.rating !== 'all') {
+      active.push({ label: 'Рейтинг', value: `> ${filters.rating}` });
+    }
+
+    return active;
+  };
+
+  const activeFilters = getActiveFilters();
   
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
@@ -182,9 +215,34 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
       </div>
 
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
-        <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-white">Результаты фильтрации</h1>
-            <span className="text-gray-400 text-sm">Найдено: {total} (страница {currentPage})</span>
+        
+        {/* 💡 სათაური და აქტიური ფილტრები */}
+        <div className="mb-8">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h1 className="text-2xl font-bold text-white">Результаты фильтрации</h1>
+                <span className="text-gray-400 text-sm">Найдено: {total} (страница {currentPage})</span>
+            </div>
+
+            {/* ფილტრების ბეიჯები */}
+            {activeFilters.length > 0 && (
+              <div className="flex flex-wrap gap-3 items-center">
+                <span className="text-sm text-gray-500">Выбрано:</span>
+                {activeFilters.map((f, idx) => (
+                  <div key={idx} className="flex items-center bg-gray-800 border border-gray-700 rounded-full px-3 py-1 text-sm">
+                    <span className="text-gray-400 mr-2">{f.label}:</span>
+                    <span className="font-medium text-white">{f.value}</span>
+                  </div>
+                ))}
+                
+                {/* გასუფთავების ღილაკი */}
+                <button 
+                  onClick={() => router.push('/discover')}
+                  className="text-sm text-brand-red hover:text-red-400 transition-colors ml-2 underline decoration-dashed underline-offset-4"
+                >
+                  Сбросить все
+                </button>
+              </div>
+            )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
@@ -199,6 +257,12 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
                   <div className="text-6xl mb-4">📂</div>
                   <h2 className="text-xl font-semibold text-white mb-2">Ничего не найдено</h2>
                   <p className="text-gray-400">Попробуйте смягчить условия фильтра.</p>
+                  <button 
+                    onClick={() => router.push('/discover')}
+                    className="mt-4 px-4 py-2 bg-brand-red text-white rounded-md hover:bg-red-700 transition"
+                  >
+                    Сбросить фильтры
+                  </button>
                 </div>
               )
           }

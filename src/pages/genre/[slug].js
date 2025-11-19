@@ -1,22 +1,18 @@
-// src/pages/genre/[slug].js (Stranica zhanra)
-import React from 'react';
+// src/pages/genre/[slug].js (Stranica zhanra + Skeleton)
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
+import MediaCardSkeleton from '@/components/MediaCardSkeleton'; // 💡 Импорт скелетона
 
 export async function getServerSideProps(context) {
   const { slug, page } = context.query;
   const currentPage = parseInt(page) || 1;
-  const limit = 20;
+  const limit = 30; // 💡 Лимит 30 для заполнения сетки
   const offset = (currentPage - 1) * limit;
 
-  // Dekodiruem slug (naprimer, "komediya")
-  // No v nashey baze zhanry na russkom, naprimer "Комедия" ili "боевик"
-  // My budem iskat' chastichnoe sovpadenie v massive genres_names
-  
-  // Primitivnyy mapping dlya primera (mozhno rasshirit')
   const genreMap = {
     'action': 'боевик',
     'comedy': 'комедия',
@@ -31,7 +27,6 @@ export async function getServerSideProps(context) {
     'family': 'семейный'
   };
 
-  // Esli slug v mape, berem russkoe nazvanie, inache ischem kak est'
   const searchGenre = genreMap[slug] || slug;
 
   const columns = `
@@ -45,10 +40,6 @@ export async function getServerSideProps(context) {
   let total = 0;
 
   try {
-    // Ischem filmy, u kotoryh v massive genres_names est' nash zhanr (ILIKE)
-    // My ispolzuem operator && (peresechenie) ili prosto poisk v massive
-    
-    // Dlya prostoty ispolzuem unnest i ILIKE
     const sql = `
       SELECT ${columns} 
       FROM media, unnest(genres_names) as genre
@@ -58,12 +49,11 @@ export async function getServerSideProps(context) {
       LIMIT $2 OFFSET $3
     `;
     
-    const searchPattern = `%${searchGenre}%`; // myagkiy poisk
+    const searchPattern = `%${searchGenre}%`; 
 
     const dbResult = await query(sql, [searchPattern, limit, offset]);
     results = dbResult.rows;
 
-    // Schitaem obshchee kolichestvo
     const countRes = await query(`
       SELECT COUNT(DISTINCT tmdb_id) 
       FROM media, unnest(genres_names) as genre
@@ -88,7 +78,30 @@ export async function getServerSideProps(context) {
 }
 
 export default function GenrePage({ results, genreName, currentPage, totalPages, slug }) {
-  // Delaem pervuyu bukvu zaglavnoy
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  // 💡 Логика отображения скелетонов при смене страницы
+  useEffect(() => {
+    const start = (url) => {
+        // Если мы остаемся на странице жанра (пагинация), включаем загрузку
+        if (url.startsWith(`/genre/${slug}`)) {
+            setLoading(true);
+        }
+    };
+    const end = () => setLoading(false);
+
+    router.events.on('routeChangeStart', start);
+    router.events.on('routeChangeComplete', end);
+    router.events.on('routeChangeError', end);
+    
+    return () => {
+      router.events.off('routeChangeStart', start);
+      router.events.off('routeChangeComplete', end);
+      router.events.off('routeChangeError', end);
+    };
+  }, [router, slug]);
+
   const displayGenre = genreName.charAt(0).toUpperCase() + genreName.slice(1);
 
   return (
@@ -96,34 +109,44 @@ export default function GenrePage({ results, genreName, currentPage, totalPages,
       <Header />
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">
-          Zhanr: <span className="text-brand-red">{displayGenre}</span>
+          Жанр: <span className="text-brand-red">{displayGenre}</span>
         </h1>
         
-        {results.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {results.map(item => (
-              <MediaCard key={item.tmdb_id} item={item} />
-            ))}
-          </div>
-        ) : (
-           <p className="text-gray-400">V etom zhanre poka nichego net.</p>
-        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {loading ? (
+                // 💡 Показываем скелетоны при загрузке
+                Array.from({ length: 30 }).map((_, i) => <MediaCardSkeleton key={i} />)
+            ) : results.length > 0 ? (
+                results.map(item => (
+                <MediaCard key={item.tmdb_id} item={item} />
+                ))
+            ) : (
+                <p className="text-gray-400 col-span-full text-center">В этом жанре пока ничего нет.</p>
+            )}
+        </div>
 
+        {/* Пагинация (обычная, не Infinite Scroll, так как это специфичная страница) */}
         {totalPages > 1 && (
             <div className="flex justify-center mt-10 space-x-4">
-            {currentPage > 1 && (
-                <a href={`/genre/${slug}?page=${currentPage - 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
-                Nazad
-                </a>
-            )}
-            <span className="px-4 py-2 text-gray-400">
-                Stranitsa {currentPage} iz {totalPages}
+            <button 
+                disabled={currentPage <= 1}
+                onClick={() => router.push(`/genre/${slug}?page=${currentPage - 1}`)} 
+                className={`px-4 py-2 rounded transition ${currentPage <= 1 ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-800 hover:bg-brand-red text-white'}`}
+            >
+                Назад
+            </button>
+            
+            <span className="px-4 py-2 text-gray-400 bg-gray-900 rounded">
+                Страница {currentPage} из {totalPages}
             </span>
-            {currentPage < totalPages && (
-                <a href={`/genre/${slug}?page=${currentPage + 1}`} className="px-4 py-2 bg-gray-800 rounded hover:bg-brand-red transition">
-                Vpered
-                </a>
-            )}
+            
+            <button 
+                disabled={currentPage >= totalPages}
+                onClick={() => router.push(`/genre/${slug}?page=${currentPage + 1}`)}
+                className={`px-4 py-2 rounded transition ${currentPage >= totalPages ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-800 hover:bg-brand-red text-white'}`}
+            >
+                Вперед
+            </button>
             </div>
         )}
       </main>

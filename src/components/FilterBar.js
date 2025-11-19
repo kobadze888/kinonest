@@ -1,8 +1,7 @@
-// src/components/FilterBar.js (ფიქსი: სტაბილური სიები და არჩევა)
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
-// --- 💡 სიები გავიტანეთ გარეთ (სტატიკური), რომ რენდერზე არ შეიცვალოს ---
+// --- სტატიკური სიები ---
 const fallbackGenres = [
     "Боевик", "Вестерн", "Военный", "Детектив", "Документальный",
     "Драма", "История", "Комедия", "Криминал", "Мелодрама", 
@@ -40,11 +39,9 @@ const years = Array.from({ length: 25 }, (_, i) => (2024 - i).toString());
 export default function FilterBar({ initialFilters = {}, genres: propGenres = [], countries: propCountries = [] }) {
   const router = useRouter();
 
-  // ვიყენებთ დინამიურს, თუ გადმოეცა, თუ არა და - ჩაშენებულს
   const genreList = propGenres.length > 0 ? propGenres : fallbackGenres;
   const countryList = propCountries.length > 0 ? propCountries : fallbackCountries;
 
-  // სთეითები
   const [type, setType] = useState(initialFilters.type || 'all');
   const [genre, setGenre] = useState(initialFilters.genre || 'all');
   const [year, setYear] = useState(initialFilters.year || 'all');
@@ -52,9 +49,7 @@ export default function FilterBar({ initialFilters = {}, genres: propGenres = []
   const [country, setCountry] = useState(initialFilters.country || 'all');
   const [sort, setSort] = useState(initialFilters.sort || 'year_desc');
 
-  // ეფექტი URL-ის ცვლილებისას (მხოლოდ მაშინ განახლდება, თუ URL იცვლება)
   useEffect(() => {
-    // ვამოწმებთ, არის თუ არა რეალურად ფილტრები URL-ში (რომ ტყუილად არ განულდეს)
     if (!router.isReady) return;
     
     const currentQuery = router.query;
