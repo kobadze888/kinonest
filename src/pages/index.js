@@ -1,6 +1,6 @@
-// --- ОБНОВЛЕННЫЙ ФАЙЛ index.js (Убрали логику поиска) ---
-import React, { useState, useRef, useCallback } from 'react';
-
+// src/pages/index.js
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router'; // 💡 იმპორტი
 import { fetchData } from '../lib/api';
 import { query } from '../lib/db';
 import Header from '../components/Header';
@@ -8,10 +8,8 @@ import HeroSlider from '../components/HeroSlider';
 import MediaCarousel from '../components/MediaCarousel';
 import Footer from '../components/Footer'; 
 import TrailerModal from '../components/TrailerModal'; 
+import MediaCardSkeleton from '../components/MediaCardSkeleton'; // 💡 იმპორტი (თუ საჭიროა)
 
-/**
- * 💡 getServerSideProps (Без изменений, мы его уже обновили)
- */
 export async function getServerSideProps() {
   
   const columns = `
@@ -75,19 +73,32 @@ export async function getServerSideProps() {
   }
 }
 
-/**
- * Главный компонент страницы
- */
 export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, popularActors }) {
-  
-  // 💡 --- УДАЛИЛИ 'searchQuery' и 'setSearchQuery' ОТСЮДА ---
-  
+  const router = useRouter(); // 💡
+  const [loading, setLoading] = useState(false);
+
+  // როუტერის ივენთები (რომ სკელეტონები არ ციმციმებდეს უმიზეზოდ)
+  useEffect(() => {
+    const start = (url) => {
+       if (url === '/') setLoading(true); // მხოლოდ თუ მთავარ გვერდზე ვრჩებით (რაც იშვიათია)
+    };
+    const end = () => setLoading(false);
+    router.events.on('routeChangeStart', start);
+    router.events.on('routeChangeComplete', end);
+    router.events.on('routeChangeError', end);
+    return () => {
+      router.events.off('routeChangeStart', start);
+      router.events.off('routeChangeComplete', end);
+      router.events.off('routeChangeError', end);
+    };
+  }, [router]);
+
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   
   const handleShowTrailer = useCallback(async (movie) => {
-    // ... (Этот код без изменений)
     setIsModalOpen(true);
     setModalIsLoading(true);
     let playerFound = false;
@@ -134,11 +145,9 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     if (oldScript) oldScript.remove();
   }, []);
 
-  // 💡 --- УДАЛИЛИ 'handleSearch' ОТСЮДА ---
 
   return (
     <div className="bg-[#10141A] text-white font-sans">
-      {/* 💡 --- Header теперь не принимает пропсы для поиска --- 💡 */}
       <Header />
 
       <TrailerModal 
@@ -151,23 +160,28 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
       <>
         <HeroSlider movies={heroMovies} onShowTrailer={handleShowTrailer} /> 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20" id="main-container">
+          
+          {/* 💡 isLoading პარამეტრი გადავცეთ MediaCarousel-ს */}
           <MediaCarousel 
             title="Топ фильмы"
             items={topMovies}
             swiperKey="top-movies"
             cardType="movie"
+            isLoading={loading} 
           />
           <MediaCarousel 
             title="Популярные сериалы"
             items={popularTv}
             swiperKey="popular-tv"
             cardType="movie" 
+            isLoading={loading}
           />
           <MediaCarousel 
             title="Фильмы ужасов"
             items={horrorMovies}
             swiperKey="horror-movies"
             cardType="movie"
+            isLoading={loading}
           />
           <MediaCarousel 
             title="Популярные актеры"
@@ -175,6 +189,7 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
             swiperKey="popular-actors"
             onShowTrailer={() => {}} 
             cardType="actor" 
+            isLoading={loading}
           />
         </main>
       </>

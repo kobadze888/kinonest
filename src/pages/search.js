@@ -1,27 +1,22 @@
-// src/pages/search.js (УМНЫЙ ПОИСК: RU + EN + TRANSLIT + QUOTES)
-import React from 'react';
+// src/pages/search.js
+import React, { useState, useEffect } from 'react'; // 💡 useState, useEffect
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
-import { slugify } from '@/lib/utils'; // Импортируем slugify для транслита
+import MediaCardSkeleton from '@/components/MediaCardSkeleton'; // 💡 იმპორტი
+import { slugify } from '@/lib/utils';
 
 export async function getServerSideProps(context) {
   const { q } = context.query;
   if (!q || q.trim() === '') return { props: { results: [], query: '' } };
 
   const rawQuery = q.trim();
-
-  // 1. Подготовка для FTS (Русский + Английский)
-  // Очищаем от спецсимволов для tsquery
   const cleanQuery = rawQuery.replace(/[^\w\sа-яА-ЯёЁ]/g, '');
   const ftsQuery = cleanQuery.split(/\s+/).filter(Boolean).map(w => w + ':*').join(' & ');
-
-  // 2. Транслит (для поиска по search_slug)
   const slugQuery = slugify(rawQuery); 
 
-  // 💡 Запрашиваем все необходимые поля (даты как TEXT)
   const columns = `
     tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
     poster_path, backdrop_path, release_year, rating_tmdb,
@@ -31,37 +26,27 @@ export async function getServerSideProps(context) {
 
   let results = [];
   try {
-    // 💡 Используем "SIMILARITY" (сходство) для транслита
-    // Это позволяет находить "krestni" даже если в базе "krestnyy"
-    
     const sql = `
       SELECT ${columns},
-      -- Вычисляем релевантность для сортировки
       GREATEST(
         ts_rank(to_tsvector('russian', title_ru), to_tsquery('russian', $1)),
-        similarity(search_slug, $2) -- Сходство по транслиту
+        similarity(search_slug, $2) 
       ) as rank
       FROM media 
       WHERE 
-        -- 1. Русский FTS (название + описание)
         to_tsvector('russian', title_ru || ' ' || COALESCE(overview, '')) @@ to_tsquery('russian', $1)
         OR
-        -- 2. Английский FTS (название)
         to_tsvector('english', COALESCE(title_en, '')) @@ to_tsquery('english', $1)
         OR
-        -- 3. Транслит (Нечеткий поиск - Fuzzy Search)
-        -- Ищем, если search_slug ПОХОЖ на запрос или содержит его
         search_slug ILIKE '%' || $2 || '%' 
         OR
-        similarity(search_slug, $2) > 0.3 -- Порог сходства (0.3 - достаточно мягкий)
+        similarity(search_slug, $2) > 0.3 
       
       ORDER BY rank DESC, rating_tmdb DESC
       LIMIT 40
     `;
 
     const finalFtsQuery = ftsQuery || 'пустой_запрос'; 
-    
-    // ВАЖНО: Мы должны передать slugQuery БЕЗ процентов для similarity()
     const dbResult = await query(sql, [finalFtsQuery, slugQuery]);
     results = dbResult.rows;
   } catch (e) {
@@ -73,6 +58,27 @@ export async function getServerSideProps(context) {
 
 export default function SearchPage({ results, query }) {
     const router = useRouter();
+    const [loading, setLoading] = useState(false);
+
+    // 💡 როუტერის ივენთები სკელეტონებისთვის
+    useEffect(() => {
+      const start = (url) => {
+        // მხოლოდ თუ ძიების გვერდზე ვრჩებით (მაგ: ახალი ძიება)
+        if (url.startsWith('/search')) setLoading(true);
+      };
+      const end = () => setLoading(false);
+  
+      router.events.on('routeChangeStart', start);
+      router.events.on('routeChangeComplete', end);
+      router.events.on('routeChangeError', end);
+  
+      return () => {
+        router.events.off('routeChangeStart', start);
+        router.events.off('routeChangeComplete', end);
+        router.events.off('routeChangeError', end);
+      };
+    }, [router]);
+
     return (
         <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
              <Header key={router.asPath} />
@@ -85,19 +91,24 @@ export default function SearchPage({ results, query }) {
                      ) : (
                         <h1 className="text-2xl md:text-3xl font-bold text-white">Поиск</h1>
                      )}
-                     {results.length > 0 && <p className="text-gray-400 mt-2">Найдено: {results.length}</p>}
+                     {!loading && results.length > 0 && <p className="text-gray-400 mt-2">Найдено: {results.length}</p>}
                 </div>
-                {results.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                        {results.map(item => <MediaCard key={item.tmdb_id} item={item} />)}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="text-6xl mb-4">🔍</div>
-                        <h2 className="text-xl font-semibold text-white mb-2">Ничего не найдено</h2>
-                        <p className="text-gray-400 max-w-md">Попробуйте изменить запрос или ввести другое название.</p>
-                    </div>
-                )}
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {loading ? (
+                      // 💡 სკელეტონები
+                      Array.from({ length: 10 }).map((_, i) => <MediaCardSkeleton key={i} />)
+                  ) : results.length > 0 ? (
+                      results.map(item => <MediaCard key={item.tmdb_id} item={item} />)
+                  ) : (
+                      <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+                          <div className="text-6xl mb-4">🔍</div>
+                          <h2 className="text-xl font-semibold text-white mb-2">Ничего не найдено</h2>
+                          <p className="text-gray-400 max-w-md">Попробуйте изменить запрос или ввести другое название.</p>
+                      </div>
+                  )}
+                </div>
+
              </main>
              <Footer />
         </div>

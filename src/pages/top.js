@@ -1,12 +1,13 @@
 // src/pages/top.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
+import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
-import Pagination from '@/components/Pagination'; // 💡 ახალი კომპონენტი
+import Pagination from '@/components/Pagination';
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
@@ -24,7 +25,6 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
-    // Сортировка строго по рейтингу
     const sql = `
       SELECT ${columns} FROM media 
       WHERE type = 'movie' AND rating_tmdb > 0
@@ -36,7 +36,6 @@ export async function getServerSideProps({ query: urlQuery }) {
 
     const countRes = await query(`SELECT COUNT(*) FROM media WHERE type = 'movie' AND rating_tmdb > 0`);
     total = parseInt(countRes.rows[0].count);
-
   } catch (e) {
     console.error("Top Page Error:", e.message);
   }
@@ -52,8 +51,26 @@ export async function getServerSideProps({ query: urlQuery }) {
 
 export default function TopPage({ items, currentPage, totalPages }) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  // ფუნქცია გვერდის შესაცვლელად
+  useEffect(() => {
+    const start = (url) => {
+      // 💡 მხოლოდ თუ /top გვერდზე ვრჩებით
+      if (url.startsWith('/top')) {
+        setLoading(true);
+      }
+    };
+    const end = () => setLoading(false);
+    router.events.on('routeChangeStart', start);
+    router.events.on('routeChangeComplete', end);
+    router.events.on('routeChangeError', end);
+    return () => {
+      router.events.off('routeChangeStart', start);
+      router.events.off('routeChangeComplete', end);
+      router.events.off('routeChangeError', end);
+    };
+  }, [router]);
+
   const handlePageChange = (newPage) => {
     router.push({
       pathname: '/top',
@@ -71,12 +88,14 @@ export default function TopPage({ items, currentPage, totalPages }) {
         <h1 className="text-3xl font-bold text-white mb-8">Топ фильмы</h1>
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {items.map(item => (
-            <MediaCard key={item.tmdb_id} item={item} />
-          ))}
+          {loading 
+            ? Array.from({ length: 24 }).map((_, i) => <MediaCardSkeleton key={i} />)
+            : items.map(item => (
+                <MediaCard key={item.tmdb_id} item={item} />
+              ))
+          }
         </div>
 
-        {/* 💡 ახალი პაგინაცია */}
         <div className="mt-12">
           <Pagination 
             currentPage={currentPage} 
