@@ -1,16 +1,20 @@
-// --- НОВЫЙ ФАЙЛ ---
+// src/components/ActorCard.js (С АКТИВНОЙ ССЫЛКОЙ)
 import React from 'react';
 import Link from 'next/link';
 import { IMAGE_BASE_URL } from '../lib/api';
+import { slugify } from '../lib/utils'; // <-- Импортируем slugify
 
 export default function ActorCard({ actor }) {
   const profilePath = actor.profile_path 
     ? `${IMAGE_BASE_URL}${actor.profile_path}` 
     : 'https://placehold.co/500x500/1f2937/6b7280?text=No+Photo';
+    
+  // Генерируем SEO-дружественный слаг
+  const actorSlug = slugify(actor.name);
+  const linkHref = `/actor/${actor.id}-${actorSlug}`; // <-- Новый путь
 
   return (
-    // TODO: Сделаем ссылку на /actor/[id] в будущем
-    // <Link href={`/actor/${actor.id}`} legacyBehavior>
+    <Link href={linkHref} legacyBehavior>
       <a className="block w-36 md:w-44 text-center cursor-pointer transform transition-transform duration-300 hover:scale-105">
         <div className="aspect-square relative"> {/* aspect-square для 1:1 */}
           <img 
@@ -21,6 +25,6 @@ export default function ActorCard({ actor }) {
         </div>
         <h3 className="font-semibold text-white mt-3 truncate">{actor.name}</h3>
       </a>
-    // </Link>
+    </Link>
   );
 };
