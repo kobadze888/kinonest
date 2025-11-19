@@ -1,22 +1,22 @@
-// src/pages/actors.js (Страница "Все актеры")
+// src/pages/actors.js
 import React from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ActorCard from '@/components/ActorCard'; 
-import Pagination from '@/components/Pagination'; // 💡 ახალი კომპონენტი
+import Pagination from '@/components/Pagination';
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
-  const limit = 24; 
+  // 💡 შეცვლილია 30-ზე
+  const limit = 30; 
   const offset = (page - 1) * limit;
 
   let actors = [];
   let total = 0;
 
   try {
-    // Получаем актеров, сортируем по популярности
     const actorsRes = await query(`
       SELECT id, name, profile_path, popularity 
       FROM actors
@@ -44,7 +44,6 @@ export async function getServerSideProps({ query: urlQuery }) {
 export default function ActorsPage({ actors, currentPage, totalPages }) {
   const router = useRouter();
 
-  // ფუნქცია გვერდის შესაცვლელად
   const handlePageChange = (newPage) => {
     router.push({
       pathname: '/actors',
@@ -66,7 +65,6 @@ export default function ActorsPage({ actors, currentPage, totalPages }) {
           ))}
         </div>
 
-        {/* 💡 ახალი პაგინაცია */}
         <div className="mt-12">
           <Pagination 
             currentPage={currentPage} 

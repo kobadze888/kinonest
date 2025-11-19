@@ -64,7 +64,8 @@ export async function getServerSideProps({ query: urlQuery }) {
   }
   
   const currentPage = parseInt(page) || 1;
-  const limit = 24;
+  // 💡 30-ზე შევცვალეთ, რომ 5 სვეტიან გრიდზე ლამაზად დაჯდეს
+  const limit = 30; 
   const offset = (currentPage - 1) * limit;
 
   let sqlConditions = ["1=1"]; 
@@ -149,7 +150,6 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
 
   useEffect(() => {
     const start = (url) => {
-      // 💡 მხოლოდ თუ /discover გვერდზე ვრჩებით
       if (url.startsWith('/discover')) {
         setLoading(true);
       }
@@ -189,7 +189,7 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {loading 
-            ? Array.from({ length: 24 }).map((_, i) => <MediaCardSkeleton key={i} />)
+            ? Array.from({ length: 30 }).map((_, i) => <MediaCardSkeleton key={i} />)
             : results.length > 0 ? (
                 results.map(item => (
                   <MediaCard key={item.tmdb_id} item={item} />

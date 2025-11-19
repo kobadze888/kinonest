@@ -4,7 +4,7 @@ import Head from 'next/head';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
-import MediaCardSkeleton from '@/components/MediaCardSkeleton'; // 💡 იმპორტი
+import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import { useWatchlist } from '@/lib/useWatchlist';
 
 export default function WatchlistPage() {
@@ -20,6 +20,7 @@ export default function WatchlistPage() {
         return;
       }
 
+      setLoading(true);
       try {
         const res = await fetch(`/api/media-by-ids?ids=${watchlist.join(',')}`);
         if (res.ok) {
@@ -47,13 +48,12 @@ export default function WatchlistPage() {
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 w-full">
         <h1 className="text-3xl font-bold mb-8 flex items-center gap-3">
            <span className="text-brand-red">❤️</span> Избранное
-           {!loading && <span className="text-gray-500 text-lg font-normal">({movies.length})</span>}
+           {!loading && movies.length > 0 && <span className="text-gray-500 text-lg font-normal">({movies.length})</span>}
         </h1>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {loading ? (
-             // 💡 ვაჩვენებთ 10 სკელეტონს ჩატვირთვისას
-             Array.from({ length: 10 }).map((_, i) => <MediaCardSkeleton key={i} />)
+             Array.from({ length: watchlist.length || 10 }).map((_, i) => <MediaCardSkeleton key={i} />)
           ) : movies.length > 0 ? (
              movies.map(item => (
                <MediaCard key={item.tmdb_id} item={item} />

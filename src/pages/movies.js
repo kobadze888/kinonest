@@ -8,9 +8,9 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
 
-// getServerSideProps ტვირთავს მხოლოდ პირველ გვერდს (SEO-სთვის)
 export async function getServerSideProps() {
-  const limit = 24;
+  // 💡 შეცვლილია 30-ზე
+  const limit = 30;
   const offset = 0;
 
   const columns = `
@@ -48,7 +48,6 @@ export default function MoviesPage({ initialMovies }) {
   const [hasMore, setHasMore] = useState(true);
   const router = useRouter();
 
-  // Infinite Scroll-ის მონაცემების ჩატვირთვა
   const loadMoreMovies = useCallback(async () => {
     if (loading || !hasMore) return;
 
@@ -63,7 +62,7 @@ export default function MoviesPage({ initialMovies }) {
           setMovies(prev => [...prev, ...newMovies]);
           setPage(nextPage);
         } else {
-          setHasMore(false); // მეტი მონაცემი აღარ არის
+          setHasMore(false);
         }
       }
     } catch (error) {
@@ -73,7 +72,6 @@ export default function MoviesPage({ initialMovies }) {
     }
   }, [page, loading, hasMore]);
 
-  // სქროლის ივენთის მოსმენა
   useEffect(() => {
     const handleScroll = () => {
       if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 500) {
@@ -99,8 +97,7 @@ export default function MoviesPage({ initialMovies }) {
             <MediaCard key={`${movie.tmdb_id}-${index}`} item={movie} />
           ))}
           
-          {/* ჩატვირთვის დროს სკელეტონების ჩვენება სიის ბოლოში */}
-          {loading && Array.from({ length: 6 }).map((_, i) => (
+          {loading && Array.from({ length: 10 }).map((_, i) => ( // 10 სკელეტონი საკმარისია ჩატვირთვის საჩვენებლად
               <MediaCardSkeleton key={`skeleton-${i}`} />
           ))}
         </div>

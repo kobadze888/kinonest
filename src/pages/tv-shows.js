@@ -9,7 +9,8 @@ import MediaCardSkeleton from '@/components/MediaCardSkeleton';
 import FilterBar from '@/components/FilterBar';
 
 export async function getServerSideProps() {
-  const limit = 24;
+  // 💡 შეცვლილია 30-ზე
+  const limit = 30;
   const offset = 0;
 
   const columns = `
@@ -96,8 +97,7 @@ export default function TvShowsPage({ initialShows }) {
             <MediaCard key={`${show.tmdb_id}-${index}`} item={show} />
           ))}
 
-          {/* სკელეტონები ჩატვირთვისას */}
-          {loading && Array.from({ length: 6 }).map((_, i) => (
+          {loading && Array.from({ length: 10 }).map((_, i) => (
               <MediaCardSkeleton key={`skeleton-${i}`} />
           ))}
         </div>

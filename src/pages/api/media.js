@@ -3,10 +3,11 @@ import { query } from '@/lib/db';
 
 export default async function handler(req, res) {
   const { type, page = 1 } = req.query;
-  const limit = 24;
+  
+  // 💡 შეცვლილია 30-ზე
+  const limit = 30;
   const offset = (page - 1) * limit;
 
-  // ვალიდაცია: type უნდა იყოს 'movie' ან 'tv'
   if (!type || (type !== 'movie' && type !== 'tv')) {
     return res.status(400).json({ error: 'Invalid type parameter' });
   }

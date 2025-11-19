@@ -11,7 +11,8 @@ import Pagination from '@/components/Pagination';
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
-  const limit = 24;
+  // 💡 შეცვლილია 30-ზე
+  const limit = 30;
   const offset = (page - 1) * limit;
 
   const columns = `
@@ -55,7 +56,6 @@ export default function KidsPage({ items, currentPage, totalPages }) {
 
   useEffect(() => {
     const start = (url) => {
-      // 💡 მხოლოდ თუ /kids გვერდზე ვრჩებით
       if (url.startsWith('/kids')) {
         setLoading(true);
       }
@@ -89,7 +89,7 @@ export default function KidsPage({ items, currentPage, totalPages }) {
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {loading 
-            ? Array.from({ length: 24 }).map((_, i) => <MediaCardSkeleton key={i} />)
+            ? Array.from({ length: 30 }).map((_, i) => <MediaCardSkeleton key={i} />)
             : items.map(item => (
                 <MediaCard key={item.tmdb_id} item={item} />
               ))
