@@ -1,14 +1,11 @@
 // src/pages/index.js
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/router'; // 💡 იმპორტი
-import { fetchData } from '../lib/api';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { query } from '../lib/db';
 import Header from '../components/Header';
 import HeroSlider from '../components/HeroSlider';
 import MediaCarousel from '../components/MediaCarousel';
 import Footer from '../components/Footer'; 
-import TrailerModal from '../components/TrailerModal'; 
-import MediaCardSkeleton from '../components/MediaCardSkeleton'; // 💡 იმპორტი (თუ საჭიროა)
 
 export async function getServerSideProps() {
   
@@ -20,43 +17,89 @@ export async function getServerSideProps() {
   `;
 
   try {
-    const heroQuery = query(
-      `SELECT ${columns} FROM media 
-       WHERE type = 'movie' AND backdrop_path IS NOT NULL AND rating_tmdb > 7.0 
-       ORDER BY rating_tmdb DESC 
-       LIMIT 5`
-    );
-    const topQuery = query(
-      `SELECT ${columns} FROM media 
-       WHERE type = 'movie' 
-       ORDER BY rating_tmdb DESC 
-       LIMIT 10`
-    );
-    const tvQuery = query(
-      `SELECT ${columns} FROM media 
-       WHERE type = 'movie' 
-       ORDER BY rating_tmdb DESC 
-       LIMIT 10 OFFSET 10`
-    );
-    const horrorQuery = query(
-      `SELECT ${columns} FROM media
-       WHERE type = 'movie'
-       ORDER BY rating_tmdb DESC
-       LIMIT 10 OFFSET 20`
-    );
-    
-    const heroResult = await heroQuery;
-    const topResult = await topQuery;
-    const tvResult = await tvQuery;
-    const horrorResult = await horrorQuery;
+    // 1. Hero Slider (Топ рейтинг + наличие фона)
+    const heroQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'movie' AND backdrop_path IS NOT NULL AND rating_tmdb > 7.0 
+      ORDER BY rating_tmdb DESC LIMIT 5
+    `);
+
+    // 2. В кинотеатрах (შეცვლილია: 2024-ის ნაცვლად ვიღებთ 2020-ის ზევით, რომ ცარიელი არ იყოს)
+    const nowPlayingQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'movie' AND release_year > 2020
+      ORDER BY release_year DESC, popularity DESC 
+      LIMIT 15
+    `);
+
+    // 3. Новые фильмы (ბაზაში ბოლოს დამატებულები)
+    const newMoviesQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'movie' 
+      ORDER BY created_at DESC 
+      LIMIT 15
+    `);
+
+    // 4. Новые сериалы (სულ 7-ია ჯერჯერობით, მაგრამ გამოიტანს რაც არის)
+    const newSeriesQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'tv' 
+      ORDER BY created_at DESC 
+      LIMIT 15
+    `);
+
+    // 5. Ужасы (Жанр)
+    const horrorQuery = query(`
+      SELECT ${columns} FROM media
+      WHERE type = 'movie' AND genres_names && ARRAY['ужасы', 'Horror']
+      ORDER BY release_year DESC, rating_tmdb DESC
+      LIMIT 15
+    `);
+
+    // 6. Комедии (Жанр)
+    const comedyQuery = query(`
+      SELECT ${columns} FROM media
+      WHERE type = 'movie' AND genres_names && ARRAY['комедия', 'Comedy']
+      ORDER BY release_year DESC, rating_tmdb DESC
+      LIMIT 15
+    `);
+
+    // 7. Популярные актеры
+    const actorsQuery = query(`
+      SELECT id, name, profile_path, popularity 
+      FROM actors 
+      ORDER BY popularity DESC 
+      LIMIT 15
+    `);
+
+    // Выполняем все запросы параллельно
+    const [
+      heroRes, 
+      nowPlayingRes, 
+      newMoviesRes, 
+      newSeriesRes, 
+      horrorRes, 
+      comedyRes, 
+      actorsRes
+    ] = await Promise.all([
+      heroQuery, 
+      nowPlayingQuery, 
+      newMoviesQuery, 
+      newSeriesQuery, 
+      horrorQuery, 
+      comedyQuery, 
+      actorsQuery
+    ]);
 
     return {
       props: {
-        heroMovies: heroResult.rows,
-        topMovies: topResult.rows,
-        popularTv: tvResult.rows,
-        horrorMovies: horrorResult.rows, 
-        popularActors: [], 
+        heroMovies: heroRes.rows,
+        nowPlaying: nowPlayingRes.rows,
+        newMovies: newMoviesRes.rows,
+        newSeries: newSeriesRes.rows,
+        horrorMovies: horrorRes.rows,
+        comedyMovies: comedyRes.rows,
+        popularActors: actorsRes.rows,
       },
     };
   } catch (error) {
@@ -64,23 +107,32 @@ export async function getServerSideProps() {
     return {
       props: {
         heroMovies: [],
-        topMovies: [],
-        popularTv: [],
+        nowPlaying: [],
+        newMovies: [],
+        newSeries: [],
         horrorMovies: [],
+        comedyMovies: [],
         popularActors: [],
       },
     };
   }
 }
 
-export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, popularActors }) {
-  const router = useRouter(); // 💡
+export default function Home({ 
+  heroMovies, 
+  nowPlaying, 
+  newMovies, 
+  newSeries, 
+  horrorMovies, 
+  comedyMovies, 
+  popularActors 
+}) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // როუტერის ივენთები (რომ სკელეტონები არ ციმციმებდეს უმიზეზოდ)
   useEffect(() => {
     const start = (url) => {
-       if (url === '/') setLoading(true); // მხოლოდ თუ მთავარ გვერდზე ვრჩებით (რაც იშვიათია)
+       if (url === '/') setLoading(true);
     };
     const end = () => setLoading(false);
     router.events.on('routeChangeStart', start);
@@ -93,104 +145,70 @@ export default function Home({ heroMovies, topMovies, popularTv, horrorMovies, p
     };
   }, [router]);
 
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalIsLoading, setModalIsLoading] = useState(false);
-  const [modalVideoHtml, setModalVideoHtml] = useState('');
-  
-  const handleShowTrailer = useCallback(async (movie) => {
-    setIsModalOpen(true);
-    setModalIsLoading(true);
-    let playerFound = false;
-    if (movie.kinopoisk_id) {
-        setModalVideoHtml(`
-          <div data-kinopoisk="${movie.kinopoisk_id}" id="kinobd" style="width:100%; height:100%;"></div>
-        `);
-        const oldScript = document.getElementById('kinobd-player-script');
-        if (oldScript) oldScript.remove();
-        const playerScript = document.createElement('script');
-        playerScript.src = 'https://kinobd.net/js/player_.js';
-        playerScript.id = 'kinobd-player-script';
-        document.body.appendChild(playerScript); 
-        playerFound = true;
-    }
-    if (!playerFound) {
-      const data = await fetchData(`/${movie.type}/${movie.tmdb_id}/videos`);
-      let trailer = null;
-      if (data && data.results) {
-        trailer = data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer' && vid.iso_639_1 === 'ru') 
-               || data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer');
-      }
-      if (trailer) {
-        setModalVideoHtml(`
-          <iframe 
-            class="absolute top-0 left-0 w-full h-full" 
-            src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&rel=0" 
-            frameborder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen>
-          </iframe>
-        `);
-      } else {
-        setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Видео не найдено.</p></div>`);
-      }
-    }
-    setModalIsLoading(false);
-  }, [fetchData]);
-
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false);
-    setModalVideoHtml(''); 
-    const oldScript = document.getElementById('kinobd-player-script');
-    if (oldScript) oldScript.remove();
-  }, []);
-
-
   return (
     <div className="bg-[#10141A] text-white font-sans">
       <Header />
-
-      <TrailerModal 
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        isLoading={modalIsLoading}
-        videoHtml={modalVideoHtml}
-      />
       
       <>
-        <HeroSlider movies={heroMovies} onShowTrailer={handleShowTrailer} /> 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20" id="main-container">
+        {/* Hero Slider */}
+        <HeroSlider movies={heroMovies} /> 
+
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20 pb-16" id="main-container">
           
-          {/* 💡 isLoading პარამეტრი გადავცეთ MediaCarousel-ს */}
+          {/* 1. В кинотеатрах (უახლესი ფილმები) */}
           <MediaCarousel 
-            title="Топ фильмы"
-            items={topMovies}
-            swiperKey="top-movies"
+            title="В кинотеатрах"
+            items={nowPlaying}
+            swiperKey="now-playing"
             cardType="movie"
             isLoading={loading} 
           />
+
+          {/* 2. Новые фильмы (ბოლო დამატებული) */}
           <MediaCarousel 
-            title="Популярные сериалы"
-            items={popularTv}
-            swiperKey="popular-tv"
+            title="Новые фильмы"
+            items={newMovies}
+            swiperKey="new-movies"
             cardType="movie" 
             isLoading={loading}
           />
+
+          {/* 3. Новые сериалы */}
           <MediaCarousel 
-            title="Фильмы ужасов"
+            title="Новые сериалы"
+            items={newSeries}
+            swiperKey="new-series"
+            cardType="movie"
+            isLoading={loading}
+          />
+
+          {/* 4. Ужасы */}
+          <MediaCarousel 
+            title="Ужасы"
             items={horrorMovies}
             swiperKey="horror-movies"
             cardType="movie"
             isLoading={loading}
           />
+
+          {/* 5. Комедии */}
+          <MediaCarousel 
+            title="Комедии"
+            items={comedyMovies}
+            swiperKey="comedy-movies"
+            cardType="movie"
+            isLoading={loading}
+          />
+
+          {/* 6. Популярные актеры */}
           <MediaCarousel 
             title="Популярные актеры"
             items={popularActors}
             swiperKey="popular-actors"
-            onShowTrailer={() => {}} 
             cardType="actor" 
             isLoading={loading}
           />
+
         </main>
       </>
       <Footer />

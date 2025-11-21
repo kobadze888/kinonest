@@ -1,4 +1,4 @@
-// src/pages/_app.js (ИСПРАВЛЕННЫЙ КОД)
+// src/pages/_app.js
 import '../styles/globals.css';
 
 // Swiper-ის სრული სტილები
@@ -13,9 +13,28 @@ const GlobalStyles = () => (
   <style jsx global>{`
     /* Swiper სლაიდერისთვის სიმაღლის დაყენება */
     .hero-slider {
-      height: 70vh; /* ეკრანის სიმაღლის 70% */
+      height: 70vh;
       min-height: 500px;
     }
+
+    /* --- 💡 Swiper Initialization Fix (შესწორებული) --- */
+    /* შეცდომა გასწორდა: ვამოწმებთ არა .hero-slider-ს, არამედ მის შიგნით მყოფ .swiper-ს.
+       სანამ .swiper არ ჩაიტვირთება (არ ექნება .swiper-initialized), დამალე სლაიდები.
+    */
+    .hero-slider .swiper:not(.swiper-initialized) .swiper-slide {
+      display: none;
+    }
+    /* პირველი სლაიდი გამოჩნდეს, რომ სიცარიელე არ იყოს */
+    .hero-slider .swiper:not(.swiper-initialized) .swiper-slide:first-child {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 10;
+    }
+    /* --------------------------------------------------------- */
 
     /* გრადიენტი სლაიდერის სურათებზე */
     .slider-gradient::after {
@@ -24,75 +43,107 @@ const GlobalStyles = () => (
       background: linear-gradient(to top, rgba(16, 20, 26, 1) 20%, rgba(16, 20, 26, 0.5) 50%, rgba(16, 20, 26, 0) 100%);
     }
 
-    /* --- 💡 ИСПРАВЛЕНИЕ 1: Стрелки слайдера --- */
+    /* --- Hero Slider: ისრების გასწორება --- */
     :root {
-      --swiper-theme-color: #e50914; /* ბრენდის წითელი */
-      --swiper-navigation-size: 30px; 
+      --swiper-theme-color: #e50914;
     }
     
+    /* ღილაკის კონტეინერი */
     .hero-slider .swiper-button-next,
     .hero-slider .swiper-button-prev {
-      color: white;
-      background-color: rgba(0, 0, 0, 0.3);
-      width: 50px;
-      height: 50px;
+      background-color: rgba(0, 0, 0, 0.5);
+      width: 44px !important;  
+      height: 44px !important; 
       border-radius: 50%;
       transition: all 0.3s ease;
-      /* 💡 ИСПРАВЛЕНИЕ: Мы убираем 'transform' и ставим 'top: 50%' для центрирования */
       top: 50%;
       transform: translateY(-50%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white; 
     }
+
     .hero-slider .swiper-button-next:hover,
     .hero-slider .swiper-button-prev:hover {
-      background-color: rgba(229, 9, 20, 0.8);
+      background-color: #e50914;
+      border-color: #e50914;
     }
+
+    /* ვმალავთ დეფოლტ ფსევდო-ელემენტებს */
     .hero-slider .swiper-button-next::after,
     .hero-slider .swiper-button-prev::after {
-      font-size: 20px;
-      font-weight: 900;
+      display: none !important;
+      content: '' !important;
     }
+
+    /* ვასწორებთ SVG ზომას */
+    .hero-slider .swiper-button-next svg,
+    .hero-slider .swiper-button-prev svg {
+      width: 18px !important;
+      height: 18px !important;
+      color: white !important;
+      fill: white !important;
+    }
+
     .hero-slider .swiper-button-next { right: 20px; }
     .hero-slider .swiper-button-prev { left: 20px; }
 
+
+    /* --- Sub Swiper (ქვედა კარუსელების) ისრები --- */
     .sub-swiper {
       position: relative;
       padding: 0 10px;
     }
     .sub-swiper .swiper-button-next,
     .sub-swiper .swiper-button-prev {
-      color: white;
-      background-color: rgba(0, 0, 0, 0.5);
+      background-color: rgba(20, 20, 20, 0.8);
       border-radius: 50%;
-      width: 40px; 
-      height: 40px;
+      width: 36px !important;
+      height: 36px !important;
       top: 50%;
       transform: translateY(-70%); 
       transition: all 0.3s ease;
+      border: 1px solid rgba(255,255,255,0.1);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
+    
     .sub-swiper .swiper-button-next:hover,
     .sub-swiper .swiper-button-prev:hover {
       background-color: #e50914;
+      border-color: #e50914;
     }
+
     .sub-swiper .swiper-button-next::after,
     .sub-swiper .swiper-button-prev::after {
-      font-size: 16px; 
-      font-weight: 900;
+      display: none !important;
     }
+    .sub-swiper .swiper-button-next svg,
+    .sub-swiper .swiper-button-prev svg {
+      width: 14px !important;
+      height: 14px !important;
+      color: white !important;
+      fill: white !important;
+    }
+
     .sub-swiper .swiper-button-next { right: 0; }
     .sub-swiper .swiper-button-prev { left: 0; }
     
     .swiper-slide {
-      width: auto; /* აუცილებელია slidesPerView: 'auto'-სთვის */
+      width: auto;
     }
     
-    /* 💡 --- ИСПРАВЛЕНИЕ 2: Красные постеры --- */
+    /* დანარჩენი სტილები */
      .aspect-2-3 {
         position: relative;
-        padding-bottom: 150%; /* 2:3 */
+        padding-bottom: 150%;
         height: 0;
         overflow: hidden;
     }
-    /* 💡 ИСПРАВЛЕНИЕ: Правило должно применяться ТОЛЬКО к 'img' */
     .aspect-2-3 img {
         position: absolute;
         top: 0;
@@ -103,7 +154,7 @@ const GlobalStyles = () => (
     }
     .aspect-square { 
         position: relative;
-        padding-bottom: 100%; /* 1:1 */
+        padding-bottom: 100%;
         height: 0;
         overflow: hidden;
     }
@@ -116,7 +167,6 @@ const GlobalStyles = () => (
         object-fit: cover;
     }
     
-    /* (Остальной код без изменений) */
     .line-clamp-3 {
         overflow: hidden;
         display: -webkit-box;
@@ -138,7 +188,7 @@ const GlobalStyles = () => (
     
     .aspect-video {
         position: relative;
-        padding-bottom: 56.25%; /* 16:9 */
+        padding-bottom: 56.25%;
         height: 0;
         overflow: hidden;
     }

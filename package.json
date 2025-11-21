@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync-smart": "node scripts/sync-smart.js"
   },
   "dependencies": {
     "autoprefixer": "^10.4.22",
