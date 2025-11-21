@@ -1,4 +1,3 @@
-// src/pages/actors.js
 import React from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
@@ -9,7 +8,6 @@ import Pagination from '@/components/Pagination';
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
-  // 💡 შეცვლილია 30-ზე
   const limit = 30; 
   const offset = (page - 1) * limit;
 
@@ -17,15 +15,29 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
-    const actorsRes = await query(`
-      SELECT id, name, profile_path, popularity 
-      FROM actors
-      ORDER BY popularity DESC
+    // 💡 ახალი ლოგიკა: ვიღებთ მხოლოდ მაღალრეიტინგული (>7.0) US/UK ფილმების მსახიობებს
+    // და ვალაგებთ პოპულარობის მიხედვით
+    const actorsQuery = `
+      SELECT DISTINCT a.id, a.name, a.profile_path, a.popularity 
+      FROM actors a
+      JOIN media_actors ma ON a.id = ma.actor_id
+      JOIN media m ON ma.media_id = m.tmdb_id
+      WHERE a.profile_path IS NOT NULL 
+        AND m.type = 'movie'
+        AND m.rating_imdb > 7.0
+        AND ('США' = ANY(m.countries) OR 'Великобритания' = ANY(m.countries))
+      ORDER BY a.popularity DESC
       LIMIT $1 OFFSET $2
-    `, [limit, offset]);
+    `;
+    
+    const actorsRes = await query(actorsQuery, [limit, offset]);
     actors = actorsRes.rows;
 
-    const countRes = await query(`SELECT COUNT(*) FROM actors`);
+    // მთლიანი რაოდენობის დათვლა იგივე კრიტერიუმით (მიახლოებით)
+    // ზუსტი count რთული ქუერით ძვირია, ამიტომ უბრალოდ actors ცხრილიდან ვიღებთ, 
+    // ან შეგვიძლია დავტოვოთ ძველი count თუ პერფორმანსი პრობლემაა.
+    // აქ სჯობს დავტოვოთ მარტივი count, რადგან ფილტრაცია ლიმიტირებულია.
+    const countRes = await query(`SELECT COUNT(*) FROM actors WHERE profile_path IS NOT NULL`);
     total = parseInt(countRes.rows[0].count);
 
   } catch (e) {

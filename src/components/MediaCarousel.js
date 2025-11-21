@@ -1,27 +1,42 @@
-// src/components/MediaCarousel.js (განახლებული სკელეტონებით)
 import React from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation } from 'swiper/modules';
+import Link from 'next/link'; // 💡 Link იმპორტი
 import MediaCard from './MediaCard';
 import ActorCard from './ActorCard';
-import MediaCardSkeleton from './MediaCardSkeleton'; // 💡 იმპორტი
+import MediaCardSkeleton from './MediaCardSkeleton'; 
 
-export default function MediaCarousel({ title, items, cardType, swiperKey, onShowTrailer, isLoading }) {
-  // თუ არ იტვირთება და არც აიტემებია, არაფერი ვაჩვენოთ
+export default function MediaCarousel({ title, items, cardType, swiperKey, onShowTrailer, isLoading, link }) {
   if (!isLoading && (!items || items.length === 0)) {
     return null;
   }
   
   const CardComponent = cardType === 'actor' ? ActorCard : MediaCard;
   const slideWidthClass = cardType === 'actor' ? '!w-36 md:!w-44' : '!w-44 md:!w-52';
-
-  // თუ იტვირთება, ვაჩვენებთ 10 სკელეტონს
   const showSkeletons = isLoading;
   const skeletonItems = Array.from({ length: 10 });
 
   return (
     <section className="my-10">
-      {title && <h2 className="text-2xl font-bold text-white mb-4 ml-2">{title}</h2>}
+      {/* 💡 სათაური ხდება ლინკი, თუ 'link' prop გადაცემულია */}
+      <div className="flex items-center justify-between mb-4 ml-2 mr-2">
+        {title && (
+            link ? (
+                <Link href={link} className="group flex items-center gap-2 cursor-pointer">
+                    <h2 className="text-2xl font-bold text-white group-hover:text-brand-red transition-colors">
+                        {title}
+                    </h2>
+                    {/* პატარა ისარი */}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-gray-400 group-hover:text-brand-red group-hover:translate-x-1 transition-all">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                </Link>
+            ) : (
+                <h2 className="text-2xl font-bold text-white">{title}</h2>
+            )
+        )}
+      </div>
+
       <div className={`swiper sub-swiper ${swiperKey}-swiper`}>
         <Swiper
           modules={[Navigation]}
@@ -35,7 +50,6 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
           {showSkeletons 
             ? skeletonItems.map((_, index) => (
                 <SwiperSlide key={`skeleton-${index}`} className={`${slideWidthClass}`}>
-                  {/* მსახიობებისთვის სხვა ზომის სკელეტონი შეიძლება დაგვჭირდეს, მაგრამ ჯერჯერობით ამას გამოვიყენებთ ან წრეს */}
                   {cardType === 'actor' ? (
                      <div className="w-full aspect-square bg-gray-800 rounded-full animate-pulse"></div>
                   ) : (
@@ -44,7 +58,7 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
                 </SwiperSlide>
               ))
             : items.map(item => (
-                <SwiperSlide key={item.id || item.tmdb_id} className={`${slideWidthClass} transition-all duration-300 hover:z-20`}>
+                <SwiperSlide key={item.id || item.tmdb_id} className={`${slideWidthClass} transition-all duration-300`}>
                   {cardType === 'actor' ? (
                     <ActorCard actor={item} />
                   ) : (

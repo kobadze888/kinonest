@@ -1,94 +1,122 @@
-// src/pages/index.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { fetchData } from '../lib/api';
 import { query } from '../lib/db';
 import Header from '../components/Header';
 import HeroSlider from '../components/HeroSlider';
 import MediaCarousel from '../components/MediaCarousel';
 import Footer from '../components/Footer'; 
+import TrailerModal from '../components/TrailerModal'; 
 
 export async function getServerSideProps() {
+  const currentYear = new Date().getFullYear(); 
   
   const columns = `
     tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
     poster_path, backdrop_path, release_year, rating_tmdb,
     genres_ids, genres_names,
-    created_at::TEXT, updated_at::TEXT 
+    created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
+  `;
+
+  // 💡 მკაცრი ფილტრი:
+  // 1. აქვს ფონი და პოსტერი
+  // 2. აქვს რუსული სათაური
+  // 3. აქვს Kinopoisk ID (პლეერი)
+  // 4. IMDb რეიტინგი > 5.0
+  const strictCondition = `
+    backdrop_path IS NOT NULL 
+    AND poster_path IS NOT NULL
+    AND title_ru IS NOT NULL AND title_ru != 'No Title'
+    AND kinopoisk_id IS NOT NULL
+    AND rating_imdb > 5.0
   `;
 
   try {
-    // 1. Hero Slider (Топ рейтинг + наличие фона)
+    // 1. Hero Slider: მხოლოდ მიმდინარე წელი (2025), მხოლოდ აშშ/ბრიტანეთი, მაღალი რეიტინგი
     const heroQuery = query(`
       SELECT ${columns} FROM media 
-      WHERE type = 'movie' AND backdrop_path IS NOT NULL AND rating_tmdb > 7.0 
-      ORDER BY rating_tmdb DESC LIMIT 5
+      WHERE type = 'movie' 
+        AND ${strictCondition}
+        AND release_year = ${currentYear}
+        AND (
+          'США' = ANY(countries) OR 'Великобритания' = ANY(countries)
+        )
+      ORDER BY rating_imdb DESC, popularity DESC 
+      LIMIT 10
     `);
 
-    // 2. В кинотеатрах (შეცვლილია: 2024-ის ნაცვლად ვიღებთ 2020-ის ზევით, რომ ცარიელი არ იყოს)
+    // 2. В кинотеатрах: მიმდინარე წლის ჰიტები (ყველა ქვეყანა)
     const nowPlayingQuery = query(`
       SELECT ${columns} FROM media 
-      WHERE type = 'movie' AND release_year > 2020
-      ORDER BY release_year DESC, popularity DESC 
+      WHERE type = 'movie' 
+        AND ${strictCondition}
+        AND release_year = ${currentYear}
+      ORDER BY popularity DESC, rating_imdb DESC
       LIMIT 15
     `);
 
-    // 3. Новые фильмы (ბაზაში ბოლოს დამატებულები)
+    // 3. Свежие поступления: ბოლოს დამატებული (2024-2026)
     const newMoviesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
+        AND ${strictCondition}
+        AND release_year >= ${currentYear - 1}
       ORDER BY created_at DESC 
       LIMIT 15
     `);
 
-    // 4. Новые сериалы (სულ 7-ია ჯერჯერობით, მაგრამ გამოიტანს რაც არის)
+    // 4. Новые сериалы
     const newSeriesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv' 
-      ORDER BY created_at DESC 
+        AND ${strictCondition}
+      ORDER BY release_year DESC, created_at DESC 
       LIMIT 15
     `);
 
-    // 5. Ужасы (Жанр)
+    // 5. Ужасы
     const horrorQuery = query(`
       SELECT ${columns} FROM media
-      WHERE type = 'movie' AND genres_names && ARRAY['ужасы', 'Horror']
-      ORDER BY release_year DESC, rating_tmdb DESC
+      WHERE type = 'movie' 
+        AND genres_names && ARRAY['ужасы', 'Horror']
+        AND ${strictCondition}
+        AND release_year >= ${currentYear - 3}
+      ORDER BY release_year DESC, rating_imdb DESC
       LIMIT 15
     `);
 
-    // 6. Комедии (Жанр)
+    // 6. Комедии
     const comedyQuery = query(`
       SELECT ${columns} FROM media
-      WHERE type = 'movie' AND genres_names && ARRAY['комедия', 'Comedy']
-      ORDER BY release_year DESC, rating_tmdb DESC
+      WHERE type = 'movie' 
+        AND genres_names && ARRAY['комедия', 'Comedy']
+        AND ${strictCondition}
+        AND release_year >= ${currentYear - 3}
+      ORDER BY release_year DESC, rating_imdb DESC
       LIMIT 15
     `);
 
-    // 7. Популярные актеры
+    // 7. 💡 მსახიობები (განახლებული ლოგიკა):
+    // ვიღებთ მსახიობებს, რომლებიც თამაშობენ მაღალრეიტინგულ (>7.0) ამერიკულ/ბრიტანულ ფილმებში
     const actorsQuery = query(`
-      SELECT id, name, profile_path, popularity 
-      FROM actors 
-      ORDER BY popularity DESC 
+      SELECT * FROM (
+        SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity 
+        FROM actors a
+        JOIN media_actors ma ON a.id = ma.actor_id
+        JOIN media m ON ma.media_id = m.tmdb_id
+        WHERE a.profile_path IS NOT NULL
+          AND m.type = 'movie'
+          AND m.rating_imdb > 7.0
+          AND ('США' = ANY(m.countries) OR 'Великобритания' = ANY(m.countries))
+        ORDER BY a.id, a.popularity DESC 
+        LIMIT 100
+      ) as top_actors
+      ORDER BY RANDOM() 
       LIMIT 15
     `);
 
-    // Выполняем все запросы параллельно
-    const [
-      heroRes, 
-      nowPlayingRes, 
-      newMoviesRes, 
-      newSeriesRes, 
-      horrorRes, 
-      comedyRes, 
-      actorsRes
-    ] = await Promise.all([
-      heroQuery, 
-      nowPlayingQuery, 
-      newMoviesQuery, 
-      newSeriesQuery, 
-      horrorQuery, 
-      comedyQuery, 
-      actorsQuery
+    const [heroRes, nowPlayingRes, newMoviesRes, newSeriesRes, horrorRes, comedyRes, actorsRes] = await Promise.all([
+      heroQuery, nowPlayingQuery, newMoviesQuery, newSeriesQuery, horrorQuery, comedyQuery, actorsQuery
     ]);
 
     return {
@@ -100,40 +128,24 @@ export async function getServerSideProps() {
         horrorMovies: horrorRes.rows,
         comedyMovies: comedyRes.rows,
         popularActors: actorsRes.rows,
+        currentYear
       },
     };
   } catch (error) {
-    console.error("Home Page SSR Error (Database):", error.message);
-    return {
-      props: {
-        heroMovies: [],
-        nowPlaying: [],
-        newMovies: [],
-        newSeries: [],
-        horrorMovies: [],
-        comedyMovies: [],
-        popularActors: [],
-      },
-    };
+    console.error("Home Page SSR Error:", error.message);
+    return { props: { heroMovies: [], nowPlaying: [], newMovies: [], newSeries: [], horrorMovies: [], comedyMovies: [], popularActors: [], currentYear } };
   }
 }
 
 export default function Home({ 
-  heroMovies, 
-  nowPlaying, 
-  newMovies, 
-  newSeries, 
-  horrorMovies, 
-  comedyMovies, 
-  popularActors 
+  heroMovies, nowPlaying, newMovies, newSeries, 
+  horrorMovies, comedyMovies, popularActors, currentYear 
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const start = (url) => {
-       if (url === '/') setLoading(true);
-    };
+    const start = (url) => { if (url === '/') setLoading(true); };
     const end = () => setLoading(false);
     router.events.on('routeChangeStart', start);
     router.events.on('routeChangeComplete', end);
@@ -145,68 +157,111 @@ export default function Home({
     };
   }, [router]);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalIsLoading, setModalIsLoading] = useState(false);
+  const [modalVideoHtml, setModalVideoHtml] = useState('');
+  
+  const handleShowTrailer = useCallback(async (movie) => {
+    setIsModalOpen(true);
+    setModalIsLoading(true);
+    
+    if (movie.kinopoisk_id) {
+        setModalVideoHtml(`
+          <div id="yohoho" data-kinopoisk="${movie.kinopoisk_id}" data-player="videocdn,kodik,collaps" style="width:100%; height:100%;"></div>
+        `);
+        const oldScript = document.getElementById('yohoho-script');
+        if (oldScript) oldScript.remove();
+        const script = document.createElement('script');
+        script.src = 'https://yohoho.cc/yo.js';
+        script.id = 'yohoho-script';
+        document.body.appendChild(script);
+        setModalIsLoading(false);
+        return;
+    }
+    
+    if (movie.trailer_url) {
+         let embedUrl = movie.trailer_url.replace('watch?v=', 'embed/');
+         setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${embedUrl}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
+    } else {
+         setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl">Трейлер не найден</p></div>`);
+    }
+    setModalIsLoading(false);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false);
+    setModalVideoHtml(''); 
+    const s = document.getElementById('yohoho-script');
+    if (s) s.remove();
+  }, []);
+
   return (
     <div className="bg-[#10141A] text-white font-sans">
       <Header />
-      
+      <TrailerModal isOpen={isModalOpen} onClose={closeModal} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
+
       <>
-        {/* Hero Slider */}
         <HeroSlider movies={heroMovies} /> 
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20 pb-16" id="main-container">
           
-          {/* 1. В кинотеатрах (უახლესი ფილმები) */}
           <MediaCarousel 
-            title="В кинотеатрах"
+            title={`В кинотеатрах (${currentYear})`}
             items={nowPlaying}
             swiperKey="now-playing"
             cardType="movie"
-            isLoading={loading} 
+            isLoading={loading}
+            link={`/discover?year=${currentYear}&sort=rating_desc`} 
+            onShowTrailer={handleShowTrailer}
           />
 
-          {/* 2. Новые фильмы (ბოლო დამატებული) */}
           <MediaCarousel 
-            title="Новые фильмы"
+            title="Свежие поступления" 
             items={newMovies}
             swiperKey="new-movies"
             cardType="movie" 
             isLoading={loading}
+            link="/discover?sort=year_desc&type=movie" 
+            onShowTrailer={handleShowTrailer}
           />
 
-          {/* 3. Новые сериалы */}
           <MediaCarousel 
             title="Новые сериалы"
             items={newSeries}
             swiperKey="new-series"
             cardType="movie"
             isLoading={loading}
+            link="/discover?sort=year_desc&type=tv" 
+            onShowTrailer={handleShowTrailer}
           />
 
-          {/* 4. Ужасы */}
           <MediaCarousel 
-            title="Ужасы"
+            title="Ужасы (Новинки)"
             items={horrorMovies}
             swiperKey="horror-movies"
             cardType="movie"
             isLoading={loading}
+            link="/discover?genre=ужасы&sort=year_desc" 
+            onShowTrailer={handleShowTrailer}
           />
 
-          {/* 5. Комедии */}
           <MediaCarousel 
-            title="Комедии"
+            title="Комедии (Новинки)"
             items={comedyMovies}
             swiperKey="comedy-movies"
             cardType="movie"
             isLoading={loading}
+            link="/discover?genre=комедия&sort=year_desc" 
+            onShowTrailer={handleShowTrailer}
           />
 
-          {/* 6. Популярные актеры */}
           <MediaCarousel 
             title="Популярные актеры"
             items={popularActors}
             swiperKey="popular-actors"
             cardType="actor" 
             isLoading={loading}
+            link="/actors" 
           />
 
         </main>

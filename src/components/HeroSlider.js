@@ -1,16 +1,16 @@
-// src/components/HeroSlider.js
 import React from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay, EffectFade } from 'swiper/modules';
 import Image from 'next/image';
-import Link from 'next/link';
+import Link from 'next/link'; 
 import { BACKDROP_BASE_URL } from '../lib/api';
-import { slugify } from '../lib/utils';
+import { slugify } from '../lib/utils'; 
 
-const StarIcon = () => (
-  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path>
-  </svg>
+const ImdbBadgeSlider = ({ rating }) => (
+  <div className="bg-[#F5C518] text-black px-2 py-0.5 rounded flex items-center gap-1.5 font-bold text-sm shadow-md border border-yellow-500">
+    <span className="font-black tracking-tighter">IMDb</span>
+    <span>{rating}</span>
+  </div>
 );
 
 export default function HeroSlider({ movies }) {
@@ -24,7 +24,7 @@ export default function HeroSlider({ movies }) {
         modules={[Navigation, Pagination, Autoplay, EffectFade]}
         loop={true}
         autoplay={{
-          delay: 6000,
+          delay: 5000,
           disableOnInteraction: false,
         }}
         pagination={{
@@ -46,9 +46,11 @@ export default function HeroSlider({ movies }) {
             ? `${BACKDROP_BASE_URL}${movie.backdrop_path}`
             : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
           const year = movie.release_year || 'N/A';
-          const rating = movie.rating_tmdb ? movie.rating_tmdb : 'N/A';
-          const genres = (movie.genres_names || []).slice(0, 3);
           
+          // 💡 IMDb რეიტინგი პრიორიტეტულია
+          const rating = movie.rating_imdb > 0 ? movie.rating_imdb : null;
+          const genres = (movie.genres_names || []).slice(0, 3);
+
           const titleSlug = slugify(title);
           const seoSuffix = 'smotret-onlain-besplatno';
           const linkHref = `/${movie.type}/${movie.tmdb_id}-${titleSlug}-${seoSuffix}`;
@@ -68,10 +70,8 @@ export default function HeroSlider({ movies }) {
               <div className="relative z-10 flex flex-col justify-end h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 md:pb-32">
                 
                 <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mb-3">
-                  <div className="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-semibold text-white flex items-center gap-1.5">
-                    <StarIcon />
-                    <span>{rating}</span>
-                  </div>
+                  {rating && <ImdbBadgeSlider rating={rating} />}
+                  
                   <div className="text-white font-semibold text-sm border-2 border-white/50 rounded-md px-2 py-0.5">
                     {year}
                   </div>
@@ -82,16 +82,14 @@ export default function HeroSlider({ movies }) {
                   ))}
                 </div>
                 
-                {/* 💡 ამოღებულია shadow-lg კლასი */}
-                <h2 className="text-3xl md:text-5xl font-black text-white">{title}</h2>
-                
+                <h2 className="text-3xl md:text-5xl font-black text-white shadow-lg">{title}</h2>
                 <p className="max-w-xl text-md md:text-lg text-gray-200 mt-4 line-clamp-3">{movie.overview}</p>
                 
                 <Link href={linkHref} className="mt-6 inline-block w-auto max-w-xs">
                   <button 
-                    className="trailer-button bg-brand-red text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-colors focus:outline-none flex items-center gap-2"
+                    className="trailer-button bg-brand-red text-white font-bold py-3 px-6 rounded-lg w-full hover:bg-red-700 transition-colors focus:outline-none flex items-center gap-2"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                     </svg>
                     Смотреть фильм
