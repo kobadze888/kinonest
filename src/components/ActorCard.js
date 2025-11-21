@@ -1,30 +1,37 @@
-// src/components/ActorCard.js (С АКТИВНОЙ ССЫЛКОЙ)
+// src/components/ActorCard.js
 import React from 'react';
 import Link from 'next/link';
 import { IMAGE_BASE_URL } from '../lib/api';
-import { slugify } from '../lib/utils'; // <-- Импортируем slugify
+import { slugify } from '../lib/utils';
 
 export default function ActorCard({ actor }) {
   const profilePath = actor.profile_path 
     ? `${IMAGE_BASE_URL}${actor.profile_path}` 
     : 'https://placehold.co/500x500/1f2937/6b7280?text=No+Photo';
     
-  // Генерируем SEO-дружественный слаг
   const actorSlug = slugify(actor.name);
-  const linkHref = `/actor/${actor.id}-${actorSlug}`; // <-- Новый путь
+  const linkHref = `/actor/${actor.id}-${actorSlug}`;
 
   return (
-    <Link href={linkHref} legacyBehavior>
-      <a className="block w-36 md:w-44 text-center cursor-pointer transform transition-transform duration-300 hover:scale-105">
-        <div className="aspect-square relative"> {/* aspect-square для 1:1 */}
+    <Link 
+      href={linkHref} 
+      className="group flex flex-col items-center text-center cursor-pointer w-full"
+    >
+      {/* 💡 სურათის ზომა აღდგენილია დიდ ზომაზე: w-32 h-32 md:w-40 md:h-40 */}
+      <div className="relative w-32 h-32 md:w-40 md:h-40 mb-3 mx-auto">
+        <div className="w-full h-full rounded-full overflow-hidden border-4 border-gray-800 group-hover:border-brand-red transition-all duration-300 shadow-lg relative z-10">
           <img 
             src={profilePath} 
             alt={actor.name} 
-            className="w-full h-full object-cover rounded-full border-4 border-gray-800 hover:border-brand-red transition-colors"
+            className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
           />
         </div>
-        <h3 className="font-semibold text-white mt-3 truncate">{actor.name}</h3>
-      </a>
+      </div>
+
+      {/* მსახიობის სახელი */}
+      <h3 className="text-sm md:text-base font-semibold text-gray-300 group-hover:text-white transition-colors line-clamp-2 leading-tight px-1">
+        {actor.name}
+      </h3>
     </Link>
   );
 };

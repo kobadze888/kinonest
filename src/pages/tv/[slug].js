@@ -179,7 +179,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end pb-16">
           <div className="w-full md:w-2/3 lg:w-1/A">
-            <h1 className="text-4xl md:text-6xl font-black text-white shadow-lg">{title}</h1>
+            <h1 className="text-4xl md:text-6xl font-black text-white">{title}</h1>
             <div className="flex items-center space-x-4 mt-4 text-gray-300">
               <span>{releaseYear}</span>
               <span>•</span>
