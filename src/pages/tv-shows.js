@@ -1,4 +1,3 @@
-// src/pages/tv-shows.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
@@ -7,11 +6,14 @@ import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton';
 import FilterBar from '@/components/FilterBar';
+import { getDynamicFilters } from '@/lib/getFilters'; // 💡 იმპორტი
 
 export async function getServerSideProps() {
-  // 💡 შეცვლილია 30-ზე
   const limit = 30;
   const offset = 0;
+
+  // 💡 ვიღებთ ფილტრებს
+  const { genres, countries } = await getDynamicFilters();
 
   const columns = `
     tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
@@ -37,11 +39,13 @@ export async function getServerSideProps() {
   return {
     props: {
       initialShows,
+      genres,
+      countries
     },
   };
 }
 
-export default function TvShowsPage({ initialShows }) {
+export default function TvShowsPage({ initialShows, genres, countries }) {
   const [shows, setShows] = useState(initialShows);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -50,10 +54,8 @@ export default function TvShowsPage({ initialShows }) {
 
   const loadMoreShows = useCallback(async () => {
     if (loading || !hasMore) return;
-
     setLoading(true);
     const nextPage = page + 1;
-
     try {
       const res = await fetch(`/api/media?type=tv&page=${nextPage}`);
       if (res.ok) {
@@ -78,7 +80,6 @@ export default function TvShowsPage({ initialShows }) {
         loadMoreShows();
       }
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [loadMoreShows]);
@@ -87,7 +88,8 @@ export default function TvShowsPage({ initialShows }) {
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <Header />
       <div className="pt-20">
-         <FilterBar />
+         {/* 💡 ვაწვდით დინამიურ ფილტრებს */}
+         <FilterBar genres={genres} countries={countries} />
       </div>
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">Сериалы</h1>

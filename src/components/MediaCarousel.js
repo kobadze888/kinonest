@@ -44,7 +44,7 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
                 </SwiperSlide>
               ))
             : items.map(item => (
-                <SwiperSlide key={item.id || item.tmdb_id} className={`${slideWidthClass} transition-all duration-300 hover:scale-105 hover:z-20`}>
+                <SwiperSlide key={item.id || item.tmdb_id} className={`${slideWidthClass} transition-all duration-300 hover:z-20`}>
                   {cardType === 'actor' ? (
                     <ActorCard actor={item} />
                   ) : (

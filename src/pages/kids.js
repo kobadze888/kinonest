@@ -1,4 +1,3 @@
-// src/pages/kids.js
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
@@ -8,12 +7,15 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
 import Pagination from '@/components/Pagination';
+import { getDynamicFilters } from '@/lib/getFilters'; // 💡
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
-  // 💡 შეცვლილია 30-ზე
   const limit = 30;
   const offset = (page - 1) * limit;
+  
+  // 💡 ფილტრები ბაზიდან
+  const { genres, countries } = await getDynamicFilters();
 
   const columns = `
     tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
@@ -46,11 +48,13 @@ export async function getServerSideProps({ query: urlQuery }) {
       items,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
+      genres,
+      countries
     },
   };
 }
 
-export default function KidsPage({ items, currentPage, totalPages }) {
+export default function KidsPage({ items, currentPage, totalPages, genres, countries }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -82,7 +86,7 @@ export default function KidsPage({ items, currentPage, totalPages }) {
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <Header />
       <div className="pt-20">
-        <FilterBar />
+        <FilterBar genres={genres} countries={countries} />
       </div>
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">Детям</h1>
