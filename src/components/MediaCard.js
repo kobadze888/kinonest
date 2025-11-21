@@ -1,9 +1,11 @@
+// src/components/MediaCard.js
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; 
 import { slugify } from '../lib/utils';
 import { useWatchlist } from '@/lib/useWatchlist'; 
 
+// 💡 PlayIcon-ის დეფინიცია (ფიქსავს ReferenceError)
 const PlayIcon = () => (
   <svg className="w-12 h-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -26,15 +28,14 @@ const HeartIcon = ({ isFilled }) => (
 );
 
 export default function MediaCard({ item }) {
+  if (!item) return null; 
+
   const { toggleItem, isInWatchlist } = useWatchlist(); 
   
   const title = item.title_ru || item.title_en; 
   const year = item.release_year || 'N/A';
   const type = item.type === 'movie' ? 'Фильм' : 'Сериал';
   
-  // 💡 რეიტინგის ლოგიკა:
-  // თუ IMDb რეიტინგი გვაქვს (> 0), ვიყენებთ მას.
-  // თუ არ გვაქვს, ცვლადი იქნება null და არაფერს ვაჩვენებთ.
   const showRating = item.rating_imdb > 0 ? item.rating_imdb : null;
   
   const posterPath = item.poster_path 
@@ -51,13 +52,16 @@ export default function MediaCard({ item }) {
     <div className="block w-full group relative"> 
       <div className="media-card rounded-lg overflow-hidden shadow-xl bg-gray-800 transition-all duration-300 transform-gpu hover:shadow-brand-red/30 hover:-translate-y-1">
         
-        <div className="aspect-2-3 relative">
+        {/* 💡 CLS/Aspect Ratio Fix: min-height fallback და aspect-ratio თანამედროვე CSS */}
+        <div className="relative w-full" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
           <Link href={linkHref} className="block absolute inset-0 z-10">
              <Image 
                 src={posterPath} 
                 alt={title} 
-                fill 
+                width={500}     
+                height={750}    
                 style={{ objectFit: 'cover' }} 
+                className="w-full h-full"
                 sizes="(max-width: 768px) 30vw, (max-width: 1200px) 20vw, 15vw"
                 priority={true} 
               />
@@ -66,7 +70,6 @@ export default function MediaCard({ item }) {
               </div>
           </Link>
           
-          {/* 💡 მხოლოდ მაშინ ვაჩვენებთ, თუ showRating არსებობს */}
           {showRating && (
             <div className="absolute top-2 left-2 z-20 pointer-events-none">
               <ImdbBadge rating={showRating} />

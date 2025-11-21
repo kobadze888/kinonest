@@ -66,7 +66,7 @@ export default function HeroSlider({ movies }) {
                 fill
                 style={{ objectFit: 'cover' }}
                 priority={index === 0}
-                className="opacity-70"
+                className="opacity-100"
               />
               
               {/* გრადიენტი */}
