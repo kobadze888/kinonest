@@ -149,6 +149,26 @@ const GlobalStyles = () => (
         height: 100%;
         object-fit: cover;
     }
+
+    /* --- 💡 FIX: SWIPER LAYOUT SHIFT --- */
+    /* ეს კოდი აშორებს სლაიდებს 24px-ით მანამ, სანამ JS ჩაიტვირთება */
+    .swiper:not(.swiper-initialized) .swiper-slide {
+      margin-right: 24px; /* ეს ემთხვევა თქვენს spaceBetween={24}-ს */
+      flex-shrink: 0;     /* არ დაპატარავდეს */
+      display: block;     /* დარწმუნდეს რომ ბლოკია */
+    }
+    
+    /* ბოლო სლაიდს არ სჭირდება მარჯვენა მარჯინი */
+    .swiper:not(.swiper-initialized) .swiper-slide:last-child {
+      margin-right: 0;
+    }
+    
+    /* wrapper-ს უნდა ჰქონდეს flex, რომ სლაიდები გვერდიგვერდ დადგეს */
+    .swiper:not(.swiper-initialized) .swiper-wrapper {
+      display: flex;
+      overflow: hidden; /* რომ სქროლი არ გამოჩნდეს */
+    }
+      
   `}</style>
 );
 
