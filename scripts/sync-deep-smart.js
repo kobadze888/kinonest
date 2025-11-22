@@ -18,7 +18,7 @@ const PROGRESS_FILE = path.join(process.cwd(), 'scripts', 'sync-deep-progress.js
 
 const TARGET_YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
 const START_PAGE_DEFAULT = 11; // 💡 ვიწყებთ მე-11 გვერდიდან
-const TMDB_MAX_PAGES = 500;    // 💡 ლიმიტი 500 გვერდი თითო წელზე
+const TMDB_MAX_PAGES = 100;    // 💡 ლიმიტი 500 გვერდი თითო წელზე
 const SEARCH_MAX_PAGES = 3; 
 
 const countryMap = {
