@@ -1,5 +1,5 @@
 // scripts/fix-missing-data.js
-// 🚑 "The Healer" (V66): Sorts by Newest Year First (2025 -> ...)
+// 🚑 "The Healer" (V69): Strictly RUSSIAN Titles Only + Precise Search
 
 import 'dotenv/config';
 import { Pool } from 'pg';
@@ -7,13 +7,14 @@ import { Pool } from 'pg';
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const OMDB_API_KEY = 'b0f7e52c'; 
-const KODIK_TOKEN = 'b95c138cc28a8377412303d604251230';
 
 const BATCH_SIZE = 50;
 
+// ბრაუზერების როტაცია
 const USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/119.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) Firefox/109.0"
 ];
 
 if (!TMDB_API_KEY || !process.env.DATABASE_URL) {
@@ -24,9 +25,10 @@ if (!TMDB_API_KEY || !process.env.DATABASE_URL) {
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const getRandomUA = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-const smartDelay = () => delay(Math.floor(Math.random() * 1000) + 1000);
+const smartDelay = () => delay(Math.floor(Math.random() * 1500) + 1500);
 
 // --- Helper Functions ---
+
 async function fetchRatingsFromKpXML(kpId) {
     if (!kpId) return null;
     try {
@@ -45,11 +47,15 @@ async function fetchRatingsFromKpXML(kpId) {
     } catch (e) { return null; }
 }
 
-async function fetchKpIdViaSearch(title, originalTitle, year, type) {
-    const queries = [];
-    const typeRu = type === 'movie' ? 'фильм' : 'сериал';
-    if (title) queries.push(`site:kinopoisk.ru ${title} ${year} ${typeRu}`);
-    if (originalTitle) queries.push(`site:kinopoisk.ru ${originalTitle} ${year}`);
+// 💡 გაუმჯობესებული ძებნა: მხოლოდ რუსული სათაურით + ბრჭყალები
+async function fetchKpIdViaSearch(titleRu, year) {
+    // თუ სათაური არ შეიცავს რუსულ ასოებს, არ ვეძებთ (უსაფრთხოების ზომა)
+    if (!/[а-яА-ЯёЁ]/.test(titleRu)) return null;
+
+    const queries = [
+        `site:kinopoisk.ru "${titleRu}" ${year}`, // ზუსტი ძებნა ბრჭყალებით
+        `site:kinopoisk.ru ${titleRu} ${year}`    // ჩვეულებრივი ძებნა
+    ];
     
     for (const query of queries) {
         try {
@@ -57,10 +63,18 @@ async function fetchKpIdViaSearch(title, originalTitle, year, type) {
             const res = await fetch(url, { headers: { 'User-Agent': getRandomUA() } });
             if (!res.ok) continue;
             const text = await res.text();
+            
             let match = text.match(/kinopoisk\.ru\/(?:film|series)\/(\d+)/);
-            if (match && match[1]) { const id = parseInt(match[1]); if (id !== 430 && id > 1000) return id; }
+            if (match && match[1]) {
+                 const id = parseInt(match[1]);
+                 if (id !== 430 && id > 1000) return id;
+            }
+            
             match = text.match(/(?:kp|id|kinopoisk)[:\s]+(\d{6,8})/i);
-            if (match && match[1]) { const id = parseInt(match[1]); if (id !== 430 && id > 1000) return id; }
+            if (match && match[1]) {
+                 const id = parseInt(match[1]);
+                 if (id !== 430 && id > 1000) return id;
+            }
         } catch (e) { continue; }
         await smartDelay();
     }
@@ -75,26 +89,8 @@ async function fetchKpIdFromWikidata(wikidataId) {
         if (!res.ok) return null;
         const data = await res.json();
         const entity = data.entities[wikidataId];
-        if (entity.claims && entity.claims.P2603) return parseInt(entity.claims.P2603[0].mainsnak.datavalue.value);
-    } catch (e) { return null; }
-    return null;
-}
-
-async function fetchKpIdFromKodik(imdbId, title, year, type) {
-    try {
-        const kType = type === 'movie' ? 'film' : 'serial,serial-ru';
-        if (imdbId) {
-            const res = await fetch(`https://kodikapi.com/search?token=${KODIK_TOKEN}&imdb_id=${imdbId}&types=${kType}`);
-            const data = await res.json();
-            if (data.results?.[0]?.kinopoisk_id) return parseInt(data.results[0].kinopoisk_id);
-        }
-        if (title) {
-            const res = await fetch(`https://kodikapi.com/search?token=${KODIK_TOKEN}&title=${encodeURIComponent(title)}&types=${kType}`);
-            const data = await res.json();
-            if (data.results) {
-                const match = data.results.find(item => Math.abs(item.year - year) <= 1);
-                if (match?.kinopoisk_id) return parseInt(match.kinopoisk_id);
-            }
+        if (entity.claims && entity.claims.P2603) {
+            return parseInt(entity.claims.P2603[0].mainsnak.datavalue.value);
         }
     } catch (e) { return null; }
     return null;
@@ -118,42 +114,40 @@ function getTmdbTrailer(tmdbData) {
 }
 
 async function diagnoseAndFix(client) {
-    console.log("🔍 ბაზის შემოწმება...");
     try {
         await client.query(`
             ALTER TABLE media 
             ALTER COLUMN rating_kp TYPE NUMERIC(4, 1) USING rating_kp::numeric,
             ALTER COLUMN rating_imdb TYPE NUMERIC(4, 1) USING rating_imdb::numeric;
         `);
-        console.log("✅ სვეტები NUMERIC ტიპზეა.");
-    } catch (error) {
-        console.log("ℹ️ სვეტები უკვე სწორია.");
-    }
+    } catch (error) { }
 }
 
 // --- Main ---
 async function main() {
     const client = await pool.connect();
     await diagnoseAndFix(client);
-    console.log(`🚑 "მკურნალი" სკრიპტი ჩაირთო (ახლებიდან ძველებისკენ)...`);
+    console.log(`🚑 "მკურნალი" (V69) ჩაირთო... მხოლოდ რუსული სათაურები!`);
 
     try {
         while (true) {
-            // 💡 V66: ORDER BY release_year DESC
+            // 💡 ფილტრი: AND title_ru ~ '[а-яА-ЯёЁ]'
+            // ეს ნიშნავს: მომეცი მხოლოდ ისეთები, სადაც სათაურში რუსული ასოებია
             const res = await client.query(`
                 SELECT tmdb_id, type, title_ru, title_en, release_year, kinopoisk_id, trailer_url, imdb_id
                 FROM media
                 WHERE (kinopoisk_id IS NULL OR trailer_url IS NULL OR rating_imdb = 0 OR rating_kp = 0)
+                  AND title_ru ~ '[а-яА-ЯёЁ]' 
                 ORDER BY release_year DESC, updated_at ASC
                 LIMIT $1
             `, [BATCH_SIZE]);
 
             if (res.rows.length === 0) {
-                console.log("✅ ბაზა სრულად შემოწმდა!");
+                console.log("✅ ყველა რუსულენოვანი ჩანაწერი შემოწმებულია!");
                 break;
             }
 
-            console.log(`🔄 მუშავდება ${res.rows.length} ჩანაწერი (წელი: ${res.rows[0].release_year || 'უცნობი'})...`);
+            console.log(`🔄 მუშავდება ${res.rows.length} ჩანაწერი (წელი: ${res.rows[0].release_year || '?'})...`);
 
             for (const item of res.rows) {
                 let needsUpdate = false;
@@ -167,20 +161,18 @@ async function main() {
                 const tmdbData = await getTmdbData(item.tmdb_id, item.type);
                 if (!tmdbData) {
                     await client.query('UPDATE media SET updated_at = NOW() WHERE tmdb_id = $1', [item.tmdb_id]);
-                    // process.stdout.write(".");
                     continue;
                 }
 
-                const originalTitle = tmdbData.original_title || tmdbData.original_name || item.title_en;
-                const year = parseInt(item.release_year) || (tmdbData.release_date ? parseInt(tmdbData.release_date) : 0);
-                const imdbId = tmdbData.external_ids?.imdb_id || item.imdb_id;
                 const wikiId = tmdbData.external_ids?.wikidata_id;
-
-                // 1. KP ID
+                
+                // 1. KP ID (Wikidata + Safe Search)
                 if (!newKpId) {
                     if (wikiId) newKpId = await fetchKpIdFromWikidata(wikiId);
-                    if (!newKpId) newKpId = await fetchKpIdFromKodik(imdbId, item.title_ru, year, item.type);
-                    if (!newKpId) newKpId = await fetchKpIdViaSearch(item.title_ru, originalTitle, year, item.type);
+                    
+                    // 💡 ძებნა ჩართულია, რადგან უკვე ვიცით რომ სათაური რუსულია
+                    if (!newKpId) newKpId = await fetchKpIdViaSearch(item.title_ru, parseInt(item.release_year));
+                    
                     if (newKpId) {
                         needsUpdate = true;
                         updatesLog.push(`🔑 KP ID: ${newKpId}`);
@@ -223,11 +215,12 @@ async function main() {
                         item.tmdb_id
                     ]);
                     
-                    console.log(`   ✅ განახლდა: "${item.title_ru}" (${item.release_year}) -> [${updatesLog.join(', ')}]`);
+                    console.log(`   ✅ განახლდა: "${item.title_ru}" -> [${updatesLog.join(', ')}]`);
                 } else {
+                    // თუ ვერაფერი იპოვა, დრო განვაახლოთ რომ რიგის ბოლოში გადავიდეს
                     await client.query('UPDATE media SET updated_at = NOW() WHERE tmdb_id = $1', [item.tmdb_id]);
                 }
-                await delay(200); 
+                await delay(100); 
             }
             console.log("\n--- შემდეგი პარტია ---");
         }

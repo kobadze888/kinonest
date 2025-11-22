@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { fetchData } from '../lib/api';
 import { query } from '../lib/db';
 import Header from '../components/Header';
 import HeroSlider from '../components/HeroSlider';
@@ -18,11 +17,6 @@ export async function getServerSideProps() {
     created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
   `;
 
-  // 💡 მკაცრი ფილტრი:
-  // 1. აქვს ფონი და პოსტერი
-  // 2. აქვს რუსული სათაური
-  // 3. აქვს Kinopoisk ID (პლეერი)
-  // 4. IMDb რეიტინგი > 5.0
   const strictCondition = `
     backdrop_path IS NOT NULL 
     AND poster_path IS NOT NULL
@@ -32,7 +26,6 @@ export async function getServerSideProps() {
   `;
 
   try {
-    // 1. Hero Slider: მხოლოდ მიმდინარე წელი (2025), მხოლოდ აშშ/ბრიტანეთი, მაღალი რეიტინგი
     const heroQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -45,7 +38,6 @@ export async function getServerSideProps() {
       LIMIT 10
     `);
 
-    // 2. В кинотеатрах: მიმდინარე წლის ჰიტები (ყველა ქვეყანა)
     const nowPlayingQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -55,7 +47,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // 3. Свежие поступления: ბოლოს დამატებული (2024-2026)
     const newMoviesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -65,7 +56,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // 4. Новые сериалы
     const newSeriesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv' 
@@ -74,7 +64,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // 5. Ужасы
     const horrorQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
@@ -85,7 +74,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // 6. Комедии
     const comedyQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
@@ -96,8 +84,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // 7. 💡 მსახიობები (განახლებული ლოგიკა):
-    // ვიღებთ მსახიობებს, რომლებიც თამაშობენ მაღალრეიტინგულ (>7.0) ამერიკულ/ბრიტანულ ფილმებში
     const actorsQuery = query(`
       SELECT * FROM (
         SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity 
@@ -203,7 +189,8 @@ export default function Home({
       <>
         <HeroSlider movies={heroMovies} /> 
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20 pb-16" id="main-container">
+        {/* 💡 FIX: დაშორების გაზრდა. -mt-16-ის ნაცვლად -mt-4, რაც ქვემოთ ჩამოწევს */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20 pb-16" id="main-container">
           
           <MediaCarousel 
             title={`В кинотеатрах (${currentYear})`}

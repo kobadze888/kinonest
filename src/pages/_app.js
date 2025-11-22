@@ -1,4 +1,3 @@
-// src/pages/_app.js
 import '../styles/globals.css';
 
 // Swiper-ის სრული სტილები
@@ -9,9 +8,23 @@ import 'swiper/css/effect-fade';
 
 import Head from 'next/head';
 
+// 1. შემოგვაქვს შრიფტი ოპტიმიზებული მოდულიდან
+import { Inter } from 'next/font/google';
+
+// 2. ვასწორებთ კონფიგურაციას (კირილიცა და ლათინური)
+const inter = Inter({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['400', '500', '600', '700', '900'],
+  display: 'swap',
+  // ეს უზრუნველყოფს, რომ შრიფტი იყოს წინასწარ ჩატვირთული
+});
+
 const GlobalStyles = () => (
   <style jsx global>{`
+    /* 3. ვუთითებთ, რომ მთელ საიტზე გამოყენებული იყოს ეს შრიფტი */
     :root {
+      --font-inter: ${inter.style.fontFamily};
+      
       --swiper-theme-color: #e50914;
       --swiper-pagination-bullet-inactive-color: #ffffff;
       --swiper-pagination-bullet-inactive-opacity: 0.4;
@@ -20,6 +33,7 @@ const GlobalStyles = () => (
     }
 
     body {
+      font-family: var(--font-inter), sans-serif; /* ვიყენებთ Inter-ს */
       background-color: #10141A;
       overflow-x: hidden;
     }
@@ -96,9 +110,8 @@ const GlobalStyles = () => (
       transition: width 0.3s ease;
     }
 
-    /* --- UTILITY CLASSES (გასუფთავებული) --- */
+    /* --- UTILITY CLASSES --- */
     
-    /* aspect-2-3 ამოღებულია */
     .aspect-square { 
         position: relative;
         padding-bottom: 100%;
@@ -150,31 +163,29 @@ const GlobalStyles = () => (
         object-fit: cover;
     }
 
-    /* --- 💡 FIX: SWIPER LAYOUT SHIFT --- */
-    /* ეს კოდი აშორებს სლაიდებს 24px-ით მანამ, სანამ JS ჩაიტვირთება */
+    /* --- 💡 FIX: SWIPER LAYOUT SHIFT (კარუსელის გასწორება) --- */
     .swiper:not(.swiper-initialized) .swiper-slide {
-      margin-right: 24px; /* ეს ემთხვევა თქვენს spaceBetween={24}-ს */
-      flex-shrink: 0;     /* არ დაპატარავდეს */
-      display: block;     /* დარწმუნდეს რომ ბლოკია */
+      margin-right: 24px; /* ემთხვევა spaceBetween={24}-ს */
+      flex-shrink: 0;     
+      display: block;     
     }
     
-    /* ბოლო სლაიდს არ სჭირდება მარჯვენა მარჯინი */
     .swiper:not(.swiper-initialized) .swiper-slide:last-child {
       margin-right: 0;
     }
     
-    /* wrapper-ს უნდა ჰქონდეს flex, რომ სლაიდები გვერდიგვერდ დადგეს */
     .swiper:not(.swiper-initialized) .swiper-wrapper {
       display: flex;
-      overflow: hidden; /* რომ სქროლი არ გამოჩნდეს */
+      overflow: hidden; 
     }
-      
+
   `}</style>
 );
 
 function MyApp({ Component, pageProps }) {
   return (
-    <>
+    // 4. კლასის სახელი ემატება მთავარ კონტეინერს, რაც ააქტიურებს შრიფტს
+    <main className={inter.className}>
       <Head>
         <title>KinoNest - Полный кинопортал</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -182,7 +193,7 @@ function MyApp({ Component, pageProps }) {
       
       <GlobalStyles />
       <Component {...pageProps} />
-    </>
+    </main>
   );
 }
 

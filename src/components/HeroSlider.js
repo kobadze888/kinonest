@@ -37,7 +37,10 @@ export default function HeroSlider({ movies }) {
         modules={[Navigation, Pagination, Autoplay, EffectFade]}
         loop={true}
         autoplay={{ delay: 6000, disableOnInteraction: false }}
-        pagination={{ clickable: true }}
+        pagination={{ 
+          clickable: true,
+          el: '.swiper-pagination' // 💡 ვუთითებთ ელემენტს
+        }}
         effect="fade"
         fadeEffect={{ crossFade: true }}
         navigation={{
@@ -107,6 +110,9 @@ export default function HeroSlider({ movies }) {
             </SwiperSlide>
           )
         })}
+        
+        {/* 💡 FIX: სტატიკური პაგინაციის კონტეინერი */}
+        <div className="swiper-pagination !bottom-8 z-30 px-4"></div>
       </Swiper>
 
       {/* ღილაკები */}
@@ -116,8 +122,6 @@ export default function HeroSlider({ movies }) {
       <div className="custom-hero-next absolute right-4 top-1/2 z-30 -translate-y-1/2 cursor-pointer text-white/70 hover:text-white transition-all hidden md:flex items-center justify-center w-14 h-14 rounded-full bg-white/10 hover:bg-brand-red backdrop-blur-md border border-white/10">
         <ChevronRight />
       </div>
-      
-      <div className="swiper-pagination !bottom-8 z-30 px-4"></div>
     </section>
   );
 };

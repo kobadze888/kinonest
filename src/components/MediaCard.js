@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { slugify } from '../lib/utils';
 import { useWatchlist } from '@/lib/useWatchlist'; 
 
-// 💡 PlayIcon-ის დეფინიცია (ფიქსავს ReferenceError)
 const PlayIcon = () => (
   <svg className="w-12 h-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -50,10 +49,19 @@ export default function MediaCard({ item }) {
 
   return (
     <div className="block w-full group relative"> 
-      <div className="media-card rounded-lg overflow-hidden shadow-xl bg-gray-800 transition-all duration-300 transform-gpu hover:shadow-brand-red/30 hover:-translate-y-1">
+      {/* 💡 FIX: დაემატა style={{ willChange: 'transform' ... }} ციმციმის მოსაგვარებლად */}
+      <div 
+        className="media-card rounded-lg overflow-hidden shadow-xl bg-gray-800 transition-all duration-300 ease-out hover:shadow-brand-red/30 hover:-translate-y-1"
+        style={{ 
+            willChange: 'transform', 
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            transformStyle: 'preserve-3d'
+        }}
+      >
         
         {/* 💡 CLS/Aspect Ratio Fix: min-height fallback და aspect-ratio თანამედროვე CSS */}
-        <div className="relative w-full" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
+        <div className="relative w-full bg-gray-800" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
           <Link href={linkHref} className="block absolute inset-0 z-10">
              <Image 
                 src={posterPath} 
@@ -61,11 +69,12 @@ export default function MediaCard({ item }) {
                 width={500}     
                 height={750}    
                 style={{ objectFit: 'cover' }} 
-                className="w-full h-full"
+                className="w-full h-full transition-opacity duration-300"
                 sizes="(max-width: 768px) 30vw, (max-width: 1200px) 20vw, 15vw"
-                priority={true} 
+                priority={false}
+                loading="lazy"
               />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
                 <PlayIcon />
               </div>
           </Link>
@@ -104,7 +113,7 @@ export default function MediaCard({ item }) {
 
         </div>
         
-        <Link href={linkHref} className="block p-3">
+        <Link href={linkHref} className="block p-3 bg-gray-800 relative z-20">
           <h3 className="font-semibold text-white truncate hover:text-brand-red transition-colors text-sm md:text-base">{title}</h3>
         </Link>
 
