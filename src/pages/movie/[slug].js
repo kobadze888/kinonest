@@ -10,7 +10,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
-import { useWatchlist } from '@/lib/useWatchlist'; // 💡 ახალი იმპორტი
+import { useWatchlist } from '@/lib/useWatchlist'; 
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -20,6 +20,7 @@ export async function getServerSideProps(context) {
   let movie = null;
   let kinopoisk_id = null;
   let actors = [];
+  let recommendations = [];
   
   try {
     const columns = `
@@ -49,10 +50,39 @@ export async function getServerSideProps(context) {
           JOIN media_actors ma ON a.id = ma.actor_id
           WHERE ma.media_id = $1
           ORDER BY ma."order" ASC
+          LIMIT 20
         `, [tmdbId]);
         actors = actorsRes.rows;
       } catch (err) {
         console.error("Error fetching actors:", err.message);
+      }
+
+      if (movie.genres_names && movie.genres_names.length > 0) {
+        try {
+            const isAnimation = movie.genres_names.includes('мультфильм') || movie.genres_names.includes('Animation');
+            
+            let genreFilter = "";
+            if (isAnimation) {
+                genreFilter = "AND 'мультфильм' = ANY(genres_names)";
+            } else {
+                genreFilter = "AND NOT ('мультфильм' = ANY(genres_names))";
+            }
+
+            const recRes = await query(`
+                SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
+                FROM media
+                WHERE type = 'movie'
+                  AND tmdb_id != $1
+                  AND title_ru ~ '[а-яА-ЯёЁ]'
+                  ${genreFilter}
+                  AND genres_names && $2::text[]
+                ORDER BY rating_tmdb DESC, popularity DESC
+                LIMIT 15
+            `, [tmdbId, movie.genres_names]);
+            recommendations = recRes.rows;
+        } catch (err) {
+            console.error("Error fetching recommendations:", err.message);
+        }
       }
     }
   } catch (e) {
@@ -70,12 +100,11 @@ export async function getServerSideProps(context) {
       movie: serializedMovie,
       kinopoisk_id: kinopoisk_id, 
       actors: actors,
-      recommendations: []
+      recommendations: recommendations 
     },
   };
 }
 
-// --- Icons ---
 const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg> );
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
 const HeartIcon = ({ isFilled }) => ( <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg> );
@@ -87,7 +116,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   
-  // 💡 Watchlist Hook
   const { toggleItem, isInWatchlist } = useWatchlist();
   const isFavorite = isInWatchlist(movie.tmdb_id);
   
@@ -168,7 +196,8 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
         {kinopoisk_id && (
           <section className="bg-[#10141A] pt-16 md:pt-20"> 
             <div className="max-w-7xl mx-auto"> 
-              <div className="relative w-full overflow-hidden" style={{ paddingBottom: '42.55%' }}> 
+              {/* 💡 OPTIMIZED PLAYER: aspect-video, max-h-[650px] */}
+              <div className="relative w-full aspect-video max-h-[650px] overflow-hidden bg-black shadow-2xl border-b border-gray-800 mx-auto"> 
                 <div data-kinopoisk={kinopoisk_id} id="kinobd" className="absolute top-0 left-0 w-full h-full"></div>
               </div>
             </div>
@@ -208,7 +237,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
                   <PlayIcon /> Трейлер
                 </button>
 
-                {/* 💡 Кнопка "В избранное" */}
                 <button 
                   onClick={() => toggleItem(movie.tmdb_id)}
                   className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2 
@@ -254,8 +282,15 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
               <Image src={posterPath} alt={title} width={500} height={750} className="w-full h-auto rounded-lg shadow-xl" />
             </div>
           </div>
-          {recommendations?.length > 0 && (
-            <MediaCarousel title="Рекомендации" items={recommendations} swiperKey="movie-recommendations" cardType="movie" />
+          
+          {/* რეკომენდაციები */}
+          {recommendations && recommendations.length > 0 && (
+            <MediaCarousel 
+                title="Рекомендации" 
+                items={recommendations} 
+                swiperKey="movie-recommendations" 
+                cardType="movie" 
+            />
           )}
         </main>
       </div>

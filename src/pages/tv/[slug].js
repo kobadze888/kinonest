@@ -10,7 +10,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
-import { useWatchlist } from '@/lib/useWatchlist'; // 💡 ახალი იმპორტი
+import { useWatchlist } from '@/lib/useWatchlist'; 
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -19,7 +19,9 @@ export async function getServerSideProps(context) {
 
   let tvShow = null;
   let kinopoisk_id = null;
-  
+  let actors = []; 
+  let recommendations = []; 
+
   try {
     const columns = `
       tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
@@ -34,11 +36,55 @@ export async function getServerSideProps(context) {
       premiere_world::TEXT, 
       popularity
     `;
+    
     const dbResult = await query(`SELECT ${columns} FROM media WHERE tmdb_id = $1`, [tmdbId]);
     
     if (dbResult.rows.length > 0) {
       tvShow = dbResult.rows[0];
       kinopoisk_id = tvShow.kinopoisk_id;
+
+      try {
+        const actorsRes = await query(`
+          SELECT a.id, a.name, a.profile_path, ma.character
+          FROM actors a
+          JOIN media_actors ma ON a.id = ma.actor_id
+          WHERE ma.media_id = $1
+          ORDER BY ma."order" ASC
+          LIMIT 20
+        `, [tmdbId]);
+        actors = actorsRes.rows;
+      } catch (err) {
+        console.error("Error fetching TV actors:", err.message);
+      }
+
+      // რეკომენდაციები
+      if (tvShow.genres_names && tvShow.genres_names.length > 0) {
+        try {
+            const isAnimation = tvShow.genres_names.includes('мультфильм') || tvShow.genres_names.includes('Animation');
+            
+            let genreFilter = "";
+            if (isAnimation) {
+                genreFilter = "AND 'мультфильм' = ANY(genres_names)";
+            } else {
+                genreFilter = "AND NOT ('мультфильм' = ANY(genres_names))";
+            }
+
+            const recRes = await query(`
+                SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
+                FROM media
+                WHERE type = 'tv'
+                  AND tmdb_id != $1
+                  AND title_ru ~ '[а-яА-ЯёЁ]'
+                  ${genreFilter}
+                  AND genres_names && $2::text[]
+                ORDER BY rating_tmdb DESC, popularity DESC
+                LIMIT 15
+            `, [tmdbId, tvShow.genres_names]);
+            recommendations = recRes.rows;
+        } catch (err) {
+            console.error("Error fetching recommendations:", err.message);
+        }
+      }
     }
   } catch (e) {
     console.error("Database lookup failed during SSR:", e.message);
@@ -52,8 +98,8 @@ export async function getServerSideProps(context) {
     props: {
       tvShow: tvShow, 
       kinopoisk_id: kinopoisk_id,
-      actors: [],
-      recommendations: []
+      actors: actors, 
+      recommendations: recommendations 
     },
   };
 }
@@ -71,7 +117,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   
-  // 💡 Watchlist Hook
   const { toggleItem, isInWatchlist } = useWatchlist();
   const isFavorite = isInWatchlist(tvShow.tmdb_id);
   
@@ -115,7 +160,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
       setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Трейлер не найден.</p></div>`);
     }
     setModalIsLoading(false);
-  }, [tvShow, fetchData]);
+  }, [tvShow]);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
@@ -152,7 +197,8 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-16 md:pt-20">
           <div className="max-w-7xl mx-auto"> 
-            <div className="relative w-full overflow-hidden" style={{ paddingBottom: '42.55%' }}> 
+            {/* 💡 OPTIMIZED PLAYER: aspect-video, max-h-[650px] */}
+            <div className="relative w-full aspect-video max-h-[650px] overflow-hidden bg-black shadow-2xl border-b border-gray-800 mx-auto"> 
               <div 
                 data-kinopoisk={kinopoisk_id} 
                 id="kinobd" 
@@ -178,7 +224,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
         <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end pb-16">
-          <div className="w-full md:w-2/3 lg:w-1/A">
+          <div className="w-full md:w-2/3 lg:w-1/2">
             <h1 className="text-4xl md:text-6xl font-black text-white">{title}</h1>
             <div className="flex items-center space-x-4 mt-4 text-gray-300">
               <span>{releaseYear}</span>
@@ -215,7 +261,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
                 Трейлер
               </button>
 
-              {/* 💡 Кнопка "В избранное" */}
               <button 
                 onClick={() => toggleItem(tvShow.tmdb_id)}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2 
@@ -299,6 +344,8 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
              />
           </div>
         </div>
+
+        {/* 💡 რეკომენდაციები */}
         {recommendations?.length > 0 && (
           <MediaCarousel 
             title="Рекомендации"

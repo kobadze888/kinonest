@@ -1,5 +1,5 @@
-// scripts/sync-tv-deep-smart.js
-// 🎯 V59 (The Best Match): V52 Core + Ratings Fix + Trailer Fix
+// scripts/sync-tv-safe.js
+// 🎯 V74 (TV Series): Strict Russian Filter + Safe Sync + Full Search Logic
 
 import 'dotenv/config';
 import fs from 'fs';
@@ -11,7 +11,7 @@ const KINOBD_API_URL = 'https://kinobd.net/api/films';
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const OMDB_API_KEY = 'b0f7e52c'; 
-const KODIK_TOKEN = 'b95c138cc28a8377412303d604251230'; // V52-ს ჰქონდა, ვაბრუნებთ
+const KODIK_TOKEN = 'b95c138cc28a8377412303d604251230';
 
 const PROGRESS_FILE = path.join(process.cwd(), 'scripts', 'sync-tv-deep-progress.json');
 
@@ -35,7 +35,6 @@ if (!TMDB_API_KEY || !process.env.DATABASE_URL) {
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- მეხსიერება ---
 function loadProgress() {
     try { if (fs.existsSync(PROGRESS_FILE)) return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')); } catch (e) {}
     return null; 
@@ -44,7 +43,8 @@ function saveProgress(year, page) {
     try { fs.writeFileSync(PROGRESS_FILE, JSON.stringify({ year, page })); } catch (e) {}
 }
 
-// --- 1. რეიტინგების ფუნქცია (დამატებულია) ---
+// --- Helper Functions ---
+
 async function fetchRatingsFromKpXML(kpId) {
     if (!kpId) return null;
     try {
@@ -55,19 +55,15 @@ async function fetchRatingsFromKpXML(kpId) {
         if (!res.ok) return null;
         const text = await res.text();
         const kpMatch = text.match(/<kp_rating[^>]*>([\d.]+)<\/kp_rating>/);
-        const kpCountMatch = text.match(/<kp_rating[^>]*num_vote="(\d+)"/);
         const imdbMatch = text.match(/<imdb_rating[^>]*>([\d.]+)<\/imdb_rating>/);
-        const imdbCountMatch = text.match(/<imdb_rating[^>]*num_vote="(\d+)"/);
         return {
             kp: kpMatch ? parseFloat(kpMatch[1]) : 0,
-            kp_count: kpCountMatch ? parseInt(kpCountMatch[1]) : 0,
-            imdb: imdbMatch ? parseFloat(imdbMatch[1]) : 0,
-            imdb_count: imdbCountMatch ? parseInt(imdbCountMatch[1]) : 0
+            imdb: imdbMatch ? parseFloat(imdbMatch[1]) : 0
         };
     } catch (e) { return null; }
 }
 
-// --- TMDB ---
+// 💡 TMDB TV Series
 async function getTmdbPopularSeries(year, page = 1) {
   try {
     const url = `${TMDB_BASE_URL}/discover/tv?api_key=${TMDB_API_KEY}&language=ru-RU&sort_by=popularity.desc&first_air_date_year=${year}&page=${page}`;
@@ -88,18 +84,15 @@ async function getTmdbDetails(tmdbId) {
   } catch (e) { return null; }
 }
 
-// --- 2. ტრეილერის ფუნქცია (შესწორებულია: ყველა ენა + Teaser) ---
 function getTmdbTrailerUrl(tmdbData) {
     if (!tmdbData || !tmdbData.videos || !tmdbData.videos.results) return null;
     const videos = tmdbData.videos.results;
-    // ვიღებთ ნებისმიერ ტრეილერს
     let video = videos.find(v => v.site === 'YouTube' && v.type === 'Trailer');
-    // თუ არაა, ვიღებთ ტიზერს
     if (!video) video = videos.find(v => v.site === 'YouTube' && v.type === 'Teaser');
     return video ? `https://www.youtube.com/embed/${video.key}` : null;
 }
 
-// --- Kodik (V52-ის ლოგიკა) ---
+// 💡 Kodik (Series)
 async function fetchKpIdFromKodik(imdbId, title, year) {
     try {
         if (imdbId) {
@@ -124,40 +117,63 @@ async function fetchKpIdFromKodik(imdbId, title, year) {
     return null;
 }
 
-// --- Scraper (V52-ის ლოგიკა + გაუმჯობესებული Regex) ---
+// 💡 KinoBD Direct Search
+async function findIdInKinoBD(titleRu, year) {
+    let id = await searchKinoBDApi(titleRu, year);
+    if (id) return id;
+
+    if (titleRu.includes(':')) {
+        const shortTitle = titleRu.split(':')[0].trim();
+        if (shortTitle.length > 2) {
+            id = await searchKinoBDApi(shortTitle, year);
+            if (id) return id;
+        }
+    }
+    return null;
+}
+
+async function searchKinoBDApi(query, year) {
+    try {
+        const params = new URLSearchParams({ title: query });
+        const url = `${KINOBD_API_URL}?${params.toString()}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        
+        const data = await res.json();
+        if (data.data && data.data.length > 0) {
+            const match = data.data.find(item => {
+                const itemYear = parseInt(item.year);
+                const yearMatch = !year || Math.abs(itemYear - year) <= 2; // სერიალებისთვის +/- 2 წელი
+                return yearMatch;
+            });
+            if (match && match.kinopoisk_id) return parseInt(match.kinopoisk_id);
+        }
+    } catch (e) { }
+    return null;
+}
+
+// 💡 Scraper (Only if Russian)
 async function fetchKpIdViaSearch(title, originalTitle, year) {
+    if (!title || !/[а-яА-ЯёЁ]/.test(title)) return null;
+
     const queries = [];
-    // V52-ის ძებნის სტილი (რადგან ეს მუშაობდა შენთან)
-    if (title) {
-        queries.push(`site:kinopoisk.ru/series/ ${title} сериал ${year}`);
-        queries.push(`${title} сериал ${year} kinopoisk id`);
-        // 💡 დავამატე ესეც, რომ "იკუსაგამი" (/film/) იპოვოს
-        queries.push(`site:kinopoisk.ru ${title} ${year}`);
-    }
-    if (originalTitle && originalTitle !== title) {
-        queries.push(`${originalTitle} series ${year} kinopoisk id`);
-    }
+    queries.push(`site:kinopoisk.ru/series/ ${title} сериал ${year}`);
+    queries.push(`${title} сериал ${year} kinopoisk id`);
 
     for (const query of queries) {
         try {
             const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-            const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }); // მარტივი UA
+            const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
             if (!res.ok) continue;
             const text = await res.text();
             
-            // 💡 Regex გაუმჯობესებულია, რომ დაიჭიროს /film/ და /series/
             let match = text.match(/kinopoisk\.ru\/(?:film|series)\/(\d+)/);
-            if (match && match[1]) {
-                 const id = parseInt(match[1]);
-                 if (id !== 430) return id;
-            }
+            if (match && match[1]) return parseInt(match[1]);
+            
             match = text.match(/(?:kp|id|kinopoisk)[:\s]+(\d{6,8})/i);
-            if (match && match[1]) {
-                 const id = parseInt(match[1]);
-                 if (id !== 430) return id;
-            }
+            if (match && match[1]) return parseInt(match[1]);
         } catch (e) { continue; }
-        await delay(1000);
+        await delay(1500);
     }
     return null;
 }
@@ -170,52 +186,8 @@ async function fetchKpIdFromWikidata(wikidataId) {
         if (!res.ok) return null;
         const data = await res.json();
         const entity = data.entities[wikidataId];
-        if (entity.claims && entity.claims.P2603) {
-            return parseInt(entity.claims.P2603[0].mainsnak.datavalue.value);
-        }
+        if (entity.claims && entity.claims.P2603) return parseInt(entity.claims.P2603[0].mainsnak.datavalue.value);
     } catch (e) { return null; }
-    return null;
-}
-
-async function searchKinobd(params, tmdbYear) {
-    let page = 1;
-    let hasMore = true;
-    const maxPages = SEARCH_MAX_PAGES;
-    while (hasMore && page <= maxPages) {
-        try {
-            const queryParams = new URLSearchParams({ ...params, page: page.toString() });
-            const url = `${KINOBD_API_URL}?${queryParams.toString()}`;
-            const res = await fetch(url);
-            if (res.status === 429) { await delay(5000); continue; }
-            if (!res.ok) break;
-            const data = await res.json();
-            const items = data.data || [];
-            const match = items.find(item => {
-                const kYear = parseInt(item.year);
-                const kpId = parseInt(item.kinopoisk_id);
-                if (kpId === 430) return false; 
-                return Math.abs(kYear - tmdbYear) <= 1;
-            });
-            if (match) return match;
-            hasMore = data.has_more;
-            page++;
-            await delay(200); 
-        } catch (e) { break; }
-    }
-    return null;
-}
-
-async function findBestMatchInKinobd(imdbId, kpId, tmdbYear, titleRu, titleOriginal) {
-    let match = null;
-    if (kpId) {
-        match = await searchKinobd({ kinopoisk_id: kpId }, tmdbYear);
-        if (match) return { item: match, method: 'KP ID' };
-    }
-    await delay(100);
-    if (imdbId) {
-        match = await searchKinobd({ imdb_id: imdbId }, tmdbYear);
-        if (match) return { item: match, method: 'IMDb ID' };
-    }
     return null;
 }
 
@@ -231,17 +203,17 @@ async function fetchOmdbData(imdbId) {
     return null;
 }
 
-// --- 3. Save ფუნქცია (შესწორებულია: XML რეიტინგი + KinoBD Trailer) ---
+// --- Save (TV) ---
 async function saveSeries(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData, kpIdExternal, xmlRatings) {
     if (!tmdbItem || !tmdbItem.id) throw new Error("TMDB Item Invalid");
 
     const tmdb_id = tmdbItem.id;
+    // 💡 TV-ს აქვს `name` და არა `title`
     const title_ru = tmdbItem.name || 'No Title'; 
     const search_slug = slugify(title_ru);
     const release_year = tmdbItem.first_air_date ? parseInt(tmdbItem.first_air_date.split('-')[0]) : 2000;
     const rating_tmdb = tmdbItem.vote_average || 0;
 
-    // რეიტინგების შერწყმა
     let rating_imdb = xmlRatings?.imdb || omdbData?.rating || (kinobdItem && parseFloat(kinobdItem.rating_imdb)) || 0;
     let rating_imdb_count = xmlRatings?.imdb_count || omdbData?.votes || (kinobdItem && parseInt(kinobdItem.rating_imdb_count)) || 0;
     let rating_kp = xmlRatings?.kp || (kinobdItem && parseFloat(kinobdItem.rating_kp)) || 0;
@@ -259,10 +231,10 @@ async function saveSeries(client, kinobdItem, tmdbItem, fallbackTrailer, omdbDat
     let countries = (tmdbItem.production_countries || []).map(c => countryMap[c.name] || c.name);
     const overview = tmdbItem.overview || '';
     let budget = 0; 
+    // 💡 TV-ს აქვს `episode_run_time`
     let runtime = (tmdbItem.episode_run_time && tmdbItem.episode_run_time.length > 0) ? tmdbItem.episode_run_time[0] : null;
     const popularity = Math.round(tmdbItem.popularity || 0);
 
-    // ტრეილერის ლოგიკა: თუ TMDB-მ არ მოგვცა, ვიღებთ KinoBD-ს
     let finalTrailerUrl = fallbackTrailer;
     if (!finalTrailerUrl && kinobdItem && kinobdItem.trailer) {
         if (kinobdItem.trailer.startsWith('http')) finalTrailerUrl = kinobdItem.trailer;
@@ -281,7 +253,7 @@ async function saveSeries(client, kinobdItem, tmdbItem, fallbackTrailer, omdbDat
         $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
-        kinopoisk_id = EXCLUDED.kinopoisk_id,
+        kinopoisk_id = COALESCE(EXCLUDED.kinopoisk_id, media.kinopoisk_id),
         type = 'tv',
         rating_imdb = EXCLUDED.rating_imdb, rating_imdb_count = EXCLUDED.rating_imdb_count,
         rating_kp = EXCLUDED.rating_kp, rating_kp_count = EXCLUDED.rating_kp_count,
@@ -330,7 +302,7 @@ async function main() {
       try { if (fs.existsSync(PROGRESS_FILE)) fs.unlinkSync(PROGRESS_FILE); console.log("🔄 Reset!"); } catch(e) {}
   }
   let savedState = loadProgress();
-  console.log(`📺 იწყება "სერიალების სინქრონიზაცია" (V59: V52 + Fixes)...`);
+  console.log(`🎬 იწყება "სერიალების სინქრონიზაცია" (V74: Safe TV)...`);
   console.log(`🎯 წლები: ${TARGET_YEARS.join(', ')}`);
   
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -349,12 +321,17 @@ async function main() {
     
     for (let page = startPage; page <= TMDB_MAX_PAGES; page++) {
       console.log(`   📄 გვერდი ${page}...`);
-      const tmdbList = await getTmdbPopularSeries(year, page);
+      const tmdbList = await getTmdbPopularSeries(year, page); // 💡 TV Series
       if (tmdbList.length === 0) { console.log(`   🏁 წელი ${year} დასრულდა.`); break; }
 
       for (const tmdbBase of tmdbList) {
         const tmdbFull = await getTmdbDetails(tmdbBase.id);
         if (!tmdbFull) { console.log(`      ❌ ვერ წამოვიღეთ TMDB დეტალები ID ${tmdbBase.id}`); continue; }
+
+        // 🛑 ფილტრი: მხოლოდ რუსული სათაურები!
+        if (!/[а-яА-ЯёЁ]/.test(tmdbFull.name)) {
+            continue;
+        }
 
         const imdbId = tmdbFull.external_ids?.imdb_id || tmdbFull.imdb_id;
         const wikidataId = tmdbFull.external_ids?.wikidata_id; 
@@ -366,32 +343,29 @@ async function main() {
 
         if (!kpIdExternal && wikidataId) { kpIdExternal = await fetchKpIdFromWikidata(wikidataId); if (kpIdExternal) source = "Wikidata"; }
         if (!kpIdExternal) { kpIdExternal = await fetchKpIdFromKodik(imdbId, tmdbFull.name, tmdbYear); if (kpIdExternal) source = "Kodik"; }
+        if (!kpIdExternal) { kpIdExternal = await findIdInKinoBD(tmdbFull.name, tmdbYear); if (kpIdExternal) source = "KinoBD Search"; }
         if (!kpIdExternal && tmdbFull.original_name) { kpIdExternal = await fetchKpIdFromKodik(imdbId, tmdbFull.original_name, tmdbYear); if (kpIdExternal) source = "Kodik (EN)"; }
         
-        // 💡 Scraper დაბრუნდა V52-ის სტილზე, მაგრამ /film/ დამატებით
         if (!kpIdExternal) { 
             let scrapedId = await fetchKpIdViaSearch(tmdbFull.name, tmdbFull.original_name, tmdbYear); 
             if (scrapedId) { kpIdExternal = scrapedId; source = "Scraper"; } 
         }
 
-        // 💡 XML რეიტინგები ჩაემატა
         let xmlRatings = null;
         if (kpIdExternal) {
             xmlRatings = await fetchRatingsFromKpXML(kpIdExternal);
         }
 
-        let kinobdResult = await findBestMatchInKinobd(imdbId, kpIdExternal, tmdbYear, tmdbFull.name, tmdbFull.original_name);
-        let kinobdItem = kinobdResult ? kinobdResult.item : null;
+        let kinobdItem = null;
 
         let omdbData = null;
         if (imdbId && !xmlRatings?.imdb) omdbData = await fetchOmdbData(imdbId);
 
         const client = await pool.connect();
         try {
-            // 💡 Save ფუნქცია განახლებულია
             const res = await saveSeries(client, kinobdItem, tmdbFull, tmdbTrailer, omdbData, kpIdExternal, xmlRatings);
             let status = "";
-            if (res.kp_id) status = `✅ [ID: ${source || (kinobdItem ? 'Kinobd' : 'Unknown')}]`;
+            if (res.kp_id) status = `✅ [ID: ${source || 'Unknown'}]`;
             else status = "⚠️ [Trailer Only]";
             
             const ratingLog = `(KP: ${res.rating_kp || 0}, IMDb: ${res.rating_imdb || 0})`;

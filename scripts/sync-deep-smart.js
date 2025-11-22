@@ -1,5 +1,5 @@
 // scripts/sync-deep-smart.js
-// 🎯 V51: Smart Logic + Deep Fetch + Auto Resume (Memory File)
+// 🎯 V74 (Movies Fixed): Fixed missing Kodik function + Strict Russian Filter
 
 import 'dotenv/config';
 import fs from 'fs';
@@ -10,15 +10,14 @@ import { slugify } from '../src/lib/utils.js';
 const KINOBD_API_URL = 'https://kinobd.net/api/films';
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const OMDB_API_KEY = 'a2b07930'; 
+const OMDB_API_KEY = 'b0f7e52c'; 
 const KODIK_TOKEN = 'b95c138cc28a8377412303d604251230';
 
-// 💾 აქ ინახავს სკრიპტი მეხსიერებას
 const PROGRESS_FILE = path.join(process.cwd(), 'scripts', 'sync-deep-progress.json');
 
 const TARGET_YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
-const START_PAGE_DEFAULT = 11; // 💡 ვიწყებთ მე-11 გვერდიდან
-const TMDB_MAX_PAGES = 100;    // 💡 ლიმიტი 500 გვერდი თითო წელზე
+const START_PAGE_DEFAULT = 1;  
+const TMDB_MAX_PAGES = 500;    
 const SEARCH_MAX_PAGES = 3; 
 
 const countryMap = {
@@ -26,7 +25,7 @@ const countryMap = {
   "France": "Франция", "Germany": "Германия", "Japan": "Япония", "Spain": "Испания",
   "Italy": "Италия", "Canada": "Канада", "India": "Индия", "South Korea": "Южная Корея",
   "Australia": "Австралия", "Russia": "Россия", "Denmark": "Дания", "Qatar": "Катар",
-  "Sweden": "Швеция"
+  "Sweden": "Швеция", "Turkey": "Турция"
 };
 
 if (!TMDB_API_KEY || !process.env.DATABASE_URL) {
@@ -36,7 +35,6 @@ if (!TMDB_API_KEY || !process.env.DATABASE_URL) {
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- მეხსიერების ფუნქციები ---
 function loadProgress() {
     try { if (fs.existsSync(PROGRESS_FILE)) return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')); } catch (e) {}
     return null; 
@@ -45,7 +43,26 @@ function saveProgress(year, page) {
     try { fs.writeFileSync(PROGRESS_FILE, JSON.stringify({ year, page })); } catch (e) {}
 }
 
-// --- API ფუნქციები ---
+// --- Helper Functions ---
+
+async function fetchRatingsFromKpXML(kpId) {
+    if (!kpId) return null;
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch(`https://rating.kinopoisk.ru/${kpId}.xml`, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!res.ok) return null;
+        const text = await res.text();
+        const kpMatch = text.match(/<kp_rating[^>]*>([\d.]+)<\/kp_rating>/);
+        const imdbMatch = text.match(/<imdb_rating[^>]*>([\d.]+)<\/imdb_rating>/);
+        return {
+            kp: kpMatch ? parseFloat(kpMatch[1]) : 0,
+            imdb: imdbMatch ? parseFloat(imdbMatch[1]) : 0
+        };
+    } catch (e) { return null; }
+}
+
 async function getTmdbPopularMovies(year, page = 1) {
   try {
     const url = `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&language=ru-RU&sort_by=popularity.desc&primary_release_year=${year}&page=${page}`;
@@ -66,28 +83,19 @@ async function getTmdbDetails(tmdbId) {
   } catch (e) { return null; }
 }
 
-function getTmdbRuRelease(tmdbData) {
-    if (!tmdbData?.release_dates?.results) return null;
-    const ruRelease = tmdbData.release_dates.results.find(r => r.iso_3166_1 === 'RU');
-    if (ruRelease && ruRelease.release_dates.length > 0) {
-        const date = ruRelease.release_dates.find(d => d.type === 3) || ruRelease.release_dates[0];
-        return date.release_date ? date.release_date.split('T')[0] : null;
-    }
-    return null;
-}
-
 function getTmdbTrailerUrl(tmdbData) {
     if (!tmdbData || !tmdbData.videos || !tmdbData.videos.results) return null;
     const videos = tmdbData.videos.results;
-    const trailer = videos.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.iso_639_1 === 'ru')
-                  || videos.find(v => v.site === 'YouTube' && v.type === 'Trailer');
-    return trailer ? `https://www.youtube.com/embed/${trailer.key}` : null;
+    let video = videos.find(v => v.site === 'YouTube' && v.type === 'Trailer');
+    if (!video) video = videos.find(v => v.site === 'YouTube' && v.type === 'Teaser');
+    return video ? `https://www.youtube.com/embed/${video.key}` : null;
 }
 
+// 💡 Kodik (ეს გამომრჩა წინა ჯერზე)
 async function fetchKpIdFromKodik(imdbId, title, year) {
     try {
         if (imdbId) {
-            const url = `https://kodikapi.com/search?token=${KODIK_TOKEN}&imdb_id=${imdbId}&types=film,serial`;
+            const url = `https://kodikapi.com/search?token=${KODIK_TOKEN}&imdb_id=${imdbId}&types=film,movie`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.results && data.results.length > 0) {
@@ -96,7 +104,7 @@ async function fetchKpIdFromKodik(imdbId, title, year) {
             }
         }
         if (title) {
-            const url = `https://kodikapi.com/search?token=${KODIK_TOKEN}&title=${encodeURIComponent(title)}&types=film,serial`;
+            const url = `https://kodikapi.com/search?token=${KODIK_TOKEN}&title=${encodeURIComponent(title)}&types=film,movie`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.results && data.results.length > 0) {
@@ -108,15 +116,48 @@ async function fetchKpIdFromKodik(imdbId, title, year) {
     return null;
 }
 
+// 💡 KinoBD Direct Search (Smart Split)
+async function findIdInKinoBD(titleRu, year) {
+    let id = await searchKinoBDApi(titleRu, year);
+    if (id) return id;
+
+    if (titleRu.includes(':')) {
+        const shortTitle = titleRu.split(':')[0].trim();
+        if (shortTitle.length > 2) {
+            id = await searchKinoBDApi(shortTitle, year);
+            if (id) return id;
+        }
+    }
+    return null;
+}
+
+async function searchKinoBDApi(query, year) {
+    try {
+        const params = new URLSearchParams({ title: query });
+        const url = `${KINOBD_API_URL}?${params.toString()}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        
+        const data = await res.json();
+        if (data.data && data.data.length > 0) {
+            const match = data.data.find(item => {
+                const itemYear = parseInt(item.year);
+                const yearMatch = !year || Math.abs(itemYear - year) <= 1; 
+                return yearMatch;
+            });
+            if (match && match.kinopoisk_id) return parseInt(match.kinopoisk_id);
+        }
+    } catch (e) { }
+    return null;
+}
+
+// 💡 Scraper (Only if Russian)
 async function fetchKpIdViaSearch(title, originalTitle, year) {
+    if (!title || !/[а-яА-ЯёЁ]/.test(title)) return null;
+
     const queries = [];
-    if (title) {
-        queries.push(`site:kinopoisk.ru/film/ ${title} ${year}`);
-        queries.push(`${title} ${year} kinopoisk id`);
-    }
-    if (originalTitle && originalTitle !== title) {
-        queries.push(`${originalTitle} ${year} kinopoisk id`);
-    }
+    queries.push(`site:kinopoisk.ru/film/ ${title} ${year}`);
+    queries.push(`${title} ${year} фильм kinopoisk id`);
 
     for (const query of queries) {
         try {
@@ -124,18 +165,14 @@ async function fetchKpIdViaSearch(title, originalTitle, year) {
             const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
             if (!res.ok) continue;
             const text = await res.text();
+            
             let match = text.match(/kinopoisk\.ru\/film\/(\d+)/);
-            if (match && match[1]) {
-                 const id = parseInt(match[1]);
-                 if (id !== 430) return id;
-            }
+            if (match && match[1]) return parseInt(match[1]);
+            
             match = text.match(/(?:kp|id|kinopoisk)[:\s]+(\d{6,8})/i);
-            if (match && match[1]) {
-                 const id = parseInt(match[1]);
-                 if (id !== 430) return id;
-            }
+            if (match && match[1]) return parseInt(match[1]);
         } catch (e) { continue; }
-        await delay(1000);
+        await delay(1500);
     }
     return null;
 }
@@ -148,54 +185,8 @@ async function fetchKpIdFromWikidata(wikidataId) {
         if (!res.ok) return null;
         const data = await res.json();
         const entity = data.entities[wikidataId];
-        if (entity.claims && entity.claims.P2603) {
-            return parseInt(entity.claims.P2603[0].mainsnak.datavalue.value);
-        }
+        if (entity.claims && entity.claims.P2603) return parseInt(entity.claims.P2603[0].mainsnak.datavalue.value);
     } catch (e) { return null; }
-    return null;
-}
-
-// --- Kinobd Search ---
-async function searchKinobd(params, tmdbYear) {
-    let page = 1;
-    let hasMore = true;
-    const maxPages = SEARCH_MAX_PAGES;
-
-    while (hasMore && page <= maxPages) {
-        try {
-            const queryParams = new URLSearchParams({ ...params, page: page.toString() });
-            const url = `${KINOBD_API_URL}?${queryParams.toString()}`;
-            const res = await fetch(url);
-            if (res.status === 429) { await delay(5000); continue; }
-            if (!res.ok) break;
-            const data = await res.json();
-            const items = data.data || [];
-            const match = items.find(item => {
-                const kYear = parseInt(item.year);
-                const kpId = parseInt(item.kinopoisk_id);
-                if (kpId === 430) return false; 
-                return Math.abs(kYear - tmdbYear) <= 1;
-            });
-            if (match) return match;
-            hasMore = data.has_more;
-            page++;
-            await delay(200); 
-        } catch (e) { break; }
-    }
-    return null;
-}
-
-async function findBestMatchInKinobd(imdbId, kpId, tmdbYear, titleRu, titleOriginal) {
-    let match = null;
-    if (kpId) {
-        match = await searchKinobd({ kinopoisk_id: kpId }, tmdbYear);
-        if (match) return { item: match, method: 'KP ID' };
-    }
-    await delay(100);
-    if (imdbId) {
-        match = await searchKinobd({ imdb_id: imdbId }, tmdbYear);
-        if (match) return { item: match, method: 'IMDb ID' };
-    }
     return null;
 }
 
@@ -211,8 +202,8 @@ async function fetchOmdbData(imdbId) {
     return null;
 }
 
-// --- Save ---
-async function saveMovie(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData, kpIdExternal) {
+// --- Save (Movie) ---
+async function saveMovie(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData, kpIdExternal, xmlRatings) {
     if (!tmdbItem || !tmdbItem.id) throw new Error("TMDB Item Invalid");
 
     const tmdb_id = tmdbItem.id;
@@ -221,10 +212,10 @@ async function saveMovie(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData
     const release_year = tmdbItem.release_date ? parseInt(tmdbItem.release_date.split('-')[0]) : 2000;
     const rating_tmdb = tmdbItem.vote_average || 0;
 
-    let rating_imdb = omdbData?.rating || (kinobdItem && parseFloat(kinobdItem.rating_imdb)) || 0;
-    let rating_imdb_count = omdbData?.votes || (kinobdItem && parseInt(kinobdItem.rating_imdb_count)) || 0;
-    let rating_kp = (kinobdItem && parseFloat(kinobdItem.rating_kp)) || 0;
-    let rating_kp_count = (kinobdItem && parseInt(kinobdItem.rating_kp_count)) || 0;
+    let rating_imdb = xmlRatings?.imdb || omdbData?.rating || (kinobdItem && parseFloat(kinobdItem.rating_imdb)) || 0;
+    let rating_imdb_count = xmlRatings?.imdb_count || omdbData?.votes || (kinobdItem && parseInt(kinobdItem.rating_imdb_count)) || 0;
+    let rating_kp = xmlRatings?.kp || (kinobdItem && parseFloat(kinobdItem.rating_kp)) || 0;
+    let rating_kp_count = xmlRatings?.kp_count || (kinobdItem && parseInt(kinobdItem.rating_kp_count)) || 0;
 
     let final_kp_id = null;
     if (kinobdItem && kinobdItem.kinopoisk_id) {
@@ -234,16 +225,17 @@ async function saveMovie(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData
     if (!final_kp_id && kpIdExternal) final_kp_id = kpIdExternal;
 
     const premiere_world = tmdbItem.release_date || null;
-    const premiere_ru = getTmdbRuRelease(tmdbItem) || null;
+    const premiere_ru = premiere_world; 
     let countries = (tmdbItem.production_countries || []).map(c => countryMap[c.name] || c.name);
     const overview = tmdbItem.overview || '';
-    
-    let budget = tmdbItem.budget || 0;
-    if (budget === 0 && tmdbItem.revenue > 0) budget = tmdbItem.revenue;
-    if (budget === 0 && kinobdItem?.budget) budget = parseInt(kinobdItem.budget.replace(/[^0-9]/g, '')) || 0;
-
+    let budget = tmdbItem.budget || 0; 
+    let runtime = tmdbItem.runtime || null;
     const popularity = Math.round(tmdbItem.popularity || 0);
-    const finalTrailerUrl = fallbackTrailer || null;
+
+    let finalTrailerUrl = fallbackTrailer;
+    if (!finalTrailerUrl && kinobdItem && kinobdItem.trailer) {
+        if (kinobdItem.trailer.startsWith('http')) finalTrailerUrl = kinobdItem.trailer;
+    }
 
     const queryText = `
       INSERT INTO media (
@@ -258,7 +250,8 @@ async function saveMovie(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData
         $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
-        kinopoisk_id = EXCLUDED.kinopoisk_id,
+        kinopoisk_id = COALESCE(EXCLUDED.kinopoisk_id, media.kinopoisk_id),
+        type = 'movie',
         rating_imdb = EXCLUDED.rating_imdb, rating_imdb_count = EXCLUDED.rating_imdb_count,
         rating_kp = EXCLUDED.rating_kp, rating_kp_count = EXCLUDED.rating_kp_count,
         title_ru = EXCLUDED.title_ru, budget = EXCLUDED.budget, countries = EXCLUDED.countries,
@@ -268,13 +261,13 @@ async function saveMovie(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData
     `;
   
     const values = [
-      tmdb_id, final_kp_id, 'movie', title_ru, tmdbItem.original_title, overview,
+      tmdb_id, final_kp_id, 'movie', 
+      title_ru, tmdbItem.original_title, overview,
       tmdbItem.poster_path, tmdbItem.backdrop_path, release_year, rating_tmdb, 
       (tmdbItem.genres || []).map(g => g.id), (tmdbItem.genres || []).map(g => g.name),
-      finalTrailerUrl, tmdbItem.runtime, budget, countries, rating_kp, rating_imdb,
+      finalTrailerUrl, runtime, budget, countries, rating_kp, rating_imdb,
       (kinobdItem && !isNaN(parseInt(kinobdItem.id))) ? parseInt(kinobdItem.id) : null,
-      tmdbItem.imdb_id, 
-      rating_kp_count, rating_imdb_count, null, tmdbItem.tagline, 
+      tmdbItem.imdb_id, rating_kp_count, rating_imdb_count, null, tmdbItem.tagline, 
       premiere_ru, premiere_world, popularity, search_slug
     ];
   
@@ -296,25 +289,20 @@ async function saveMovie(client, kinobdItem, tmdbItem, fallbackTrailer, omdbData
             }
         }
     }
-    
-    return { title: title_ru, kp_id: final_kp_id };
+    return { title: title_ru, kp_id: final_kp_id, rating_kp, rating_imdb };
 }
 
 // --- Main ---
 async function main() {
   const args = process.argv.slice(2);
-  // 💡 თუ თავიდან დაწყება გინდა: node scripts/sync-deep-smart.js --reset
   if (args.includes('--reset')) {
       try { if (fs.existsSync(PROGRESS_FILE)) fs.unlinkSync(PROGRESS_FILE); console.log("🔄 Reset!"); } catch(e) {}
   }
-
   let savedState = loadProgress();
-  console.log(`🚀 იწყება "ღრმა სინქრონიზაცია" (Smart + Deep Fetch)...`);
+  console.log(`🎬 იწყება "ფილმების სინქრონიზაცია" (V74: Movies Only)...`);
   console.log(`🎯 წლები: ${TARGET_YEARS.join(', ')}`);
-  console.log(`📄 გვერდები: ${START_PAGE_DEFAULT}-დან ბოლომდე...`);
   
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
   let startYearIndex = 0;
   if (savedState) {
       startYearIndex = TARGET_YEARS.indexOf(savedState.year);
@@ -325,91 +313,65 @@ async function main() {
   for (let i = startYearIndex; i < TARGET_YEARS.length; i++) {
     const year = TARGET_YEARS[i];
     let startPage = START_PAGE_DEFAULT; 
-    
-    // თუ შენახულია, იქიდან ვაგრძელებთ
-    if (savedState && savedState.year === year) { 
-        startPage = savedState.page; 
-        savedState = null; 
-    }
-
+    if (savedState && savedState.year === year) { startPage = savedState.page; savedState = null; }
     console.log(`\n📅 წელი: ${year}`);
     
     for (let page = startPage; page <= TMDB_MAX_PAGES; page++) {
       console.log(`   📄 გვერდი ${page}...`);
       const tmdbList = await getTmdbPopularMovies(year, page);
-      
-      if (tmdbList.length === 0) {
-          console.log(`   🏁 წელი ${year} დასრულდა.`);
-          break;
-      }
+      if (tmdbList.length === 0) { console.log(`   🏁 წელი ${year} დასრულდა.`); break; }
 
       for (const tmdbBase of tmdbList) {
         const tmdbFull = await getTmdbDetails(tmdbBase.id);
-        if (!tmdbFull) {
-             console.log(`      ❌ ვერ წამოვიღეთ TMDB დეტალები ID ${tmdbBase.id}`);
-             continue;
+        if (!tmdbFull) { console.log(`      ❌ ვერ წამოვიღეთ TMDB დეტალები ID ${tmdbBase.id}`); continue; }
+
+        // 🛑 Strict Russian Filter
+        if (!/[а-яА-ЯёЁ]/.test(tmdbFull.title)) {
+            continue;
         }
 
         const imdbId = tmdbFull.external_ids?.imdb_id || tmdbFull.imdb_id;
         const wikidataId = tmdbFull.external_ids?.wikidata_id; 
-        
         const tmdbTrailer = getTmdbTrailerUrl(tmdbFull);
         const tmdbYear = tmdbFull.release_date ? parseInt(tmdbFull.release_date.split('-')[0]) : year;
 
         let kpIdExternal = null;
         let source = "";
 
-        // 1. Wikidata
-        if (!kpIdExternal && wikidataId) {
-             kpIdExternal = await fetchKpIdFromWikidata(wikidataId);
-             if (kpIdExternal) source = "Wikidata";
+        if (!kpIdExternal && wikidataId) { kpIdExternal = await fetchKpIdFromWikidata(wikidataId); if (kpIdExternal) source = "Wikidata"; }
+        if (!kpIdExternal) { kpIdExternal = await fetchKpIdFromKodik(imdbId, tmdbFull.title, tmdbYear); if (kpIdExternal) source = "Kodik"; }
+        if (!kpIdExternal) { kpIdExternal = await findIdInKinoBD(tmdbFull.title, tmdbYear); if (kpIdExternal) source = "KinoBD Search"; }
+        if (!kpIdExternal && tmdbFull.original_title) { kpIdExternal = await fetchKpIdFromKodik(imdbId, tmdbFull.original_title, tmdbYear); if (kpIdExternal) source = "Kodik (EN)"; }
+        
+        if (!kpIdExternal) { 
+            let scrapedId = await fetchKpIdViaSearch(tmdbFull.title, tmdbFull.original_title, tmdbYear); 
+            if (scrapedId) { kpIdExternal = scrapedId; source = "Scraper"; } 
         }
 
-        // 2. Kodik API
-        if (!kpIdExternal) {
-            kpIdExternal = await fetchKpIdFromKodik(imdbId, tmdbFull.title, tmdbYear);
-            if (kpIdExternal) source = "Kodik";
-            if (!kpIdExternal && tmdbFull.original_title) {
-                kpIdExternal = await fetchKpIdFromKodik(imdbId, tmdbFull.original_title, tmdbYear);
-                if (kpIdExternal) source = "Kodik (EN)";
-            }
+        let xmlRatings = null;
+        if (kpIdExternal) {
+            xmlRatings = await fetchRatingsFromKpXML(kpIdExternal);
         }
 
-        // 3. Scraper
-        if (!kpIdExternal) {
-             let scrapedId = await fetchKpIdViaSearch(tmdbFull.title, tmdbFull.original_title, tmdbYear);
-             if (scrapedId) {
-                 kpIdExternal = scrapedId;
-                 source = "Scraper";
-             }
-        }
+        let kinobdItem = null;
 
-        // Kinobd Search
-        let kinobdResult = await findBestMatchInKinobd(imdbId, kpIdExternal, tmdbYear, tmdbFull.title, tmdbFull.original_title);
-        let kinobdItem = kinobdResult ? kinobdResult.item : null;
-
-        // OMDb
         let omdbData = null;
-        if (imdbId) omdbData = await fetchOmdbData(imdbId);
+        if (imdbId && !xmlRatings?.imdb) omdbData = await fetchOmdbData(imdbId);
 
         const client = await pool.connect();
         try {
-            const res = await saveMovie(client, kinobdItem, tmdbFull, tmdbTrailer, omdbData, kpIdExternal);
-            
+            const res = await saveMovie(client, kinobdItem, tmdbFull, tmdbTrailer, omdbData, kpIdExternal, xmlRatings);
             let status = "";
-            if (res.kp_id) status = `✅ [ID: ${source || (kinobdItem ? 'Kinobd' : 'Unknown')}]`;
+            if (res.kp_id) status = `✅ [ID: ${source || 'Unknown'}]`;
             else status = "⚠️ [Trailer Only]";
+            
+            const ratingLog = `(KP: ${res.rating_kp || 0}, IMDb: ${res.rating_imdb || 0})`;
+            console.log(`     ${status} ${res.title} ${ratingLog}`);
 
-            console.log(`     ${status} ${res.title} (KP: ${res.kp_id || 'N/A'})`);
-
-        } catch (e) { 
-            console.log(`     ❌ შეცდომა "${tmdbFull.title}": ${e.message}`); 
-        } 
+        } catch (e) { console.log(`     ❌ შეცდომა "${tmdbFull.title}": ${e.message}`); } 
         finally { client.release(); }
-
         await delay(200); 
       }
-      // 💾 აქ ინახავს პროგრესს
       saveProgress(year, page + 1);
     }
   }
