@@ -8,23 +8,18 @@ import 'swiper/css/effect-fade';
 
 import Head from 'next/head';
 
-// 1. შემოგვაქვს შრიფტი ოპტიმიზებული მოდულიდან
 import { Inter } from 'next/font/google';
 
-// 2. ვასწორებთ კონფიგურაციას (კირილიცა და ლათინური)
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   weight: ['400', '500', '600', '700', '900'],
   display: 'swap',
-  // ეს უზრუნველყოფს, რომ შრიფტი იყოს წინასწარ ჩატვირთული
 });
 
 const GlobalStyles = () => (
   <style jsx global>{`
-    /* 3. ვუთითებთ, რომ მთელ საიტზე გამოყენებული იყოს ეს შრიფტი */
     :root {
       --font-inter: ${inter.style.fontFamily};
-      
       --swiper-theme-color: #e50914;
       --swiper-pagination-bullet-inactive-color: #ffffff;
       --swiper-pagination-bullet-inactive-opacity: 0.4;
@@ -33,7 +28,7 @@ const GlobalStyles = () => (
     }
 
     body {
-      font-family: var(--font-inter), sans-serif; /* ვიყენებთ Inter-ს */
+      font-family: var(--font-inter), sans-serif;
       background-color: #10141A;
       overflow-x: hidden;
     }
@@ -43,10 +38,14 @@ const GlobalStyles = () => (
       height: 75vh; 
       min-height: 500px;
       max-height: 850px;
+      position: relative;
     }
+    
+    /* სლაიდების დამალვა ინიციალიზაციამდე */
     .hero-slider .swiper:not(.swiper-initialized) .swiper-slide {
       display: none;
     }
+    /* პირველი სლაიდის ჩვენება ინიციალიზაციამდე */
     .hero-slider .swiper:not(.swiper-initialized) .swiper-slide:first-child {
       display: block;
       width: 100%;
@@ -55,6 +54,42 @@ const GlobalStyles = () => (
       top: 0;
       left: 0;
       z-index: 10;
+    }
+
+    /* 💡 FIX: დოტების სტაბილური პოზიცია */
+    /* ეს სტილი მუშაობს JS-ის გარეშეც */
+    .hero-slider .swiper-pagination {
+      position: absolute !important;
+      bottom: 32px !important;
+      left: 0 !important;
+      right: 0 !important;
+      width: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      z-index: 30 !important;
+      pointer-events: none;
+      margin: 0 !important;
+    }
+
+    /* 💡 FIX: დოტების ვიზუალი */
+    .swiper-pagination-bullet {
+      display: block !important; /* აუცილებელია */
+      width: 8px !important;
+      height: 8px !important;
+      background: rgba(255, 255, 255, 0.4) !important;
+      opacity: 1 !important;
+      margin: 0 6px !important;
+      border-radius: 50%;
+      transition: all 0.3s ease;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .swiper-pagination-bullet-active {
+      background: #e50914 !important;
+      width: 24px !important;
+      border-radius: 4px !important;
     }
 
     .slider-gradient::after {
@@ -103,15 +138,7 @@ const GlobalStyles = () => (
       display: none !important;
     }
 
-    .swiper-pagination-bullet-active {
-      background: #e50914 !important;
-      width: 24px !important;
-      border-radius: 4px !important;
-      transition: width 0.3s ease;
-    }
-
     /* --- UTILITY CLASSES --- */
-    
     .aspect-square { 
         position: relative;
         padding-bottom: 100%;
@@ -163,9 +190,9 @@ const GlobalStyles = () => (
         object-fit: cover;
     }
 
-    /* --- 💡 FIX: SWIPER LAYOUT SHIFT (კარუსელის გასწორება) --- */
+    /* --- FIX: SWIPER LAYOUT SHIFT --- */
     .swiper:not(.swiper-initialized) .swiper-slide {
-      margin-right: 24px; /* ემთხვევა spaceBetween={24}-ს */
+      margin-right: 24px; 
       flex-shrink: 0;     
       display: block;     
     }
@@ -184,7 +211,6 @@ const GlobalStyles = () => (
 
 function MyApp({ Component, pageProps }) {
   return (
-    // 4. კლასის სახელი ემატება მთავარ კონტეინერს, რაც ააქტიურებს შრიფტს
     <main className={inter.className}>
       <Head>
         <title>KinoNest - Полный кинопортал</title>

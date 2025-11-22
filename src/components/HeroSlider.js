@@ -39,7 +39,7 @@ export default function HeroSlider({ movies }) {
         autoplay={{ delay: 6000, disableOnInteraction: false }}
         pagination={{ 
           clickable: true,
-          el: '.swiper-pagination' // 💡 ვუთითებთ ელემენტს
+          el: '.swiper-pagination' 
         }}
         effect="fade"
         fadeEffect={{ crossFade: true }}
@@ -75,7 +75,7 @@ export default function HeroSlider({ movies }) {
               {/* გრადიენტი */}
               <div className="slider-gradient absolute inset-0 z-10"></div>
               
-              {/* კონტენტი - აუცილებლად z-20 რომ ფონზე ზემოთ იყოს */}
+              {/* კონტენტი */}
               <div className="relative z-20 flex flex-col justify-end h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 md:pb-28">
                 
                 <div className="max-w-3xl">
@@ -111,8 +111,16 @@ export default function HeroSlider({ movies }) {
           )
         })}
         
-        {/* 💡 FIX: სტატიკური პაგინაციის კონტეინერი */}
-        <div className="swiper-pagination !bottom-8 z-30 px-4"></div>
+        {/* 💡 FIX: ხელით ვხატავთ დოტებს, რომლებიც ზუსტად ემთხვევა Swiper-ის სტილებს */}
+        {/* კლასები ამოღებულია აქედან და გადატანილია _app.js-ში, რომ კონფლიქტი არ მოხდეს */}
+        <div className="swiper-pagination">
+            {movies.map((_, i) => (
+                <span 
+                  key={i} 
+                  className={`swiper-pagination-bullet ${i === 0 ? 'swiper-pagination-bullet-active' : ''}`}
+                ></span>
+            ))}
+        </div>
       </Swiper>
 
       {/* ღილაკები */}
