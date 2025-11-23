@@ -1,16 +1,16 @@
 // src/pages/movie/[slug].js
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import Image from 'next/image';
-
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api'; 
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
+import PlayerContainer from '@/components/PlayerContainer'; // 💡 იმპორტი
 import { useWatchlist } from '@/lib/useWatchlist'; 
+import { slugify } from '@/lib/utils';
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -43,6 +43,7 @@ export async function getServerSideProps(context) {
       movie = movieRes.rows[0];
       kinopoisk_id = movie.kinopoisk_id;
       
+      // მსახიობები
       try {
         const actorsRes = await query(`
           SELECT a.id, a.name, a.profile_path, ma.character
@@ -53,20 +54,13 @@ export async function getServerSideProps(context) {
           LIMIT 20
         `, [tmdbId]);
         actors = actorsRes.rows;
-      } catch (err) {
-        console.error("Error fetching actors:", err.message);
-      }
+      } catch (err) { }
 
+      // რეკომენდაციები
       if (movie.genres_names && movie.genres_names.length > 0) {
         try {
             const isAnimation = movie.genres_names.includes('мультфильм') || movie.genres_names.includes('Animation');
-            
-            let genreFilter = "";
-            if (isAnimation) {
-                genreFilter = "AND 'мультфильм' = ANY(genres_names)";
-            } else {
-                genreFilter = "AND NOT ('мультфильм' = ANY(genres_names))";
-            }
+            let genreFilter = isAnimation ? "AND 'мультфильм' = ANY(genres_names)" : "AND NOT ('мультфильм' = ANY(genres_names))";
 
             const recRes = await query(`
                 SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
@@ -80,27 +74,19 @@ export async function getServerSideProps(context) {
                 LIMIT 15
             `, [tmdbId, movie.genres_names]);
             recommendations = recRes.rows;
-        } catch (err) {
-            console.error("Error fetching recommendations:", err.message);
-        }
+        } catch (err) { }
       }
     }
-  } catch (e) {
-    console.error("Database Error:", e.message);
-  }
+  } catch (e) { }
 
-  if (!movie) {
-    return { notFound: true };
-  }
-
-  const serializedMovie = JSON.parse(JSON.stringify(movie));
+  if (!movie) return { notFound: true };
 
   return {
     props: {
-      movie: serializedMovie,
-      kinopoisk_id: kinopoisk_id, 
-      actors: actors,
-      recommendations: recommendations 
+      movie: JSON.parse(JSON.stringify(movie)),
+      kinopoisk_id, 
+      actors,
+      recommendations
     },
   };
 }
@@ -109,62 +95,24 @@ const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
 const HeartIcon = ({ isFilled }) => ( <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg> );
 
-
 export default function MoviePage({ movie, kinopoisk_id, actors, recommendations }) {
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalIsLoading, setModalIsLoading] = useState(false);
-  const [modalVideoHtml, setModalVideoHtml] = useState('');
   
   const { toggleItem, isInWatchlist } = useWatchlist();
   const isFavorite = isInWatchlist(movie.tmdb_id);
   
-  const router = useRouter();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalVideoHtml, setModalVideoHtml] = useState('');
 
-  useEffect(() => {
-    if (kinopoisk_id) {
-      const oldScript = document.getElementById('kinobd-player-script');
-      if (oldScript) oldScript.remove();
-      const playerScript = document.createElement('script');
-      playerScript.src = 'https://kinobd.net/js/player_.js';
-      playerScript.id = 'kinobd-player-script';
-      playerScript.async = true;
-      document.body.appendChild(playerScript);
-      return () => {
-        const script = document.getElementById('kinobd-player-script');
-        if (script) script.remove();
-      };
-    }
-  }, [kinopoisk_id, router.asPath]);
-
-  const handleShowTrailer = useCallback(async () => {
-    setIsModalOpen(true);
-    setModalIsLoading(true);
-    
-    if (movie.trailer_url) {
-      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${movie.trailer_url}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`);
-      setModalIsLoading(false);
-      return; 
-    }
-
-    const data = await fetchData(`/movie/${movie.tmdb_id}/videos`);
-    let trailer = null;
-    if (data && data.results) {
-      trailer = data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer' && vid.iso_639_1 === 'ru') 
-             || data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer');
-    }
-    if (trailer) {
-      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&rel=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`);
-    } else {
-      setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Трейлер не найден.</p></div>`);
-    }
-    setModalIsLoading(false);
-  }, [movie, fetchData]);
-
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false);
-    setModalVideoHtml(''); 
-  }, []);
+  const handleShowTrailerModal = () => {
+     if (movie.trailer_url) {
+        let embedUrl = movie.trailer_url;
+        if (embedUrl.includes('watch?v=')) embedUrl = embedUrl.replace('watch?v=', 'embed/');
+        else if (embedUrl.includes('youtu.be/')) embedUrl = embedUrl.replace('youtu.be/', 'youtube.com/embed/');
+        
+        setModalVideoHtml(`<iframe class="w-full h-full" src="${embedUrl}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
+        setIsModalOpen(true);
+     }
+  };
 
   const title = movie.title_ru;
   const originalTitle = movie.title_en;
@@ -184,35 +132,26 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       </Head>
       
       <Header />
-
-      <TrailerModal 
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        isLoading={modalIsLoading}
-        videoHtml={modalVideoHtml}
-      />
+      <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} videoHtml={modalVideoHtml} />
 
       <div className="flex-grow">
+        
+        {/* 💡 1. Player Container */}
         {kinopoisk_id && (
-          <section className="bg-[#10141A] pt-16 md:pt-20"> 
-            <div className="max-w-7xl mx-auto"> 
-              {/* 💡 OPTIMIZED PLAYER: aspect-video, max-h-[650px] */}
-              <div className="relative w-full aspect-video max-h-[650px] overflow-hidden bg-black shadow-2xl border-b border-gray-800 mx-auto"> 
-                <div data-kinopoisk={kinopoisk_id} id="kinobd" className="absolute top-0 left-0 w-full h-full"></div>
-              </div>
-            </div>
+          <section className="bg-[#10141A] pt-24 pb-6"> 
+             <PlayerContainer 
+                kinopoisk_id={kinopoisk_id} 
+                imdb_id={movie.imdb_id}
+                tmdb_id={movie.tmdb_id}
+                title={title}
+                trailer_url={movie.trailer_url}
+                type="movie"
+             />
           </section>
         )}
 
         <section className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full">
-          <Image
-            src={backdropPath}
-            alt={title}
-            fill
-            style={{ objectFit: 'cover' }}
-            priority={true}
-            sizes="100vw"
-          />
+          <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority={true} sizes="100vw" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
           
@@ -233,18 +172,10 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
               <p className="max-w-xl text-md text-gray-200 mt-4 line-clamp-3">{movie.overview}</p>
               
               <div className="flex items-center space-x-4 mt-6">
-                <button onClick={handleShowTrailer} className="trailer-button bg-brand-red text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-colors focus:outline-none flex items-center gap-2">
+                <button onClick={handleShowTrailerModal} className="trailer-button bg-brand-red text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-colors focus:outline-none flex items-center gap-2">
                   <PlayIcon /> Трейлер
                 </button>
-
-                <button 
-                  onClick={() => toggleItem(movie.tmdb_id)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2 
-                    ${isFavorite 
-                      ? 'bg-white/10 border-brand-red text-brand-red hover:bg-brand-red hover:text-white' 
-                      : 'bg-transparent border-gray-500 text-gray-300 hover:border-white hover:text-white'
-                    }`}
-                >
+                <button onClick={() => toggleItem(movie.tmdb_id)} className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2 ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red hover:bg-brand-red hover:text-white' : 'bg-transparent border-gray-500 text-gray-300 hover:border-white hover:text-white'}`}>
                   <HeartIcon isFilled={isFavorite} />
                   {isFavorite ? 'В избранном' : 'В избранное'}
                 </button>
@@ -261,14 +192,11 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
               <div className="mt-8 p-4 bg-gray-900/50 rounded-lg">
                 <h3 className="text-2xl font-bold text-white mb-4">Детали</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-gray-300">
-                  
-                  {movie.rating_imdb > 0 && ( <div><span className="font-semibold text-gray-500 block">Рейтинг IMDb:</span>{movie.rating_imdb} ({movie.rating_imdb_count ? movie.rating_imdb_count.toLocaleString('en-US') : 0})</div> )}
-                  {movie.rating_kp > 0 && ( <div><span className="font-semibold text-gray-500 block">Рейтинг КП:</span>{movie.rating_kp} ({movie.rating_kp_count ? movie.rating_kp_count.toLocaleString('en-US') : 0})</div> )}
+                  {movie.rating_imdb > 0 && ( <div><span className="font-semibold text-gray-500 block">Рейтинг IMDb:</span>{movie.rating_imdb}</div> )}
+                  {movie.rating_kp > 0 && ( <div><span className="font-semibold text-gray-500 block">Рейтинг КП:</span>{movie.rating_kp}</div> )}
                   {movie.budget > 0 && ( <div><span className="font-semibold text-gray-500 block">Бюджет:</span>${Number(movie.budget).toLocaleString('en-US')}</div> )}
                   {movie.countries && movie.countries.length > 0 && ( <div><span className="font-semibold text-gray-500 block">Страна:</span>{movie.countries.join(', ')}</div> )}
                   {movie.premiere_world && ( <div><span className="font-semibold text-gray-500 block">Премьера в мире:</span>{movie.premiere_world}</div> )}
-                  {movie.premiere_ru && ( <div><span className="font-semibold text-gray-500 block">Премьера в РФ:</span>{movie.premiere_ru}</div> )}
-
                   <div className="col-span-2 md:col-span-3">
                     <span className="font-semibold text-gray-500 block">Жанры:</span>
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -283,14 +211,8 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
             </div>
           </div>
           
-          {/* რეკომენდაციები */}
           {recommendations && recommendations.length > 0 && (
-            <MediaCarousel 
-                title="Рекомендации" 
-                items={recommendations} 
-                swiperKey="movie-recommendations" 
-                cardType="movie" 
-            />
+            <MediaCarousel title="Рекомендации" items={recommendations} swiperKey="movie-recommendations" cardType="movie" />
           )}
         </main>
       </div>
