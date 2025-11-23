@@ -1,4 +1,3 @@
-// src/components/HeroSlider.js
 import React from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay, EffectFade } from 'swiper/modules';
@@ -55,7 +54,10 @@ export default function HeroSlider({ movies }) {
             ? `${BACKDROP_BASE_URL}${movie.backdrop_path}`
             : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
           const year = movie.release_year || 'N/A';
-          const rating = movie.rating_imdb > 0 ? movie.rating_imdb : null;
+          
+          // 💡 რეიტინგის შემოწმება
+          const rating = (movie.rating_imdb && movie.rating_imdb > 0) ? movie.rating_imdb : null;
+          
           const genres = (movie.genres_names || []).slice(0, 3);
           const titleSlug = slugify(title);
           const linkHref = `/${movie.type}/${movie.tmdb_id}-${titleSlug}-smotret-onlain-besplatno`;
@@ -80,7 +82,10 @@ export default function HeroSlider({ movies }) {
                 
                 <div className="max-w-3xl">
                     <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mb-4">
+                    
+                    {/* 💡 მხოლოდ მაშინ ჩნდება, თუ rating არსებობს ( > 0 ) */}
                     {rating && <ImdbBadgeSlider rating={rating} />}
+                    
                     <div className="text-white font-bold text-sm border border-white/40 rounded px-2 py-0.5 backdrop-blur-sm">
                         {year}
                     </div>
@@ -96,13 +101,18 @@ export default function HeroSlider({ movies }) {
                     </h2>
                     
                     <div className="flex gap-4">
-                        <Link href={linkHref}>
-                            <button className="bg-brand-red hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-transform transform hover:scale-105 flex items-center gap-3 text-lg shadow-lg shadow-red-900/50">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                        {/* 💡 შესწორება: <button> ამოღებულია <Link>-ის შიგნიდან.
+                           სტილები გადატანილია პირდაპირ Link კომპონენტზე.
+                           დაემატა 'inline-flex' სწორი განლაგებისთვის.
+                        */}
+                        <Link 
+                            href={linkHref}
+                            className="bg-brand-red hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-transform transform hover:scale-105 flex items-center gap-3 text-lg shadow-lg shadow-red-900/50 inline-flex"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                </svg>
-                                Смотреть фильм
-                            </button>
+                            </svg>
+                            Смотреть фильм
                         </Link>
                     </div>
                 </div>
@@ -111,8 +121,6 @@ export default function HeroSlider({ movies }) {
           )
         })}
         
-        {/* 💡 FIX: ხელით ვხატავთ დოტებს, რომლებიც ზუსტად ემთხვევა Swiper-ის სტილებს */}
-        {/* კლასები ამოღებულია აქედან და გადატანილია _app.js-ში, რომ კონფლიქტი არ მოხდეს */}
         <div className="swiper-pagination">
             {movies.map((_, i) => (
                 <span 

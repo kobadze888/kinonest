@@ -1,7 +1,6 @@
 // src/pages/tv/[slug].js
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react'; // 💡 Удален useEffect, он больше не нужен для скрипта
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import Image from 'next/image';
 
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api';
@@ -10,6 +9,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
+import PlayerContainer from '@/components/PlayerContainer'; // 💡 1. Импорт компонента плеера
 import { useWatchlist } from '@/lib/useWatchlist'; 
 
 export async function getServerSideProps(context) {
@@ -57,7 +57,7 @@ export async function getServerSideProps(context) {
         console.error("Error fetching TV actors:", err.message);
       }
 
-      // რეკომენდაციები
+      // Рекомендации
       if (tvShow.genres_names && tvShow.genres_names.length > 0) {
         try {
             const isAnimation = tvShow.genres_names.includes('мультфильм') || tvShow.genres_names.includes('Animation');
@@ -120,23 +120,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
   const { toggleItem, isInWatchlist } = useWatchlist();
   const isFavorite = isInWatchlist(tvShow.tmdb_id);
   
-  const router = useRouter();
-
-  useEffect(() => {
-    if (kinopoisk_id) {
-      const oldScript = document.getElementById('kinobd-player-script');
-      if (oldScript) oldScript.remove();
-      const playerScript = document.createElement('script');
-      playerScript.src = 'https://kinobd.net/js/player_.js';
-      playerScript.id = 'kinobd-player-script';
-      playerScript.async = true;
-      document.body.appendChild(playerScript);
-      return () => {
-        const script = document.getElementById('kinobd-player-script');
-        if (script) script.remove();
-      };
-    }
-  }, [kinopoisk_id, router.asPath]);
+  // 💡 2. Удален useEffect со скриптом плеера (PlayerContainer сделает это сам)
   
   const handleShowTrailer = useCallback(async () => {
     setIsModalOpen(true);
@@ -194,18 +178,17 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
         videoHtml={modalVideoHtml}
       />
 
+      {/* 💡 3. Замена на PlayerContainer (как на странице фильмов) */}
       {kinopoisk_id && (
-        <section className="bg-[#10141A] pt-16 md:pt-20">
-          <div className="max-w-7xl mx-auto"> 
-            {/* 💡 OPTIMIZED PLAYER: aspect-video, max-h-[650px] */}
-            <div className="relative w-full aspect-video max-h-[650px] overflow-hidden bg-black shadow-2xl border-b border-gray-800 mx-auto"> 
-              <div 
-                data-kinopoisk={kinopoisk_id} 
-                id="kinobd" 
-                className="absolute top-0 left-0 w-full h-full"
-              ></div>
-            </div>
-          </div>
+        <section className="bg-[#10141A] pt-24 pb-6">
+           <PlayerContainer 
+              kinopoisk_id={kinopoisk_id} 
+              imdb_id={tvShow.imdb_id}
+              tmdb_id={tvShow.tmdb_id}
+              title={title}
+              trailer_url={tvShow.trailer_url}
+              type="tv"
+           />
         </section>
       )}
 
@@ -345,7 +328,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
           </div>
         </div>
 
-        {/* 💡 რეკომენდაციები */}
         {recommendations?.length > 0 && (
           <MediaCarousel 
             title="Рекомендации"

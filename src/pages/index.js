@@ -17,20 +17,29 @@ export async function getServerSideProps() {
     created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
   `;
 
+  // 💡 მკაცრი ფილტრი მთავარი გვერდისთვის:
+  // 1. kinopoisk_id IS NOT NULL -> პლეერის გარეშე არ გამოჩნდეს
+  // 2. rating_imdb > 0           -> რეიტინგის გარეშე არ გამოჩნდეს
+  // 3. title_ru ~ '[а-яА-ЯёЁ]'   -> მხოლოდ რუსული სათაურები
+  // 4. release_year > 0          -> წლის გარეშე (N/A) არ გამოჩნდეს (ახალი)
   const strictCondition = `
     backdrop_path IS NOT NULL 
     AND poster_path IS NOT NULL
     AND title_ru IS NOT NULL AND title_ru != 'No Title'
+    AND title_ru ~ '[а-яА-ЯёЁ]'
     AND kinopoisk_id IS NOT NULL
-    AND rating_imdb > 5.0
+    AND rating_imdb > 0
+    AND release_year IS NOT NULL AND release_year > 0
   `;
 
   try {
+    // Hero Slider (Top 10)
     const heroQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
         AND ${strictCondition}
         AND release_year = ${currentYear}
+        AND rating_imdb > 6.0
         AND (
           'США' = ANY(countries) OR 'Великобритания' = ANY(countries)
         )
@@ -38,6 +47,7 @@ export async function getServerSideProps() {
       LIMIT 10
     `);
 
+    // Now Playing
     const nowPlayingQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -47,6 +57,7 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
+    // New Movies
     const newMoviesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -56,6 +67,7 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
+    // New Series (აქ იყო პრობლემა N/A წელზე)
     const newSeriesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv' 
@@ -64,6 +76,7 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
+    // Horror
     const horrorQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
@@ -74,6 +87,7 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
+    // Comedy
     const comedyQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
@@ -84,6 +98,7 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
+    // Actors
     const actorsQuery = query(`
       SELECT * FROM (
         SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity 
@@ -189,7 +204,6 @@ export default function Home({
       <>
         <HeroSlider movies={heroMovies} /> 
 
-        {/* 💡 FIX: დაშორების გაზრდა. -mt-16-ის ნაცვლად -mt-4, რაც ქვემოთ ჩამოწევს */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20 pb-16" id="main-container">
           
           <MediaCarousel 
