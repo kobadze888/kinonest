@@ -6,13 +6,12 @@ import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton';
 import FilterBar from '@/components/FilterBar';
-import { getDynamicFilters } from '@/lib/getFilters'; // 💡 იმპორტი
+import { getDynamicFilters } from '@/lib/getFilters';
 
 export async function getServerSideProps() {
   const limit = 30;
   const offset = 0;
 
-  // 💡 ვიღებთ ფილტრებს
   const { genres, countries } = await getDynamicFilters();
 
   const columns = `
@@ -25,10 +24,21 @@ export async function getServerSideProps() {
   let initialShows = [];
 
   try {
+    // 💡 პრიორიტეტი + tmdb_id DESC სტაბილურობისთვის
     const showsRes = await query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv'
-      ORDER BY release_year DESC NULLS LAST, rating_tmdb DESC
+      ORDER BY 
+        CASE 
+          WHEN title_ru ~ '[а-яА-ЯёЁ]' 
+               AND poster_path IS NOT NULL 
+               AND kinopoisk_id IS NOT NULL 
+          THEN 0 
+          ELSE 1 
+        END ASC,
+        release_year DESC NULLS LAST, 
+        rating_tmdb DESC,
+        tmdb_id DESC
       LIMIT $1 OFFSET $2
     `, [limit, offset]);
     initialShows = showsRes.rows;
@@ -37,11 +47,7 @@ export async function getServerSideProps() {
   }
 
   return {
-    props: {
-      initialShows,
-      genres,
-      countries
-    },
+    props: { initialShows, genres, countries },
   };
 }
 
@@ -50,7 +56,12 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const router = useRouter();
+
+  useEffect(() => {
+    setShows(initialShows);
+    setPage(1);
+    setHasMore(true);
+  }, [initialShows]);
 
   const loadMoreShows = useCallback(async () => {
     if (loading || !hasMore) return;
@@ -61,7 +72,17 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
       if (res.ok) {
         const newShows = await res.json();
         if (newShows.length > 0) {
-          setShows(prev => [...prev, ...newShows]);
+          setShows(prev => {
+            // 💡 დუბლიკატების ფილტრაცია
+            const existingIds = new Set(prev.map(s => s.tmdb_id));
+            const uniqueNewShows = newShows.filter(s => !existingIds.has(s.tmdb_id));
+            
+            if (uniqueNewShows.length === 0) {
+                setHasMore(false);
+                return prev;
+            }
+            return [...prev, ...uniqueNewShows];
+          });
           setPage(nextPage);
         } else {
           setHasMore(false);
@@ -88,15 +109,14 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <Header />
       <div className="pt-20">
-         {/* 💡 ვაწვდით დინამიურ ფილტრებს */}
          <FilterBar genres={genres} countries={countries} />
       </div>
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">Сериалы</h1>
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {shows.map((show, index) => (
-            <MediaCard key={`${show.tmdb_id}-${index}`} item={show} />
+          {shows.map((show) => (
+            <MediaCard key={`tv-${show.tmdb_id}`} item={show} />
           ))}
 
           {loading && Array.from({ length: 10 }).map((_, i) => (
@@ -104,7 +124,7 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
           ))}
         </div>
 
-        {!hasMore && (
+        {!hasMore && shows.length > 0 && (
           <div className="text-center text-gray-500 mt-12 mb-8">
             <p>Вы посмотрели все сериалы.</p>
           </div>

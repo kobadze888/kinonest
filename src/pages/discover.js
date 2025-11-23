@@ -1,4 +1,3 @@
-// src/pages/discover.js
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
@@ -11,57 +10,29 @@ import Pagination from '@/components/Pagination';
 
 const countryEnToRuMap = {
   "United States of America": "США",
-  "Russian Federation": "Россия", 
-  "Russia": "Россия",
-  "United Kingdom": "Великобритания",
-  "France": "Франция",
-  "Japan": "Япония",
-  "South Korea": "Южная Корея",
-  "Germany": "Германия",
-  "China": "Китай",
-  "Canada": "Канада",
-  "Australia": "Австралия",
-  "India": "Индия",
-  "Spain": "Испания",
-  "Italy": "Италия",
-  "Mexico": "Мексика",
-  "Brazil": "Бразилия",
-  "Turkey": "Турция",
-  "Sweden": "Швеция",
-  "Denmark": "Дания",
-  "Norway": "Норвегия",
-  "Ukraine": "Украина",
-  "Belarus": "Беларусь",
-  "Kazakhstan": "Казахстан"
+  "Russian Federation": "Россия", "Russia": "Россия",
+  "United Kingdom": "Великобритания", "France": "Франция",
+  "Japan": "Япония", "South Korea": "Южная Корея", "Germany": "Германия",
+  "China": "Китай", "Canada": "Канада", "Australia": "Австралия",
+  "India": "Индия", "Spain": "Испания", "Italy": "Италия",
+  "Mexico": "Мексика", "Brazil": "Бразилия", "Turkey": "Турция",
+  "Sweden": "Швеция", "Denmark": "Дания", "Norway": "Норвегия",
+  "Ukraine": "Украина", "Belarus": "Беларусь", "Kazakhstan": "Казахстан"
 };
 
 export async function getServerSideProps({ query: urlQuery }) {
   const { type, genre, year, rating, country, page, sort } = urlQuery; 
   
-  let dynamicGenres = [];
-  let dynamicCountries = [];
-
+  let dynamicGenres = [], dynamicCountries = [];
   try {
     const [dbCountriesRes, dbGenresRes] = await Promise.all([
       query(`SELECT DISTINCT UNNEST(countries) AS country FROM media WHERE countries IS NOT NULL AND countries <> '{}' ORDER BY country`),
       query(`SELECT DISTINCT UNNEST(genres_names) AS genre FROM media WHERE genres_names IS NOT NULL AND genres_names <> '{}' ORDER BY genre`)
     ]);
-
-    dynamicGenres = dbGenresRes.rows.map(row => {
-      const g = row.genre;
-      return g.charAt(0).toUpperCase() + g.slice(1); 
-    });
-
-    dynamicCountries = dbCountriesRes.rows.map(row => {
-        const enName = row.country;
-        const ruName = countryEnToRuMap[enName] || enName; 
-        return { en: enName, ru: ruName }; 
-    });
+    dynamicGenres = dbGenresRes.rows.map(row => row.genre.charAt(0).toUpperCase() + row.genre.slice(1));
+    dynamicCountries = dbCountriesRes.rows.map(row => ({ en: row.country, ru: countryEnToRuMap[row.country] || row.country }));
     dynamicCountries.sort((a, b) => a.ru.localeCompare(b.ru));
-
-  } catch (e) {
-    console.error("Dynamic Filter Load Error:", e.message);
-  }
+  } catch (e) {}
   
   const currentPage = parseInt(page) || 1;
   const limit = 30; 
@@ -71,41 +42,35 @@ export async function getServerSideProps({ query: urlQuery }) {
   let queryParams = [];
   let paramIndex = 1;
 
-  if (type && type !== 'all') {
-    sqlConditions.push(`type = $${paramIndex}`);
-    queryParams.push(type);
-    paramIndex++;
-  }
-  if (year && year !== 'all') {
-    sqlConditions.push(`release_year = $${paramIndex}`);
-    queryParams.push(parseInt(year));
-    paramIndex++;
-  }
-  if (rating && rating !== 'all') {
-    sqlConditions.push(`rating_imdb >= $${paramIndex}`);
-    queryParams.push(parseFloat(rating));
-    paramIndex++;
-  }
-  if (genre && genre !== 'all') {
-    sqlConditions.push(`EXISTS(SELECT 1 FROM UNNEST(genres_names) AS g WHERE g ILIKE $${paramIndex})`);
-    queryParams.push(`%${genre.toLowerCase()}%`); 
-    paramIndex++;
-  }
-  if (country && country !== 'all') {
-    sqlConditions.push(`EXISTS(SELECT 1 FROM UNNEST(countries) AS c WHERE c ILIKE $${paramIndex})`);
-    queryParams.push(`%${country}%`); 
-    paramIndex++;
-  }
+  if (type && type !== 'all') { sqlConditions.push(`type = $${paramIndex}`); queryParams.push(type); paramIndex++; }
+  if (year && year !== 'all') { sqlConditions.push(`release_year = $${paramIndex}`); queryParams.push(parseInt(year)); paramIndex++; }
+  if (rating && rating !== 'all') { sqlConditions.push(`rating_imdb >= $${paramIndex}`); queryParams.push(parseFloat(rating)); paramIndex++; }
+  if (genre && genre !== 'all') { sqlConditions.push(`EXISTS(SELECT 1 FROM UNNEST(genres_names) AS g WHERE g ILIKE $${paramIndex})`); queryParams.push(`%${genre.toLowerCase()}%`); paramIndex++; }
+  if (country && country !== 'all') { sqlConditions.push(`EXISTS(SELECT 1 FROM UNNEST(countries) AS c WHERE c ILIKE $${paramIndex})`); queryParams.push(`%${country}%`); paramIndex++; }
 
   const whereClause = sqlConditions.join(' AND ');
 
-  let orderBy = 'release_year DESC NULLS LAST, rating_tmdb DESC'; 
+  // 💡 განახლებული სორტირება (პრიორიტეტი)
+  const priorityCase = `
+    CASE 
+      WHEN title_ru ~ '[а-яА-ЯёЁ]' 
+           AND poster_path IS NOT NULL 
+           AND kinopoisk_id IS NOT NULL 
+      THEN 0 
+      ELSE 1 
+    END ASC
+  `;
+
+  let orderBy = '';
   switch (sort) {
-      case 'rating_asc': orderBy = 'rating_imdb ASC NULLS LAST, rating_tmdb ASC'; break;
-      case 'rating_desc': orderBy = 'rating_imdb DESC NULLS LAST, rating_tmdb DESC'; break;
-      case 'year_asc': orderBy = 'release_year ASC NULLS LAST, rating_tmdb DESC'; break;
-      case 'year_desc': default: orderBy = 'release_year DESC NULLS LAST, rating_tmdb DESC'; break;
+      case 'rating_asc': orderBy = `${priorityCase}, rating_imdb ASC NULLS LAST, rating_tmdb ASC`; break;
+      case 'rating_desc': orderBy = `${priorityCase}, rating_imdb DESC NULLS LAST, rating_tmdb DESC`; break;
+      case 'year_asc': orderBy = `${priorityCase}, release_year ASC NULLS LAST, rating_tmdb DESC`; break;
+      case 'year_desc': default: orderBy = `${priorityCase}, release_year DESC NULLS LAST, rating_tmdb DESC`; break;
   }
+  
+  // ბოლოს ვამატებთ tmdb_id-ს სტაბილურობისთვის
+  orderBy += `, tmdb_id DESC`;
 
   const columns = `
     tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
@@ -118,9 +83,7 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
-    const sql = `
-      SELECT ${columns} FROM media WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ${limit} OFFSET ${offset}
-    `;
+    const sql = `SELECT ${columns} FROM media WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ${limit} OFFSET ${offset}`;
     const dbResult = await query(sql, queryParams);
     results = dbResult.rows;
     const countSql = `SELECT COUNT(*) FROM media WHERE ${whereClause}`;
@@ -148,11 +111,7 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const start = (url) => {
-      if (url.startsWith('/discover')) {
-        setLoading(true);
-      }
-    };
+    const start = (url) => { if (url.startsWith('/discover')) setLoading(true); };
     const end = () => setLoading(false);
     router.events.on('routeChangeStart', start);
     router.events.on('routeChangeComplete', end);
@@ -166,64 +125,36 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
 
   const changePage = (newPage) => {
     if (newPage < 1 || newPage > totalPages) return;
-    router.push({
-      pathname: '/discover',
-      query: { ...router.query, page: newPage },
-    });
+    router.push({ pathname: '/discover', query: { ...router.query, page: newPage } });
   };
 
-  // 💡 აქტიური ფილტრების გენერირება
   const getActiveFilters = () => {
     const active = [];
-    
-    if (filters.type && filters.type !== 'all') {
-      active.push({ label: 'Тип', value: filters.type === 'movie' ? 'Фильмы' : 'Сериалы' });
-    }
-    
-    if (filters.genre && filters.genre !== 'all') {
-      // დეკოდირება და დიდი ასოთი დაწყება
-      const genreName = decodeURIComponent(filters.genre);
-      active.push({ label: 'Жанр', value: genreName.charAt(0).toUpperCase() + genreName.slice(1) });
-    }
-
-    if (filters.year && filters.year !== 'all') {
-      active.push({ label: 'Год', value: filters.year });
-    }
-
+    if (filters.type && filters.type !== 'all') active.push({ label: 'Тип', value: filters.type === 'movie' ? 'Фильмы' : 'Сериалы' });
+    if (filters.genre && filters.genre !== 'all') active.push({ label: 'Жанр', value: decodeURIComponent(filters.genre).charAt(0).toUpperCase() + decodeURIComponent(filters.genre).slice(1) });
+    if (filters.year && filters.year !== 'all') active.push({ label: 'Год', value: filters.year });
     if (filters.country && filters.country !== 'all') {
       const countryVal = decodeURIComponent(filters.country);
-      // ვპოულობთ რუსულ სახელს ინგლისურის მიხედვით
       const countryObj = dynamicCountries.find(c => c.en === countryVal);
       active.push({ label: 'Страна', value: countryObj ? countryObj.ru : countryVal });
     }
-
-    if (filters.rating && filters.rating !== 'all') {
-      active.push({ label: 'Рейтинг', value: `> ${filters.rating}` });
-    }
-
+    if (filters.rating && filters.rating !== 'all') active.push({ label: 'Рейтинг', value: `> ${filters.rating}` });
     return active;
   };
-
   const activeFilters = getActiveFilters();
   
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <Header />
-      
       <div className="pt-20">
         <FilterBar initialFilters={filters} genres={dynamicGenres} countries={dynamicCountries} />
       </div>
-
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
-        
-        {/* 💡 სათაური და აქტიური ფილტრები */}
         <div className="mb-8">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h1 className="text-2xl font-bold text-white">Результаты фильтрации</h1>
                 <span className="text-gray-400 text-sm">Найдено: {total} (страница {currentPage})</span>
             </div>
-
-            {/* ფილტრების ბეიჯები */}
             {activeFilters.length > 0 && (
               <div className="flex flex-wrap gap-3 items-center">
                 <span className="text-sm text-gray-500">Выбрано:</span>
@@ -233,52 +164,30 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
                     <span className="font-medium text-white">{f.value}</span>
                   </div>
                 ))}
-                
-                {/* გასუფთავების ღილაკი */}
-                <button 
-                  onClick={() => router.push('/discover')}
-                  className="text-sm text-brand-red hover:text-red-400 transition-colors ml-2 underline decoration-dashed underline-offset-4"
-                >
-                  Сбросить все
-                </button>
+                <button onClick={() => router.push('/discover')} className="text-sm text-brand-red hover:text-red-400 transition-colors ml-2 underline decoration-dashed underline-offset-4">Сбросить все</button>
               </div>
             )}
         </div>
-
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {loading 
             ? Array.from({ length: 30 }).map((_, i) => <MediaCardSkeleton key={i} />)
             : results.length > 0 ? (
-                results.map(item => (
-                  <MediaCard key={item.tmdb_id} item={item} />
-                ))
+                results.map(item => <MediaCard key={item.tmdb_id} item={item} />)
               ) : (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
                   <div className="text-6xl mb-4">📂</div>
                   <h2 className="text-xl font-semibold text-white mb-2">Ничего не найдено</h2>
-                  <p className="text-gray-400">Попробуйте смягчить условия фильтра.</p>
-                  <button 
-                    onClick={() => router.push('/discover')}
-                    className="mt-4 px-4 py-2 bg-brand-red text-white rounded-md hover:bg-red-700 transition"
-                  >
-                    Сбросить фильтры
-                  </button>
+                  <button onClick={() => router.push('/discover')} className="mt-4 px-4 py-2 bg-brand-red text-white rounded-md hover:bg-red-700 transition">Сбросить фильтры</button>
                 </div>
               )
           }
         </div>
-
         {totalPages > 1 && (
            <div className="mt-12">
-             <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={changePage}
-             />
+             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={changePage} />
            </div>
         )}
       </main>
-
       <Footer />
     </div>
   );

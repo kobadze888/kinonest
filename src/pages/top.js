@@ -7,14 +7,13 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
 import Pagination from '@/components/Pagination';
-import { getDynamicFilters } from '@/lib/getFilters'; // 💡
+import { getDynamicFilters } from '@/lib/getFilters';
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
   const limit = 30;
   const offset = (page - 1) * limit;
   
-  // 💡 ფილტრები ბაზიდან
   const { genres, countries } = await getDynamicFilters();
 
   const columns = `
@@ -28,10 +27,22 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
+    // 💡 Top გვერდის განახლებული სორტირება:
+    // 1. პრიორიტეტი: ქვეყანა (აშშ ან დიდი ბრიტანეთი) -> 0, სხვა -> 1
+    // 2. შემდეგ რეიტინგი
+    // 3. შემდეგ წელი
     const sql = `
       SELECT ${columns} FROM media 
       WHERE type = 'movie' AND rating_tmdb > 0
-      ORDER BY rating_tmdb DESC, rating_imdb DESC
+      ORDER BY 
+        CASE 
+          WHEN ('США' = ANY(countries) OR 'Великобритания' = ANY(countries)) 
+          THEN 0 
+          ELSE 1 
+        END ASC,
+        rating_imdb DESC, 
+        release_year DESC NULLS LAST, 
+        tmdb_id DESC
       LIMIT $1 OFFSET $2
     `;
     const itemsRes = await query(sql, [limit, offset]);
@@ -44,13 +55,7 @@ export async function getServerSideProps({ query: urlQuery }) {
   }
 
   return {
-    props: {
-      items,
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      genres,
-      countries
-    },
+    props: { items, currentPage: page, totalPages: Math.ceil(total / limit), genres, countries },
   };
 }
 
@@ -59,11 +64,7 @@ export default function TopPage({ items, currentPage, totalPages, genres, countr
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const start = (url) => {
-      if (url.startsWith('/top')) {
-        setLoading(true);
-      }
-    };
+    const start = (url) => { if (url.startsWith('/top')) setLoading(true); };
     const end = () => setLoading(false);
     router.events.on('routeChangeStart', start);
     router.events.on('routeChangeComplete', end);
@@ -76,10 +77,7 @@ export default function TopPage({ items, currentPage, totalPages, genres, countr
   }, [router]);
 
   const handlePageChange = (newPage) => {
-    router.push({
-      pathname: '/top',
-      query: { page: newPage },
-    });
+    router.push({ pathname: '/top', query: { page: newPage } });
   };
 
   return (
@@ -90,22 +88,14 @@ export default function TopPage({ items, currentPage, totalPages, genres, countr
       </div>
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">Топ фильмы</h1>
-        
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {loading 
             ? Array.from({ length: 30 }).map((_, i) => <MediaCardSkeleton key={i} />)
-            : items.map(item => (
-                <MediaCard key={item.tmdb_id} item={item} />
-              ))
+            : items.map(item => <MediaCard key={item.tmdb_id} item={item} />)
           }
         </div>
-
         <div className="mt-12">
-          <Pagination 
-            currentPage={currentPage} 
-            totalPages={totalPages} 
-            onPageChange={handlePageChange} 
-          />
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
         </div>
       </main>
       <Footer />

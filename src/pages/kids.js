@@ -7,14 +7,13 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
 import Pagination from '@/components/Pagination';
-import { getDynamicFilters } from '@/lib/getFilters'; // 💡
+import { getDynamicFilters } from '@/lib/getFilters';
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
   const limit = 30;
   const offset = (page - 1) * limit;
   
-  // 💡 ფილტრები ბაზიდან
   const { genres, countries } = await getDynamicFilters();
 
   const columns = `
@@ -28,10 +27,21 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
+    // 💡 Kids გვერდზეც პრიორიტეტი
     const sql = `
       SELECT ${columns} FROM media 
       WHERE genres_names && ARRAY['мультфильм', 'семейный']
-      ORDER BY release_year DESC NULLS LAST, rating_tmdb DESC
+      ORDER BY 
+        CASE 
+          WHEN title_ru ~ '[а-яА-ЯёЁ]' 
+               AND poster_path IS NOT NULL 
+               AND kinopoisk_id IS NOT NULL 
+          THEN 0 
+          ELSE 1 
+        END ASC,
+        release_year DESC NULLS LAST, 
+        rating_tmdb DESC,
+        tmdb_id DESC
       LIMIT $1 OFFSET $2
     `;
     const itemsRes = await query(sql, [limit, offset]);
@@ -44,13 +54,7 @@ export async function getServerSideProps({ query: urlQuery }) {
   }
 
   return {
-    props: {
-      items,
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      genres,
-      countries
-    },
+    props: { items, currentPage: page, totalPages: Math.ceil(total / limit), genres, countries },
   };
 }
 
@@ -59,11 +63,7 @@ export default function KidsPage({ items, currentPage, totalPages, genres, count
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const start = (url) => {
-      if (url.startsWith('/kids')) {
-        setLoading(true);
-      }
-    };
+    const start = (url) => { if (url.startsWith('/kids')) setLoading(true); };
     const end = () => setLoading(false);
     router.events.on('routeChangeStart', start);
     router.events.on('routeChangeComplete', end);
@@ -76,10 +76,7 @@ export default function KidsPage({ items, currentPage, totalPages, genres, count
   }, [router]);
 
   const handlePageChange = (newPage) => {
-    router.push({
-      pathname: '/kids',
-      query: { page: newPage },
-    });
+    router.push({ pathname: '/kids', query: { page: newPage } });
   };
 
   return (
@@ -90,22 +87,14 @@ export default function KidsPage({ items, currentPage, totalPages, genres, count
       </div>
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">Детям</h1>
-        
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {loading 
             ? Array.from({ length: 30 }).map((_, i) => <MediaCardSkeleton key={i} />)
-            : items.map(item => (
-                <MediaCard key={item.tmdb_id} item={item} />
-              ))
+            : items.map(item => <MediaCard key={item.tmdb_id} item={item} />)
           }
         </div>
-
         <div className="mt-12">
-          <Pagination 
-            currentPage={currentPage} 
-            totalPages={totalPages} 
-            onPageChange={handlePageChange} 
-          />
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
         </div>
       </main>
       <Footer />

@@ -4,7 +4,6 @@ import { query } from '@/lib/db';
 export default async function handler(req, res) {
   const { type, page = 1 } = req.query;
   
-  // 💡 შეცვლილია 30-ზე
   const limit = 30;
   const offset = (page - 1) * limit;
 
@@ -20,10 +19,21 @@ export default async function handler(req, res) {
       created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
     `;
 
+    // 💡 განახლებული სორტირება პრიორიტეტებით და დუბლიკატების დაცვით
     const sql = `
       SELECT ${columns} FROM media 
       WHERE type = $1
-      ORDER BY release_year DESC NULLS LAST, rating_tmdb DESC
+      ORDER BY 
+        CASE 
+          WHEN title_ru ~ '[а-яА-ЯёЁ]' 
+               AND poster_path IS NOT NULL 
+               AND kinopoisk_id IS NOT NULL 
+          THEN 0 
+          ELSE 1 
+        END ASC,
+        release_year DESC NULLS LAST, 
+        rating_tmdb DESC,
+        tmdb_id DESC
       LIMIT $2 OFFSET $3
     `;
 
