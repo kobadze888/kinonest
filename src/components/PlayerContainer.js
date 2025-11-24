@@ -1,28 +1,27 @@
-// src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
-// 💡 დამხმარე კომპონენტი KinoBD პლეერისთვის (უსაფრთხო იზოლაცია)
-// ეს კომპონენტი ხელით მართავს DOM-ს, რათა თავიდან ავიცილოთ React-ის შეცდომები
+// დამხმარე კომპონენტი KinoBD პლეერისთვის (React.memo-ს გარეშე, რომ არ გაიჭედოს)
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current || !kinopoiskId) return;
 
-    // 1. გასუფთავება: ვშლით ყველაფერს კონტეინერში (თუ რამე დარჩა)
+    // 1. გასუფთავება
     containerRef.current.innerHTML = '';
 
-    // 2. ელემენტის შექმნა: ხელით ვქმნით div-ს პლეერისთვის
+    // 2. ელემენტის შექმნა
     const playerDiv = document.createElement('div');
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
+    // 💡 მნიშვნელოვანი: ზომები 100%-ზე, რომ მშობელს მოერგოს
     playerDiv.style.width = '100%';
     playerDiv.style.height = '100%';
+    playerDiv.style.borderRadius = '8px'; // ოდნავ მომრგვალება
     containerRef.current.appendChild(playerDiv);
 
     // 3. სკრიპტის ჩატვირთვა
     const scriptId = 'kinobd-script-loader';
-    // ძველი სკრიპტის წაშლა (თუ არსებობს), რომ თავიდან ჩაიტვირთოს
     const oldScript = document.getElementById(scriptId);
     if (oldScript) oldScript.remove();
 
@@ -32,23 +31,19 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     script.async = true;
     document.body.appendChild(script);
 
-    // Cleanup: კომპონენტის წაშლისას (ან ტაბის გადართვისას) ვასუფთავებთ ყველაფერს
     return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ''; // ვშლით პლეერს
-      }
+      if (containerRef.current) containerRef.current.innerHTML = '';
       const s = document.getElementById(scriptId);
-      if (s) s.remove(); // ვშლით სკრიპტს
+      if (s) s.remove();
     };
   }, [kinopoiskId]);
 
-  // React-ს ვეუბნებით, რომ ამ div-ს არ შეეხოს (ჩვენ ვმართავთ useEffect-იდან)
-  return <div ref={containerRef} className="w-full h-full bg-black" />;
+  return <div ref={containerRef} className="w-full h-full bg-black rounded-xl overflow-hidden" />;
 };
 
-export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url, type }) {
+export default function PlayerContainer({ kinopoisk_id, trailer_url }) {
   const [activeTab, setActiveTab] = useState('main');
-  const [refreshKey, setRefreshKey] = useState(0); // 🔄 რესტარტის გასაღები
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const players = [
     { id: 'main', label: 'Фильм' },
@@ -57,18 +52,14 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
 
   const handleTabClick = (tabId) => {
     if (activeTab === tabId) {
-      // თუ იგივე ტაბს ვაჭერთ -> ვარეფრეშებთ (შავი ეკრანის გასასწორებლად)
       setRefreshKey((prev) => prev + 1);
     } else {
-      // თუ სხვა ტაბზე გადავდივართ
       setActiveTab(tabId);
-      setRefreshKey(0); // რესეტი
+      setRefreshKey(0);
     }
   };
 
   const renderPlayer = () => {
-    // 💡 key={refreshKey} აიძულებს React-ს, რომ კომპონენტი თავიდან შექმნას
-    // ეს არის "ხელოვნური გადატვირთვა"
     const contentKey = `${activeTab}-${refreshKey}`;
 
     if (activeTab === 'main') {
@@ -78,7 +69,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
     if (activeTab === 'trailer') {
       if (!trailer_url) {
         return (
-          <div key={contentKey} className="w-full h-full flex items-center justify-center bg-black text-gray-500">
+          <div className="w-full h-full flex items-center justify-center bg-black text-gray-500">
             <p>Трейлер не найден</p>
           </div>
         );
@@ -95,7 +86,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
         <iframe 
           key={contentKey}
           src={`${embedUrl}?autoplay=0`} 
-          className="w-full h-full" 
+          className="w-full h-full rounded-xl" 
           frameBorder="0" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
           allowFullScreen
@@ -106,12 +97,12 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto mb-12 px-4 sm:px-6 lg:px-8">
+    <div className="w-full max-w-7xl mx-auto mb-12 px-2 sm:px-4 lg:px-8">
       
-      <div className="bg-[#151a21] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[#151a21] border border-gray-800 rounded-xl shadow-2xl">
          
          {/* ჰედერი (Toolbar) */}
-         <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800">
+         <div className="flex items-center justify-between px-3 py-2 bg-[#1a1f26] border-b border-gray-800 rounded-t-xl">
             <div className="flex items-center gap-2">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
                     {players.map((player) => (
@@ -119,7 +110,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
                         key={player.id}
                         onClick={() => handleTabClick(player.id)}
                         className={`
-                        px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all duration-200
+                        px-3 py-1.5 rounded-md text-xs sm:text-sm font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-red
                         ${
                             activeTab === player.id
                             ? 'bg-brand-red text-white shadow-md'
@@ -132,13 +123,16 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
                     ))}
                 </div>
             </div>
-            <div className="text-gray-500 text-xs font-medium hidden sm:block select-none">
+            <div className="text-gray-600 text-[10px] sm:text-xs font-medium hidden sm:block select-none">
                 KinoNest Player
             </div>
          </div>
 
-         {/* პლეერის სივრცე */}
-         <div className="relative w-full aspect-video bg-black">
+         {/* 💡 აქ არის მთავარი შესწორება ზომაზე:
+            1. aspect-video: ინარჩუნებს 16:9 პროპორციას.
+            2. max-h-[75vh]: არ აძლევს უფლებას, რომ ეკრანის 75%-ზე მეტი დაიკავოს სიმაღლეში (სმარტ ტივიზე ეს მნიშვნელოვანია).
+         */}
+         <div className="relative w-full bg-black aspect-video max-h-[60vh] lg:max-h-[75vh] mx-auto">
             {renderPlayer()}
          </div>
 

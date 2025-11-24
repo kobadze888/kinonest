@@ -2,70 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
-/* @import "tailwindcss"; */
-
-/* 💡 Custom Scrollbar Styles (სქროლის დიზაინი) */
 @layer base {
-  /* Webkit browsers (Chrome, Safari, Edge) */
+  /* სქროლის დიზაინი */
   ::-webkit-scrollbar {
-    width: 8px;  /* ვერტიკალური სქროლის სიგანე */
-    height: 8px; /* ჰორიზონტალური სქროლის სიმაღლე */
+    width: 8px;
+    height: 8px;
   }
-
-  /* სქროლის ფონი (Track) */
   ::-webkit-scrollbar-track {
     background: #10141A; 
   }
-
-  /* სქროლის მოძრავი ნაწილი (Thumb) */
   ::-webkit-scrollbar-thumb {
-    background-color: #374151; /* მუქი ნაცრისფერი (Gray-700) */
-    border-radius: 4px;        /* მომრგვალებული კუთხეები */
-    border: 2px solid #10141A; /* პატარა დაშორება ფონისგან */
+    background-color: #374151;
+    border-radius: 4px;
+    border: 2px solid #10141A;
   }
-
-  /* სქროლზე მაუსის მიტანისას */
   ::-webkit-scrollbar-thumb:hover {
-    background-color: #e50914; /* Brand Red */
+    background-color: #e50914;
   }
-
-  /* 🚫 ისრების (ღილაკების) გაქრობა */
-  ::-webkit-scrollbar-button {
-    display: none;
-    width: 0;
-    height: 0;
-  }
-
-  /* სქროლის კუთხე (გადაკვეთა) */
-  ::-webkit-scrollbar-corner {
-    background-color: #10141A;
-  }
-
-  /* Firefox-ისთვის */
   * {
-    scrollbar-width: thin;          /* თხელი სქროლი */
-    scrollbar-color: #374151 #10141A; /* ფერები: Thumb Track */
+    scrollbar-width: thin;
+    scrollbar-color: #374151 #10141A;
+  }
+
+  /* 🚀 PERFORMANCE HACK სმარტ ტელევიზორებისთვის:
+     გავთიშოთ მძიმე ეფექტები, რათა ინტერფეისი იყოს სწრაფი.
+  */
+  html, body {
+    /* აიძულებს GPU-ს გამოყენებას რენდერინგისთვის */
+    transform: translateZ(0); 
+    backface-visibility: hidden;
+    perspective: 1000px;
+    /* ტექსტის რენდერინგის ოპტიმიზაცია */
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-@layer utilities {
-  /* Оптимизация для Smart TV и клавиатуры */
-  .focus-visible-ring {
-    @apply focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-red focus-visible:ring-offset-2 focus-visible:ring-offset-[#10141A];
+/* 🚫 მძიმე Blur ეფექტის მოხსნა გლობალურად (სადაც შესაძლებელია) */
+.backdrop-blur-md, .backdrop-blur-sm, .backdrop-blur-xl {
+  backdrop-filter: none !important;
+  background-color: rgba(16, 20, 26, 0.95) !important; /* მყარი ფერი Blur-ის ნაცვლად */
+}
+
+/* ჩრდილების გამარტივება */
+.shadow-2xl, .shadow-xl, .shadow-lg {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+}
+
+@layer components {
+  /* ფოკუსის სტილი პულტისთვის (აუცილებელია TV-სთვის) */
+  .focus-visible-ring:focus-visible {
+    
+    outline-offset: 2px;
+    z-index: 50;
   }
   
-  /* Убираем стандартный скроллбар на TV, но оставляем прокрутку */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  /* კარტის ჰოვერი/ფოკუსი გამარტივებული ანიმაციით */
+  .media-card {
+    @apply transition-transform duration-200;
   }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  .media-card:hover, .media-card:focus-within {
+    transform: scale(1.02); /* უფრო პატარა ზუმი, ნაკლები დატვირთვა */
+    z-index: 10;
+    
   }
-}
-
-/* Глобальное улучшение производительности рендеринга */
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }

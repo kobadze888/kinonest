@@ -14,9 +14,9 @@ const OMDB_API_KEY = 'b0f7e52c';
 
 const PROGRESS_FILE = path.join(process.cwd(), 'scripts', 'sync-tv-us-tr-progress.json');
 
-const TARGET_YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
+const TARGET_YEARS = [2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 2008, 2007, 2006, 2005, 2004];
 const START_PAGE_DEFAULT = 1;  
-const TMDB_MAX_PAGES = 10; 
+const TMDB_MAX_PAGES = 20; 
 
 const countryMap = {
   "United States of America": "США", "United Kingdom": "Великобритания", "China": "Китай",
