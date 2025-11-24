@@ -173,7 +173,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
           <div className="lg:col-span-8 flex flex-col h-full">
-            <div className="w-full mb-6">
+            <div className="w-full mb-1">
                 <MediaCarousel title="В ролях" items={actors} swiperKey="tv-actors" cardType="actor" />
             </div>
             <div className="bg-[#151a21] border border-gray-800 rounded-xl p-6 shadow-lg flex-grow flex flex-col justify-center">
