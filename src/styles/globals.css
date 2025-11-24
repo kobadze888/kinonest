@@ -47,3 +47,25 @@
     scrollbar-color: #374151 #10141A; /* ფერები: Thumb Track */
   }
 }
+
+@layer utilities {
+  /* Оптимизация для Smart TV и клавиатуры */
+  .focus-visible-ring {
+    @apply focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-red focus-visible:ring-offset-2 focus-visible:ring-offset-[#10141A];
+  }
+  
+  /* Убираем стандартный скроллбар на TV, но оставляем прокрутку */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Глобальное улучшение производительности рендеринга */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

@@ -93,7 +93,6 @@ export async function getServerSideProps(context) {
 const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg> );
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
 const HeartIcon = ({ isFilled }) => ( <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg> );
-// 💡 ტელევიზორის აიქონი
 const TvIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"> <path strokeLinecap="round" strokeLinejoin="round" d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125z" /> </svg> );
 
 export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }) {
@@ -151,17 +150,14 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
             <p className="max-w-xl text-sm md:text-base text-gray-200 mt-3 line-clamp-3">{tvShow.overview}</p>
             
             <div className="flex items-center space-x-3 mt-5">
-                {/* ღილაკი 1: ტრეილერი */}
                 <button onClick={handleShowTrailer} className="bg-brand-red text-white font-bold py-2.5 px-6 rounded-lg hover:bg-red-700 transition flex items-center gap-2">
                     <PlayIcon /> Трейлер
                 </button>
                 
-                {/* ღილაკი 2: ფავორიტები */}
                 <button onClick={() => toggleItem(tvShow.tmdb_id)} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red' : 'border-gray-500 text-gray-300 hover:text-white'}`}>
                     <HeartIcon isFilled={isFavorite} /> {isFavorite ? 'В избранном' : 'В избранное'}
                 </button>
 
-                {/* 💡 ღილაკი 3: სერიალი (კლიკაბელური) */}
                 <Link href="/tv-shows" className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 border-gray-500 text-gray-300 hover:text-white hover:border-white hover:bg-white/5 cursor-pointer">
                     <TvIcon />
                     СЕРИАЛ
@@ -187,7 +183,23 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
                 {tvShow.rating_kp > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг КП</span><span className="text-white font-bold text-lg">{tvShow.rating_kp}</span></div>)}
                 {tvShow.countries && (<div><span className="text-gray-500 block mb-1">Страна</span><span className="text-white font-medium">{tvShow.countries.join(', ')}</span></div>)}
                 {tvShow.premiere_world && (<div><span className="text-gray-500 block mb-1">Премьера</span><span className="text-white font-medium">{new Date(tvShow.premiere_world).toLocaleDateString('ru-RU')}</span></div>)}
-                <div className="col-span-2 sm:col-span-3 pt-2"><span className="text-gray-500 block mb-2">Жанры</span><div className="flex flex-wrap gap-2">{(tvShow.genres_names || []).map((g, i) => (<span key={i} className="px-3 py-1 bg-gray-800 text-gray-300 rounded-md border border-gray-700">{g}</span>))}</div></div>
+                
+                {/* 💡 ჟანრები ახლა კლიკაბელურია! */}
+                <div className="col-span-2 sm:col-span-3 pt-2">
+                    <span className="text-gray-500 block mb-2">Жанры</span>
+                    <div className="flex flex-wrap gap-2">
+                      {(tvShow.genres_names || []).map((g, i) => (
+                        <Link 
+                          key={i} 
+                          href={`/discover?genre=${g.toLowerCase()}`}
+                          className="px-3 py-1 bg-gray-800 text-gray-300 rounded-md border border-gray-700 hover:bg-brand-red hover:text-white hover:border-brand-red transition-colors cursor-pointer"
+                        >
+                          {g}
+                        </Link>
+                      ))}
+                    </div>
+                </div>
+
               </div>
             </div>
           </div>
