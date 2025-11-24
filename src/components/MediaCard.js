@@ -51,7 +51,7 @@ export default function MediaCard({ item }) {
     <div className="block w-full group relative"> 
       {/* 💡 FIX: დაემატა style={{ willChange: 'transform' ... }} ციმციმის მოსაგვარებლად */}
       <div 
-        className="media-card rounded-lg overflow-hidden shadow-xl bg-gray-800 transition-all duration-300 ease-out hover:shadow-brand-red/30 hover:-translate-y-1"
+        className="media-card rounded-lg overflow-hidden shadow-xl bg-gray-800 transition-all duration-300 ease-out hover:shadow-brand-red/10 hover:-translate-y-1"
         style={{ 
             willChange: 'transform', 
             backfaceVisibility: 'hidden',
