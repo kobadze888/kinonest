@@ -24,8 +24,8 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
     return null;
   }
   
-  // 💡 ზომები აღდგენილია ორიგინალზე
-  const slideWidthClass = cardType === 'actor' ? '!w-36 md:!w-44' : '!w-44 md:!w-52';
+  // 💡 ზომები გავზარდეთ, რომ არ იყოს მიჭყლეტილი
+  const slideWidthClass = cardType === 'actor' ? '!w-36 md:!w-40' : '!w-44 md:!w-52';
   
   const showSkeletons = isLoading;
   const skeletonItems = Array.from({ length: 10 });
@@ -34,16 +34,16 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
   const nextClass = `js-next-${swiperKey}`;
 
   return (
-    <section className="my-12 w-full relative group/section">
+    <section className="w-full relative group/section mb-8">
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 px-1">
+      <div className="flex items-center justify-between mb-5 px-1">
         <div className="flex items-center gap-3">
             <div className="w-1.5 h-7 bg-brand-red rounded-full shadow-[0_0_12px_rgba(229,9,20,0.6)]"></div>
             {title && (
                 link ? (
                     <Link href={link} className="group flex items-center gap-2 cursor-pointer">
-                        <h2 className="text-2xl md:text-3xl font-bold text-white group-hover:text-brand-red transition-colors">
+                        <h2 className="text-xl md:text-2xl font-bold text-white group-hover:text-brand-red transition-colors">
                             {title}
                         </h2>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5 text-gray-500 group-hover:text-brand-red group-hover:translate-x-1 transition-all mt-0.5">
@@ -51,17 +51,17 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
                         </svg>
                     </Link>
                 ) : (
-                    <h2 className="text-2xl md:text-3xl font-bold text-white">{title}</h2>
+                    <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
                 )
             )}
         </div>
 
         {/* ნავიგაცია */}
         <div className="flex items-center gap-2">
-            <button className={`${prevClass} nav-btn-custom disabled:opacity-30 disabled:cursor-not-allowed`}>
+            <button className={`${prevClass} nav-btn-custom w-9 h-9 disabled:opacity-30 disabled:cursor-not-allowed`}>
                 <ArrowLeft />
             </button>
-            <button className={`${nextClass} nav-btn-custom disabled:opacity-30 disabled:cursor-not-allowed`}>
+            <button className={`${nextClass} nav-btn-custom w-9 h-9 disabled:opacity-30 disabled:cursor-not-allowed`}>
                 <ArrowRight />
             </button>
         </div>
@@ -72,18 +72,18 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
         <Swiper
           modules={[Navigation]}
           slidesPerView="auto" 
-          spaceBetween={24} // 💡 დაშორება გაზრდილია 24-მდე (დაახლოებით 6 Tailwind ერთეული)
+          spaceBetween={24} // 💡 დაშორება გაიზარდა 24-მდე (იყო 16)
           navigation={{
             nextEl: `.${nextClass}`,
             prevEl: `.${prevClass}`,
           }}
-          className="!pb-8" // padding-bottom ჩრდილებისთვის
+          className="!pb-6" // padding ქვემოთ ჩრდილებისთვის
         >
           {showSkeletons 
             ? skeletonItems.map((_, index) => (
                 <SwiperSlide key={`skeleton-${index}`} className={`${slideWidthClass}`}>
                   {cardType === 'actor' ? (
-                     <div className="w-32 h-32 md:w-40 md:h-40 bg-gray-800 rounded-full animate-pulse mx-auto border border-gray-700"></div>
+                     <div className="w-32 h-32 bg-gray-800 rounded-full animate-pulse mx-auto border border-gray-700"></div>
                   ) : (
                      <MediaCardSkeleton />
                   )}

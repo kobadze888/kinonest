@@ -15,9 +15,9 @@ const KODIK_TOKEN = 'b95c138cc28a8377412303d604251230';
 
 const PROGRESS_FILE = path.join(process.cwd(), 'scripts', 'sync-tv-deep-progress.json');
 
-const TARGET_YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
+const TARGET_YEARS = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
 const START_PAGE_DEFAULT = 1;  
-const TMDB_MAX_PAGES = 500;    
+const TMDB_MAX_PAGES = 18;    
 const SEARCH_MAX_PAGES = 3; 
 
 const countryMap = {

@@ -1,15 +1,15 @@
 // src/pages/tv/[slug].js
-import React, { useState, useCallback } from 'react'; // 💡 Удален useEffect, он больше не нужен для скрипта
+import React, { useState } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
-
+import Link from 'next/link'; // 💡 დავამატეთ Link იმპორტი
 import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL } from '@/lib/api';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
-import PlayerContainer from '@/components/PlayerContainer'; // 💡 1. Импорт компонента плеера
+import PlayerContainer from '@/components/PlayerContainer'; 
 import { useWatchlist } from '@/lib/useWatchlist'; 
 
 export async function getServerSideProps(context) {
@@ -53,288 +53,154 @@ export async function getServerSideProps(context) {
           LIMIT 20
         `, [tmdbId]);
         actors = actorsRes.rows;
-      } catch (err) {
-        console.error("Error fetching TV actors:", err.message);
-      }
+      } catch (err) { }
 
-      // Рекомендации
       if (tvShow.genres_names && tvShow.genres_names.length > 0) {
         try {
             const isAnimation = tvShow.genres_names.includes('мультфильм') || tvShow.genres_names.includes('Animation');
+            let genreFilter = isAnimation ? "AND 'мультфильм' = ANY(genres_names)" : "AND NOT ('мультфильм' = ANY(genres_names))";
             
-            let genreFilter = "";
-            if (isAnimation) {
-                genreFilter = "AND 'мультфильм' = ANY(genres_names)";
-            } else {
-                genreFilter = "AND NOT ('мультфильм' = ANY(genres_names))";
-            }
-
+            // 💡 შესწორებული SQL: დაემატა ფილტრები poster_path და kinopoisk_id-სთვის
             const recRes = await query(`
                 SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
                 FROM media
                 WHERE type = 'tv'
                   AND tmdb_id != $1
                   AND title_ru ~ '[а-яА-ЯёЁ]'
+                  AND poster_path IS NOT NULL
+                  AND kinopoisk_id IS NOT NULL
                   ${genreFilter}
                   AND genres_names && $2::text[]
                 ORDER BY rating_tmdb DESC, popularity DESC
                 LIMIT 15
             `, [tmdbId, tvShow.genres_names]);
             recommendations = recRes.rows;
-        } catch (err) {
-            console.error("Error fetching recommendations:", err.message);
-        }
+        } catch (err) { }
       }
     }
-  } catch (e) {
-    console.error("Database lookup failed during SSR:", e.message);
-  }
+  } catch (e) { }
 
-  if (!tvShow) {
-    return { notFound: true };
-  }
+  if (!tvShow) return { notFound: true };
 
   return {
-    props: {
-      tvShow: tvShow, 
-      kinopoisk_id: kinopoisk_id,
-      actors: actors, 
-      recommendations: recommendations 
-    },
+    props: { tvShow, kinopoisk_id, actors, recommendations },
   };
 }
 
-// --- Icons ---
 const PlayIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg> );
 const StarIcon = () => ( <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg> );
 const HeartIcon = ({ isFilled }) => ( <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg> );
 
 export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }) {
+  if (!tvShow) return <div>Сериал не найден.</div>;
   
-  if (!tvShow) { return <div>Сериал не найден.</div>; }
-  
+  const { toggleItem, isInWatchlist } = useWatchlist();
+  const isFavorite = isInWatchlist(tvShow.tmdb_id);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   
-  const { toggleItem, isInWatchlist } = useWatchlist();
-  const isFavorite = isInWatchlist(tvShow.tmdb_id);
-  
-  // 💡 2. Удален useEffect со скриптом плеера (PlayerContainer сделает это сам)
-  
-  const handleShowTrailer = useCallback(async () => {
+  const handleShowTrailer = async () => {
     setIsModalOpen(true);
     setModalIsLoading(true);
-
     if (tvShow.trailer_url) {
-      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${tvShow.trailer_url}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`);
+      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${tvShow.trailer_url}" frameborder="0" allowfullscreen></iframe>`);
       setModalIsLoading(false);
       return; 
     }
-
     const data = await fetchData(`/tv/${tvShow.tmdb_id}/videos`);
-    let trailer = null;
-    if (data && data.results) {
-      trailer = data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer' && vid.iso_639_1 === 'ru') 
-             || data.results.find(vid => vid.site === 'YouTube' && vid.type === 'Trailer');
-    }
+    let trailer = data?.results?.find(v => v.type === 'Trailer');
     if (trailer) {
-      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&rel=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`);
+      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${trailer.key}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
     } else {
-      setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl p-8 text-center">Трейлер не найден.</p></div>`);
+      setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full"><p class="text-white">Трейлер не найден</p></div>`);
     }
     setModalIsLoading(false);
-  }, [tvShow]);
-
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false);
-    setModalVideoHtml(''); 
-  }, []);
+  };
 
   const title = tvShow.title_ru;
-  const originalTitle = tvShow.title_en;
-  const releaseYear = tvShow.release_year || 'N/A';
-  const posterPath = tvShow.poster_path ? `${IMAGE_BASE_URL}${tvShow.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
   const backdropPath = tvShow.backdrop_path ? `${BACKDROP_BASE_URL}${tvShow.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
-  const genreKeywords = (tvShow.genres_names || []).join(', ');
-  
-  const pageTitle = `${title} (${releaseYear}, сериал) | ${originalTitle} | смотреть онлайн бесплатно - KinoNest`;
-  const keywords = [ title, originalTitle, `${title} смотреть онлайн`, `${title} смотреть онлайн бесплатно`, `${title} ${releaseYear}`, `сериал ${title}`, "смотреть сериал онлайн", genreKeywords ].filter(Boolean).join(', ');
+  const posterPath = tvShow.poster_path ? `${IMAGE_BASE_URL}${tvShow.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
 
   return (
     <div className="bg-[#10141A] text-white font-sans">
-      <Head>
-        <title>{pageTitle}</title>
-        <meta name="description" content={tvShow.overview} />
-        <meta name="keywords" content={keywords} />
-      </Head>
-      
+      <Head><title>{title} | Сериал</title></Head>
       <Header />
+      <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
 
-      <TrailerModal 
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        isLoading={modalIsLoading}
-        videoHtml={modalVideoHtml}
-      />
+      {kinopoisk_id && <section className="bg-[#10141A] pt-24 pb-6"><PlayerContainer kinopoisk_id={kinopoisk_id} imdb_id={tvShow.imdb_id} tmdb_id={tvShow.tmdb_id} title={title} trailer_url={tvShow.trailer_url} type="tv" /></section>}
 
-      {/* 💡 3. Замена на PlayerContainer (как на странице фильмов) */}
-      {kinopoisk_id && (
-        <section className="bg-[#10141A] pt-24 pb-6">
-           <PlayerContainer 
-              kinopoisk_id={kinopoisk_id} 
-              imdb_id={tvShow.imdb_id}
-              tmdb_id={tvShow.tmdb_id}
-              title={title}
-              trailer_url={tvShow.trailer_url}
-              type="tv"
-           />
-        </section>
-      )}
-
-      <section 
-        className="relative h-[60vh] md:h-[80vh] min-h-[500px] w-full"
-      >
-        <Image
-          src={backdropPath}
-          alt={title}
-          fill
-          style={{ objectFit: 'cover' }}
-          priority={true}
-          sizes="100vw"
-        />
+      <section className="relative h-[60vh] md:h-[70vh] min-h-[400px] w-full">
+        <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end pb-16">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end pb-12">
           <div className="w-full md:w-2/3 lg:w-1/2">
-            <h1 className="text-4xl md:text-6xl font-black text-white">{title}</h1>
-            <div className="flex items-center space-x-4 mt-4 text-gray-300">
-              <span>{releaseYear}</span>
-              <span>•</span>
-              <div className="flex items-center">
-                <StarIcon />
-                <span className="ml-1 font-semibold">{tvShow.rating_tmdb ? tvShow.rating_tmdb : 'N/A'}</span>
-              </div>
-              {tvShow.runtime && (
-                <>
-                  <span>•</span>
-                  <span>~ {tvShow.runtime} мин. / серия</span>
-                </>
-              )}
-              {tvShow.age_restriction && (
-                <>
-                  <span>•</span>
-                  <span className="border border-gray-400 px-1.5 rounded text-xs">
-                    {tvShow.age_restriction}+
-                  </span>
-                </>
-              )}
+            <h1 className="text-4xl md:text-5xl font-black text-white">{title}</h1>
+            <div className="flex items-center space-x-4 mt-3 text-gray-300 text-sm">
+              <span>{tvShow.release_year}</span>
+              <div className="flex items-center"><StarIcon /><span className="ml-1 font-bold">{tvShow.rating_tmdb}</span></div>
+              {tvShow.runtime && <span>~ {tvShow.runtime} мин.</span>}
             </div>
-            {tvShow.slogan && (
-              <p className="max-w-xl text-md text-gray-400 italic mt-2">«{tvShow.slogan}»</p>
-            )}
-            <p className="max-w-xl text-md text-gray-200 mt-4 line-clamp-3">{tvShow.overview}</p>
-            <div className="flex items-center space-x-4 mt-6">
-              <button 
-                onClick={handleShowTrailer} 
-                className="trailer-button bg-brand-red text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-colors focus:outline-none flex items-center gap-2"
-              >
-                <PlayIcon />
-                Трейлер
-              </button>
-
-              <button 
-                onClick={() => toggleItem(tvShow.tmdb_id)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2 
-                  ${isFavorite 
-                    ? 'bg-white/10 border-brand-red text-brand-red hover:bg-brand-red hover:text-white' 
-                    : 'bg-transparent border-gray-500 text-gray-300 hover:border-white hover:text-white'
-                  }`}
-              >
-                <HeartIcon isFilled={isFavorite} />
-                {isFavorite ? 'В избранном' : 'В избранное'}
-              </button>
+            <p className="max-w-xl text-sm md:text-base text-gray-200 mt-3 line-clamp-3">{tvShow.overview}</p>
+            <div className="flex items-center space-x-3 mt-5">
+                <button onClick={handleShowTrailer} className="bg-brand-red text-white font-bold py-2.5 px-6 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><PlayIcon /> Трейлер</button>
+                <button onClick={() => toggleItem(tvShow.tmdb_id)} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red' : 'border-gray-500 text-gray-300 hover:text-white'}`}><HeartIcon isFilled={isFavorite} /> {isFavorite ? 'В избранном' : 'В избранное'}</button>
             </div>
           </div>
         </div>
       </section>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="md:col-span-2">
-            <MediaCarousel 
-              title="В ролях"
-              items={actors}
-              swiperKey="tv-actors"
-              cardType="actor" 
-            />
-            <div className="mt-8 p-4 bg-gray-900/50 rounded-lg">
-              <h3 className="text-2xl font-bold text-white mb-4">Детали</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-gray-300">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20 pb-16">
+         
+         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+          
+          <div className="lg:col-span-8 flex flex-col h-full">
+            
+            <div className="w-full mb-6">
+                <MediaCarousel title="В ролях" items={actors} swiperKey="tv-actors" cardType="actor" />
+            </div>
+            
+            <div className="bg-[#151a21] border border-gray-800 rounded-xl p-6 shadow-lg flex-grow flex flex-col justify-center">
+              <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-800 pb-3">Детали</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-6 gap-x-4 text-sm">
+                {tvShow.rating_imdb > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг IMDb</span><span className="text-white font-bold text-lg">{tvShow.rating_imdb}</span></div>)}
+                {tvShow.rating_kp > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг КП</span><span className="text-white font-bold text-lg">{tvShow.rating_kp}</span></div>)}
+                {tvShow.countries && (<div><span className="text-gray-500 block mb-1">Страна</span><span className="text-white font-medium">{tvShow.countries.join(', ')}</span></div>)}
+                {tvShow.premiere_world && (<div><span className="text-gray-500 block mb-1">Премьера</span><span className="text-white font-medium">{new Date(tvShow.premiere_world).toLocaleDateString('ru-RU')}</span></div>)}
                 
-                {tvShow.rating_imdb > 0 && (
-                  <div>
-                    <span className="font-semibold text-gray-500 block">Рейтинг IMDb:</span>
-                    {tvShow.rating_imdb} ({tvShow.rating_imdb_count ? tvShow.rating_imdb_count.toLocaleString('en-US') : 0})
-                  </div>
-                )}
-                {tvShow.rating_kp > 0 && (
-                  <div>
-                    <span className="font-semibold text-gray-500 block">Рейтинг КП:</span>
-                    {tvShow.rating_kp} ({tvShow.rating_kp_count ? tvShow.rating_kp_count.toLocaleString('en-US') : 0})
-                  </div>
-                )}
-                {tvShow.countries && tvShow.countries.length > 0 && (
-                  <div>
-                    <span className="font-semibold text-gray-500 block">Страна:</span>
-                    {tvShow.countries.join(', ')}
-                  </div>
-                )}
-                {tvShow.premiere_world && (
-                  <div>
-                    <span className="font-semibold text-gray-500 block">Премьера в мире:</span>
-                    {new Date(tvShow.premiere_world).toLocaleDateString('ru-RU')}
-                  </div>
-                )}
-                {tvShow.premiere_ru && (
-                  <div>
-                    <span className="font-semibold text-gray-500 block">Премьера в РФ:</span>
-                    {new Date(tvShow.premiere_ru).toLocaleDateString('ru-RU')}
-                  </div>
-                )}
-                
-                <div className="col-span-2 md:col-span-3">
-                  <span className="font-semibold text-gray-500 block">Жанры:</span>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {(tvShow.genres_names || []).map((genreName, index) => (
-                      <span key={index} className="py-1 px-3 bg-gray-800 text-gray-300 rounded-full text-sm">
-                        {genreName}
-                      </span>
-                    ))}
-                  </div>
+                {/* 💡 კლიკაბელური ჟანრები */}
+                <div className="col-span-2 sm:col-span-3 pt-2">
+                    <span className="text-gray-500 block mb-2">Жанры</span>
+                    <div className="flex flex-wrap gap-2">
+                      {(tvShow.genres_names || []).map((g, i) => (
+                        <Link 
+                          key={i} 
+                          href={`/discover?genre=${g.toLowerCase()}`}
+                          className="px-3 py-1 bg-gray-800 text-gray-300 rounded-md border border-gray-700 hover:bg-brand-red hover:text-white hover:border-brand-red transition-colors"
+                        >
+                          {g}
+                        </Link>
+                      ))}
+                    </div>
                 </div>
+
               </div>
             </div>
           </div>
-          <div className="hidden md:block">
-             <Image 
-               src={posterPath} 
-               alt={title}
-               width={500} 
-               height={750} 
-               className="w-full h-auto rounded-lg shadow-xl"
-             />
+
+          <div className="hidden lg:block lg:col-span-4 h-full">
+             <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-800/50 w-full h-full min-h-[500px]">
+                <Image src={posterPath} alt={title} fill className="object-cover" priority />
+             </div>
           </div>
         </div>
 
         {recommendations?.length > 0 && (
-          <MediaCarousel 
-            title="Рекомендации"
-            items={recommendations}
-            swiperKey="tv-recommendations"
-            cardType="tv"
-          />
+          <div className="mt-12 border-t border-gray-800 pt-8">
+            <MediaCarousel title="Рекомендации" items={recommendations} swiperKey="tv-recommendations" cardType="tv" />
+          </div>
         )}
       </main>
       <Footer />
