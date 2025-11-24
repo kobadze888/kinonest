@@ -1,23 +1,28 @@
+// src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
-// დამხმარე კომპონენტი KinoBD პლეერისთვის
+// 💡 დამხმარე კომპონენტი KinoBD პლეერისთვის (უსაფრთხო იზოლაცია)
+// ეს კომპონენტი ხელით მართავს DOM-ს, რათა თავიდან ავიცილოთ React-ის შეცდომები
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current || !kinopoiskId) return;
 
+    // 1. გასუფთავება: ვშლით ყველაფერს კონტეინერში (თუ რამე დარჩა)
     containerRef.current.innerHTML = '';
 
+    // 2. ელემენტის შექმნა: ხელით ვქმნით div-ს პლეერისთვის
     const playerDiv = document.createElement('div');
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
     playerDiv.style.width = '100%';
     playerDiv.style.height = '100%';
-    playerDiv.style.borderRadius = '8px';
     containerRef.current.appendChild(playerDiv);
 
+    // 3. სკრიპტის ჩატვირთვა
     const scriptId = 'kinobd-script-loader';
+    // ძველი სკრიპტის წაშლა (თუ არსებობს), რომ თავიდან ჩაიტვირთოს
     const oldScript = document.getElementById(scriptId);
     if (oldScript) oldScript.remove();
 
@@ -27,19 +32,23 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     script.async = true;
     document.body.appendChild(script);
 
+    // Cleanup: კომპონენტის წაშლისას (ან ტაბის გადართვისას) ვასუფთავებთ ყველაფერს
     return () => {
-      if (containerRef.current) containerRef.current.innerHTML = '';
+      if (containerRef.current) {
+        containerRef.current.innerHTML = ''; // ვშლით პლეერს
+      }
       const s = document.getElementById(scriptId);
-      if (s) s.remove();
+      if (s) s.remove(); // ვშლით სკრიპტს
     };
   }, [kinopoiskId]);
 
-  return <div ref={containerRef} className="w-full h-full bg-black rounded-xl overflow-hidden" />;
+  // React-ს ვეუბნებით, რომ ამ div-ს არ შეეხოს (ჩვენ ვმართავთ useEffect-იდან)
+  return <div ref={containerRef} className="w-full h-full bg-black" />;
 };
 
 export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url, type }) {
   const [activeTab, setActiveTab] = useState('main');
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0); // 🔄 რესტარტის გასაღები
 
   const players = [
     { id: 'main', label: 'Фильм' },
@@ -48,14 +57,18 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
 
   const handleTabClick = (tabId) => {
     if (activeTab === tabId) {
+      // თუ იგივე ტაბს ვაჭერთ -> ვარეფრეშებთ (შავი ეკრანის გასასწორებლად)
       setRefreshKey((prev) => prev + 1);
     } else {
+      // თუ სხვა ტაბზე გადავდივართ
       setActiveTab(tabId);
-      setRefreshKey(0);
+      setRefreshKey(0); // რესეტი
     }
   };
 
   const renderPlayer = () => {
+    // 💡 key={refreshKey} აიძულებს React-ს, რომ კომპონენტი თავიდან შექმნას
+    // ეს არის "ხელოვნური გადატვირთვა"
     const contentKey = `${activeTab}-${refreshKey}`;
 
     if (activeTab === 'main') {
@@ -65,7 +78,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
     if (activeTab === 'trailer') {
       if (!trailer_url) {
         return (
-          <div className="w-full h-full flex items-center justify-center bg-black text-gray-500">
+          <div key={contentKey} className="w-full h-full flex items-center justify-center bg-black text-gray-500">
             <p>Трейлер не найден</p>
           </div>
         );
@@ -82,7 +95,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
         <iframe 
           key={contentKey}
           src={`${embedUrl}?autoplay=0`} 
-          className="w-full h-full rounded-xl" 
+          className="w-full h-full" 
           frameBorder="0" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
           allowFullScreen
@@ -93,12 +106,11 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
   };
 
   return (
-    // 💡 FIX: max-w-5xl ზღუდავს სიგანეს, რომ სიმაღლეში ზედმეტად არ გაიზარდოს
-    <div className="w-full max-w-5xl mx-auto mb-12 px-4 sm:px-6 lg:px-8">
+    <div className="w-full max-w-7xl mx-auto mb-12 px-4 sm:px-6 lg:px-8">
       
-      <div className="bg-[#151a21] border border-gray-800 rounded-xl shadow-2xl overflow-hidden">
+      <div className="bg-[#151a21] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
          
-         {/* ჰედერი */}
+         {/* ჰედერი (Toolbar) */}
          <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800">
             <div className="flex items-center gap-2">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
@@ -125,11 +137,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             </div>
          </div>
 
-         {/* 💡 პლეერის კონტეინერი:
-            aspect-video: ინარჩუნებს პროპორციას (16:9)
-            მაქსიმალური სიგანე (max-w-5xl მშობელზე) ავტომატურად არეგულირებს სიმაღლეს, 
-            რომ არ იყოს "არაპროპორციულად მაღალი".
-         */}
+         {/* პლეერის სივრცე */}
          <div className="relative w-full aspect-video bg-black">
             {renderPlayer()}
          </div>
