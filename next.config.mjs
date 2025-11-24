@@ -2,16 +2,19 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // ⚡ Включаем сжатие и оптимизацию SWC
+  // ⚡ ჩართულია შეკუმშვა
   swcMinify: true,
   compress: true,
   poweredByHeader: false,
 
   images: {
-    // Разрешаем SVG и оптимизируем форматы
+    // 💡 მნიშვნელოვანი: ვუთითებთ ზუსტ ზომებს ოპტიმიზაციისთვის
+    deviceSizes: [320, 420, 768, 1024, 1200], 
+    imageSizes: [16, 32, 48, 64, 96],
+    
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    formats: ['image/avif', 'image/webp'], // AVIF быстрее и легче для TV
+    formats: ['image/avif', 'image/webp'], // AVIF ტელევიზორებისთვის ძალიან კარგია
     minimumCacheTTL: 60,
     
     remotePatterns: [
@@ -30,7 +33,6 @@ const nextConfig = {
     ],
   },
   
-  // Оптимизация заголовков для кеширования
   async headers() {
     return [
       {

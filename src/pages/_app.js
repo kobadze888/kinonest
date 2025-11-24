@@ -1,4 +1,4 @@
-import { useEffect } from 'react'; // 💡 დაამატეთ useEffect
+import { useEffect } from 'react';
 import '../styles/globals.css';
 
 import 'swiper/css';
@@ -32,12 +32,19 @@ const GlobalStyles = () => (
       overflow-x: hidden;
     }
 
-    /* --- HERO SLIDER STYLES --- */
+    /* --- HERO SLIDER STYLES (ADAPTIVE) --- */
     .hero-slider {
-      height: 75vh; 
-      min-height: 500px;
-      max-height: 850px;
+      height: 60vh; /* მობილურზე კომპაქტური */
+      min-height: 400px;
       position: relative;
+    }
+
+    /* დესკტოპზე და დიდ ეკრანებზე */
+    @media (min-width: 768px) {
+      .hero-slider {
+        height: 85vh;
+        max-height: 850px;
+      }
     }
     
     .hero-slider .swiper:not(.swiper-initialized) .swiper-slide {
@@ -55,7 +62,7 @@ const GlobalStyles = () => (
 
     .hero-slider .swiper-pagination {
       position: absolute !important;
-      bottom: 32px !important;
+      bottom: 20px !important; /* მობილურზე ცოტა დაბლა */
       left: 0 !important;
       right: 0 !important;
       width: 100% !important;
@@ -66,24 +73,44 @@ const GlobalStyles = () => (
       pointer-events: none;
       margin: 0 !important;
     }
+    
+    @media (min-width: 768px) {
+        .hero-slider .swiper-pagination {
+            bottom: 32px !important;
+        }
+    }
 
     .swiper-pagination-bullet {
       display: block !important;
-      width: 8px !important;
-      height: 8px !important;
+      width: 6px !important; /* მობილურზე პატარა */
+      height: 6px !important;
       background: rgba(255, 255, 255, 0.4) !important;
       opacity: 1 !important;
-      margin: 0 6px !important;
+      margin: 0 4px !important;
       border-radius: 50%;
       transition: all 0.3s ease;
       pointer-events: auto;
       cursor: pointer;
     }
+    
+    @media (min-width: 768px) {
+        .swiper-pagination-bullet {
+            width: 8px !important;
+            height: 8px !important;
+            margin: 0 6px !important;
+        }
+    }
 
     .swiper-pagination-bullet-active {
       background: #e50914 !important;
-      width: 24px !important;
+      width: 20px !important; /* მობილურზე */
       border-radius: 4px !important;
+    }
+    
+    @media (min-width: 768px) {
+        .swiper-pagination-bullet-active {
+            width: 24px !important;
+        }
     }
 
     .slider-gradient::after {
@@ -100,8 +127,8 @@ const GlobalStyles = () => (
     }
 
     .nav-btn-custom {
-      width: 40px;
-      height: 40px;
+      width: 32px; /* მობილურზე პატარა ღილაკები */
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -112,6 +139,13 @@ const GlobalStyles = () => (
       transition: all 0.2s ease;
       cursor: pointer;
       z-index: 50;
+    }
+    
+    @media (min-width: 768px) {
+        .nav-btn-custom {
+            width: 40px;
+            height: 40px;
+        }
     }
 
     .nav-btn-custom:hover:not(:disabled) {
@@ -183,9 +217,15 @@ const GlobalStyles = () => (
     }
 
     .swiper:not(.swiper-initialized) .swiper-slide {
-      margin-right: 24px; 
+      margin-right: 16px; /* მობილურზე ნაკლები დაშორება */
       flex-shrink: 0;     
       display: block;     
+    }
+    
+    @media (min-width: 768px) {
+        .swiper:not(.swiper-initialized) .swiper-slide {
+            margin-right: 24px;
+        }
     }
     
     .swiper:not(.swiper-initialized) .swiper-slide:last-child {
@@ -205,12 +245,12 @@ function MyApp({ Component, pageProps }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const ua = navigator.userAgent.toLowerCase();
-      // პოპულარული სმარტ ტივი იდენტიფიკატორები
+      // პოპულარული სმარტ ტივი იდენტიფიკატორები (Tizen, WebOS, Bravia და ა.შ.)
       const isTV = /smart-tv|tizen|web0s|tv|viera|netcast|bravia|hisense|vidaa/.test(ua);
       
       if (isTV) {
         document.body.classList.add('is-smart-tv');
-        console.log('📺 Smart TV Detected: Performance mode ON');
+        console.log('📺 Smart TV Detected: Performance mode ON (Lite Version)');
       }
     }
   }, []);
@@ -219,7 +259,7 @@ function MyApp({ Component, pageProps }) {
     <main className={inter.className}>
       <Head>
         <title>KinoNest - Полный кинопортал</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </Head>
       
       <GlobalStyles />
