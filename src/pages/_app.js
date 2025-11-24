@@ -1,13 +1,12 @@
+import { useEffect } from 'react'; // 💡 დაამატეთ useEffect
 import '../styles/globals.css';
 
-// Swiper-ის სრული სტილები
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-fade';
 
 import Head from 'next/head';
-
 import { Inter } from 'next/font/google';
 
 const inter = Inter({
@@ -41,11 +40,9 @@ const GlobalStyles = () => (
       position: relative;
     }
     
-    /* სლაიდების დამალვა ინიციალიზაციამდე */
     .hero-slider .swiper:not(.swiper-initialized) .swiper-slide {
       display: none;
     }
-    /* პირველი სლაიდის ჩვენება ინიციალიზაციამდე */
     .hero-slider .swiper:not(.swiper-initialized) .swiper-slide:first-child {
       display: block;
       width: 100%;
@@ -56,8 +53,6 @@ const GlobalStyles = () => (
       z-index: 10;
     }
 
-    /* 💡 FIX: დოტების სტაბილური პოზიცია */
-    /* ეს სტილი მუშაობს JS-ის გარეშეც */
     .hero-slider .swiper-pagination {
       position: absolute !important;
       bottom: 32px !important;
@@ -72,9 +67,8 @@ const GlobalStyles = () => (
       margin: 0 !important;
     }
 
-    /* 💡 FIX: დოტების ვიზუალი */
     .swiper-pagination-bullet {
-      display: block !important; /* აუცილებელია */
+      display: block !important;
       width: 8px !important;
       height: 8px !important;
       background: rgba(255, 255, 255, 0.4) !important;
@@ -105,7 +99,6 @@ const GlobalStyles = () => (
       pointer-events: none;
     }
 
-    /* --- CUSTOM NAVIGATION BUTTONS --- */
     .nav-btn-custom {
       width: 40px;
       height: 40px;
@@ -138,7 +131,6 @@ const GlobalStyles = () => (
       display: none !important;
     }
 
-    /* --- UTILITY CLASSES --- */
     .aspect-square { 
         position: relative;
         padding-bottom: 100%;
@@ -190,7 +182,6 @@ const GlobalStyles = () => (
         object-fit: cover;
     }
 
-    /* --- FIX: SWIPER LAYOUT SHIFT --- */
     .swiper:not(.swiper-initialized) .swiper-slide {
       margin-right: 24px; 
       flex-shrink: 0;     
@@ -210,6 +201,20 @@ const GlobalStyles = () => (
 );
 
 function MyApp({ Component, pageProps }) {
+  // 💡 TV-ს დეტექცია და კლასის მინიჭება
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ua = navigator.userAgent.toLowerCase();
+      // პოპულარული სმარტ ტივი იდენტიფიკატორები
+      const isTV = /smart-tv|tizen|web0s|tv|viera|netcast|bravia|hisense|vidaa/.test(ua);
+      
+      if (isTV) {
+        document.body.classList.add('is-smart-tv');
+        console.log('📺 Smart TV Detected: Performance mode ON');
+      }
+    }
+  }, []);
+
   return (
     <main className={inter.className}>
       <Head>

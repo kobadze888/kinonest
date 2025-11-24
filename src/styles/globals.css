@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  /* სქროლის დიზაინი */
+  /* სქროლის დიზაინი (რჩება იგივე) */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -24,46 +24,65 @@
     scrollbar-color: #374151 #10141A;
   }
 
-  /* 🚀 PERFORMANCE HACK სმარტ ტელევიზორებისთვის:
-     გავთიშოთ მძიმე ეფექტები, რათა ინტერფეისი იყოს სწრაფი.
-  */
+  /* ზოგადი ოპტიმიზაცია */
   html, body {
-    /* აიძულებს GPU-ს გამოყენებას რენდერინგისთვის */
-    transform: translateZ(0); 
-    backface-visibility: hidden;
-    perspective: 1000px;
-    /* ტექსტის რენდერინგის ოპტიმიზაცია */
     text-rendering: optimizeSpeed;
     -webkit-font-smoothing: antialiased;
   }
 }
 
-/* 🚫 მძიმე Blur ეფექტის მოხსნა გლობალურად (სადაც შესაძლებელია) */
-.backdrop-blur-md, .backdrop-blur-sm, .backdrop-blur-xl {
-  backdrop-filter: none !important;
-  background-color: rgba(16, 20, 26, 0.95) !important; /* მყარი ფერი Blur-ის ნაცვლად */
-}
-
-/* ჩრდილების გამარტივება */
-.shadow-2xl, .shadow-xl, .shadow-lg {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
-}
-
 @layer components {
-  /* ფოკუსის სტილი პულტისთვის (აუცილებელია TV-სთვის) */
   .focus-visible-ring:focus-visible {
-    
+    outline: 4px solid #e50914;
     outline-offset: 2px;
     z-index: 50;
   }
   
-  /* კარტის ჰოვერი/ფოკუსი გამარტივებული ანიმაციით */
   .media-card {
-    @apply transition-transform duration-200;
+    @apply transition-transform duration-300;
   }
+  /* სტანდარტული ჰოვერი (კომპიუტერისთვის) */
   .media-card:hover, .media-card:focus-within {
-    transform: scale(1.02); /* უფრო პატარა ზუმი, ნაკლები დატვირთვა */
+    transform: scale(1.05);
     z-index: 10;
-    
   }
+}
+
+/* =========================================
+   📺 SMART TV SPECIFIC OPTIMIZATIONS
+   ეს სტილები გააქტიურდება მხოლოდ TV-ზე
+   ========================================= */
+
+/* 1. გამჭვირვალობის და ბლარის გათიშვა TV-ზე */
+body.is-smart-tv .backdrop-blur-md, 
+body.is-smart-tv .backdrop-blur-sm, 
+body.is-smart-tv .backdrop-blur-xl,
+body.is-smart-tv .bg-black\/70,
+body.is-smart-tv .bg-black\/60, 
+body.is-smart-tv .bg-black\/50 {
+  backdrop-filter: none !important;
+  background-color: rgba(16, 20, 26, 0.98) !important; /* თითქმის მყარი ფერი */
+  box-shadow: none !important;
+}
+
+/* 2. ჩრდილების მოხსნა TV-ზე (რენდერის დასაზოგად) */
+body.is-smart-tv .shadow-2xl, 
+body.is-smart-tv .shadow-xl, 
+body.is-smart-tv .shadow-lg {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+
+/* 3. ანიმაციების შემსუბუქება TV-ზე */
+body.is-smart-tv .media-card {
+  transition-duration: 150ms !important; /* უფრო სწრაფი ანიმაცია */
+}
+body.is-smart-tv .media-card:hover, 
+body.is-smart-tv .media-card:focus-within {
+  transform: scale(1.02) !important; /* ნაკლები ზუმი */
+  outline: 3px solid #e50914; /* მკაფიო ჩარჩო ფოკუსზე */
+}
+
+/* 4. GPU აჩქარება TV-სთვის */
+body.is-smart-tv * {
+  transform: translateZ(0);
 }

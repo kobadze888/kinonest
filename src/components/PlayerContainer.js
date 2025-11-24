@@ -1,26 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// დამხმარე კომპონენტი KinoBD პლეერისთვის (React.memo-ს გარეშე, რომ არ გაიჭედოს)
+// დამხმარე კომპონენტი KinoBD პლეერისთვის
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current || !kinopoiskId) return;
 
-    // 1. გასუფთავება
     containerRef.current.innerHTML = '';
 
-    // 2. ელემენტის შექმნა
     const playerDiv = document.createElement('div');
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
-    // 💡 მნიშვნელოვანი: ზომები 100%-ზე, რომ მშობელს მოერგოს
     playerDiv.style.width = '100%';
     playerDiv.style.height = '100%';
-    playerDiv.style.borderRadius = '8px'; // ოდნავ მომრგვალება
+    playerDiv.style.borderRadius = '8px';
     containerRef.current.appendChild(playerDiv);
 
-    // 3. სკრიპტის ჩატვირთვა
     const scriptId = 'kinobd-script-loader';
     const oldScript = document.getElementById(scriptId);
     if (oldScript) oldScript.remove();
@@ -41,7 +37,7 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
   return <div ref={containerRef} className="w-full h-full bg-black rounded-xl overflow-hidden" />;
 };
 
-export default function PlayerContainer({ kinopoisk_id, trailer_url }) {
+export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url, type }) {
   const [activeTab, setActiveTab] = useState('main');
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -97,12 +93,13 @@ export default function PlayerContainer({ kinopoisk_id, trailer_url }) {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto mb-12 px-2 sm:px-4 lg:px-8">
+    // 💡 FIX: max-w-5xl ზღუდავს სიგანეს, რომ სიმაღლეში ზედმეტად არ გაიზარდოს
+    <div className="w-full max-w-5xl mx-auto mb-12 px-4 sm:px-6 lg:px-8">
       
-      <div className="bg-[#151a21] border border-gray-800 rounded-xl shadow-2xl">
+      <div className="bg-[#151a21] border border-gray-800 rounded-xl shadow-2xl overflow-hidden">
          
-         {/* ჰედერი (Toolbar) */}
-         <div className="flex items-center justify-between px-3 py-2 bg-[#1a1f26] border-b border-gray-800 rounded-t-xl">
+         {/* ჰედერი */}
+         <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800">
             <div className="flex items-center gap-2">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
                     {players.map((player) => (
@@ -110,7 +107,7 @@ export default function PlayerContainer({ kinopoisk_id, trailer_url }) {
                         key={player.id}
                         onClick={() => handleTabClick(player.id)}
                         className={`
-                        px-3 py-1.5 rounded-md text-xs sm:text-sm font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-red
+                        px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all duration-200
                         ${
                             activeTab === player.id
                             ? 'bg-brand-red text-white shadow-md'
@@ -123,16 +120,17 @@ export default function PlayerContainer({ kinopoisk_id, trailer_url }) {
                     ))}
                 </div>
             </div>
-            <div className="text-gray-600 text-[10px] sm:text-xs font-medium hidden sm:block select-none">
+            <div className="text-gray-500 text-xs font-medium hidden sm:block select-none">
                 KinoNest Player
             </div>
          </div>
 
-         {/* 💡 აქ არის მთავარი შესწორება ზომაზე:
-            1. aspect-video: ინარჩუნებს 16:9 პროპორციას.
-            2. max-h-[75vh]: არ აძლევს უფლებას, რომ ეკრანის 75%-ზე მეტი დაიკავოს სიმაღლეში (სმარტ ტივიზე ეს მნიშვნელოვანია).
+         {/* 💡 პლეერის კონტეინერი:
+            aspect-video: ინარჩუნებს პროპორციას (16:9)
+            მაქსიმალური სიგანე (max-w-5xl მშობელზე) ავტომატურად არეგულირებს სიმაღლეს, 
+            რომ არ იყოს "არაპროპორციულად მაღალი".
          */}
-         <div className="relative w-full bg-black aspect-video max-h-[60vh] lg:max-h-[75vh] mx-auto">
+         <div className="relative w-full aspect-video bg-black">
             {renderPlayer()}
          </div>
 
