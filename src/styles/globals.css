@@ -77,7 +77,25 @@ body.is-smart-tv button:focus {
   background-color: #1f2937 !important; /* ფონის გამუქება ფოკუსზე */
 }
 
-iframe {
-  max-width: 100%;
-  display: block;
+/* src/styles/globals.css - ბოლოში დაამატე */
+
+/* 🛠️ Kinobd Player Hack */
+#kinobd {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  overflow: hidden !important;
+}
+
+#kinobd iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  /* ეს უზრუნველყოფს, რომ აიფრეიმის შიგთავსი არ გაიჭრას */
+  min-height: 100% !important; 
 }

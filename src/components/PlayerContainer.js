@@ -1,29 +1,23 @@
 // src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
-// 💡 KinoBD Player Component (Safe DOM Handling)
+// 💡 KinoBD Player Component
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current || !kinopoiskId) return;
 
-    // 1. Clear container
+    // გასუფთავება
     containerRef.current.innerHTML = '';
 
-    // 2. Create player element
+    // ელემენტის შექმნა
     const playerDiv = document.createElement('div');
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
-    // 💡 FIX: პლეერი იკავებს მშობლის 100%-ს (აბსოლუტური პოზიციონირებისთვის)
-    playerDiv.style.width = '100%';
-    playerDiv.style.height = '100%';
-    playerDiv.style.position = 'absolute';
-    playerDiv.style.top = '0';
-    playerDiv.style.left = '0';
     containerRef.current.appendChild(playerDiv);
 
-    // 3. Load Script
+    // სკრიპტის ჩატვირთვა
     const scriptId = 'kinobd-script-loader';
     const oldScript = document.getElementById(scriptId);
     if (oldScript) oldScript.remove();
@@ -41,7 +35,7 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     };
   }, [kinopoiskId]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return <div ref={containerRef} className="w-full h-full relative bg-black" />;
 };
 
 export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url, type }) {
@@ -89,7 +83,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
         <iframe 
           key={contentKey}
           src={`${embedUrl}?autoplay=0`} 
-          className="absolute top-0 left-0 w-full h-full" 
+          className="absolute inset-0 w-full h-full" 
           frameBorder="0" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
           allowFullScreen
@@ -100,13 +94,11 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
   };
 
   return (
-    // 💡 Z-index დაბალი, რომ ჰედერს არ გადაეფაროს
     <div className="w-full max-w-7xl mx-auto mb-8 md:mb-12 px-0 sm:px-6 lg:px-8 relative z-10">
-      
-      <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
-         {/* Toolbar Header */}
-         <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800">
+         {/* Toolbar */}
+         <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800 z-20 relative">
             <div className="flex items-center gap-2">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
                     {players.map((player) => (
@@ -128,7 +120,6 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
                 </div>
             </div>
             
-            {/* Refresh Button */}
             <div className="flex items-center gap-3">
                 <button 
                     onClick={() => setRefreshKey(prev => prev + 1)}
@@ -139,20 +130,14 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                     </svg>
                 </button>
-                <div className="text-gray-500 text-xs font-medium hidden sm:block select-none">
-                    KinoNest Player
-                </div>
             </div>
          </div>
 
-         {/* 💡 PLAYER AREA FIXES (ASPECT RATIO HACK):
-            1. `relative w-full`: კონტეინერი იღებს სრულ სიგანეს.
-            2. `pb-[56.25%]`: ეს ქმნის ზუსტად 16:9 პროპორციას (9 / 16 = 0.5625). 
-               ეს არის სტანდარტი ვიდეო პლეერებისთვის და გარანტიას იძლევა, რომ კონტროლები გამოჩნდება.
-            3. `h-0`: სიმაღლე განისაზღვრება padding-ით.
-            4. შიდა ელემენტებს (iframe/div) აქვთ `absolute inset-0`, რომ ჩაჯდნენ ამ პროპორციაში.
+         {/* 🚀 PLAYER CONTAINER:
+            - Mobile: h-[360px] -> ფიქსირებული სიმაღლე, საკმარისია მენიუებისთვის.
+            - Desktop: aspect-video -> ავტომატური 16:9
          */}
-         <div className="relative w-full h-0 pb-[56.25%] bg-black">
+         <div className="w-full relative bg-black h-[360px] sm:h-[450px] lg:h-auto lg:aspect-video z-10">
             {renderPlayer()}
          </div>
 
