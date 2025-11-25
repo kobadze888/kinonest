@@ -76,3 +76,8 @@ body.is-smart-tv button:focus {
   transform: scale(1.02) !important; /* მცირე ზრდა ფოკუსზე დასაშვებია */
   background-color: #1f2937 !important; /* ფონის გამუქება ფოკუსზე */
 }
+
+iframe {
+  max-width: 100%;
+  display: block;
+}
