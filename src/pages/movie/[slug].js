@@ -42,7 +42,6 @@ export async function getServerSideProps(context) {
       movie = movieRes.rows[0];
       kinopoisk_id = movie.kinopoisk_id;
 
-      // 🔧 FIX: ფორმატირება სერვერზე (Hydration Error-ის თავიდან ასაცილებლად)
       movie.formattedBudget = movie.budget > 0
         ? `$${Number(movie.budget).toLocaleString('en-US')}`
         : '-';
@@ -146,15 +145,25 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
 
       {/* Player Section */}
       {kinopoisk_id && (
-        <section className="bg-[#10141A] pt-20 md:pt-24 pb-0 md:pb-6">
+        <section className="bg-[#10141A] pt-24 md:pt-32 pb-0 relative z-20">
           <PlayerContainer kinopoisk_id={kinopoisk_id} imdb_id={movie.imdb_id} tmdb_id={movie.tmdb_id} title={title} trailer_url={movie.trailer_url} type="movie" />
         </section>
       )}
 
       {/* ================= MOBILE LAYOUT START ================= */}
-      <section className="relative h-[45vh] w-full lg:hidden">
+      {/* -mt-2: მცირე უარყოფითი მარჯინი, რომ "თეთრი ხაზი" გაქრეს */}
+      <section className="relative h-[45vh] w-full lg:hidden -mt-2 z-10">
         <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
+        
+        {/* ✨ TOP GRADIENT: რბილი გადასვლა პლეერიდან სურათზე.
+           - h-40: საკმარისი სიმაღლე, რომ არ იყოს "მოჭრილი"
+           - from-[#10141A] to-transparent: ყველაზე სუფთა გადასვლა
+        */}
+        <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
+        
+        {/* BOTTOM GRADIENT */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
+        
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
           <h1 className="text-3xl font-black text-white leading-tight drop-shadow-lg">{title}</h1>
           <div className="flex items-center gap-3 mt-2 text-sm text-gray-300">
@@ -212,7 +221,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
           {movie.overview}
         </div>
 
-        {/* Details Grid Mobile (გასწორებული მონაცემებით) */}
+        {/* Details Grid Mobile */}
         <div className="bg-[#151a21] rounded-xl p-4 border border-gray-800">
           <div className="grid grid-cols-2 gap-y-4 text-xs">
             <div>
@@ -243,8 +252,14 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
 
       {/* ================= DESKTOP LAYOUT START ================= */}
       <div className="hidden lg:block">
-        <section className="relative h-[70vh] w-full">
+        {/* -mt-2: მცირე გადაფარვა ხაზების მოსაშორებლად */}
+        <section className="relative h-[70vh] w-full -mt-2 z-10">
           <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
+          
+          {/* ✨ TOP GRADIENT: უფრო მაღალი (h-64) და ძალიან რბილი დესკტოპისთვის */}
+          <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
+
+          {/* BOTTOM GRADIENTS */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
 
@@ -284,7 +299,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
                   {movie.rating_imdb > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг IMDb</span><span className="text-white font-bold text-lg">{movie.rating_imdb}</span></div>)}
                   {movie.rating_kp > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг КП</span><span className="text-white font-bold text-lg">{movie.rating_kp}</span></div>)}
 
-                  {/* 🔧 FIX: გასწორებული მონაცემები დესკტოპზეც */}
                   <div><span className="text-gray-500 block mb-1">Бюджет</span><span className="text-white font-medium">{movie.formattedBudget}</span></div>
                   {movie.countries && (<div><span className="text-gray-500 block mb-1">Страна</span><span className="text-white font-medium">{movie.countries.join(', ')}</span></div>)}
                   <div><span className="text-gray-500 block mb-1">Премьера</span><span className="text-white font-medium">{movie.formattedPremiere}</span></div>

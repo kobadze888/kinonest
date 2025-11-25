@@ -141,11 +141,20 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
       <Header />
       <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
 
-      {kinopoisk_id && <section className="bg-[#10141A] pt-20 md:pt-24 pb-0 md:pb-6"><PlayerContainer kinopoisk_id={kinopoisk_id} imdb_id={tvShow.imdb_id} tmdb_id={tvShow.tmdb_id} title={title} trailer_url={tvShow.trailer_url} type="tv" /></section>}
+      {kinopoisk_id && (
+        <section className="bg-[#10141A] pt-24 md:pt-32 pb-0 relative z-20">
+            <PlayerContainer kinopoisk_id={kinopoisk_id} imdb_id={tvShow.imdb_id} tmdb_id={tvShow.tmdb_id} title={title} trailer_url={tvShow.trailer_url} type="tv" />
+        </section>
+      )}
 
       {/* ================= MOBILE LAYOUT START ================= */}
-      <section className="relative h-[45vh] w-full lg:hidden">
+      {/* -mt-4: სურათის აწევა (overlap) */}
+      <section className="relative h-[45vh] w-full lg:hidden -mt-4 z-10">
         <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
+        
+        {/* ✨ TOP GRADIENT: ძალიან რბილი გადასვლა (via-ს გარეშე) */}
+        <div className="absolute top-0 left-0 right-0 h-44 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
+
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
           <h1 className="text-3xl font-black text-white leading-tight drop-shadow-lg">{title}</h1>
@@ -231,8 +240,14 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
 
       {/* ================= DESKTOP LAYOUT START ================= */}
       <div className="hidden lg:block">
-        <section className="relative h-[70vh] w-full">
+        {/* -mt-4: სურათის აწევა დესკტოპზეც */}
+        <section className="relative h-[70vh] w-full -mt-4 z-10">
           <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
+          
+          {/* ✨ TOP GRADIENT: რბილი გადასვლა (h-64) */}
+          <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
+
+          {/* BOTTOM GRADIENTS */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
 

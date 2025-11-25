@@ -1,23 +1,18 @@
-// src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
-// 💡 KinoBD Player Component
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current || !kinopoiskId) return;
 
-    // გასუფთავება
     containerRef.current.innerHTML = '';
 
-    // ელემენტის შექმნა
     const playerDiv = document.createElement('div');
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
     containerRef.current.appendChild(playerDiv);
 
-    // სკრიპტის ჩატვირთვა
     const scriptId = 'kinobd-script-loader';
     const oldScript = document.getElementById(scriptId);
     if (oldScript) oldScript.remove();
@@ -93,8 +88,9 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
     return null;
   };
 
+  // 💡 შეცვლილია: mb-8 md:mb-12 წაიშალა და გახდა mb-0
   return (
-    <div className="w-full max-w-7xl mx-auto mb-8 md:mb-12 px-0 sm:px-6 lg:px-8 relative z-10">
+    <div className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
          {/* Toolbar */}
@@ -133,10 +129,6 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             </div>
          </div>
 
-         {/* 🚀 PLAYER CONTAINER:
-            - Mobile: h-[360px] -> ფიქსირებული სიმაღლე, საკმარისია მენიუებისთვის.
-            - Desktop: aspect-video -> ავტომატური 16:9
-         */}
          <div className="w-full relative bg-black h-[360px] sm:h-[450px] lg:h-auto lg:aspect-video z-10">
             {renderPlayer()}
          </div>
