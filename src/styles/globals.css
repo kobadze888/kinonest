@@ -100,57 +100,19 @@ body.is-smart-tv button:focus {
   min-height: 100% !important; 
 }
 
-/* 📺 SMART TV OPTIMIZATION LAYER 📺 */
-/* ეს სტილები მხოლოდ ტელევიზორებზე ირთვება */
-body.is-smart-tv * {
-  transition: none !important;
-  animation: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: none !important;
-  text-shadow: none !important;
-}
-
-/* TV-ზე ფონის გამუქება ბლარის ნაცვლად */
-body.is-smart-tv .bg-black\/60,
-body.is-smart-tv .backdrop-blur-sm,
-body.is-smart-tv .backdrop-blur-md,
-body.is-smart-tv .bg-white\/10 {
-  background-color: #000000 !important;
-  opacity: 0.95;
-}
-
-/* TV-ზე სქროლის დამალვა */
-body.is-smart-tv ::-webkit-scrollbar {
-  display: none;
-}
-body.is-smart-tv {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* 🎮 SPATIAL NAVIGATION (განახლებული - წითელი ბორდერის გარეშე) */
-body.is-smart-tv a:focus,
-body.is-smart-tv button:focus {
-  outline: none !important; /* ❌ წითელი ჩარჩო მოვხსენით */
-  border: 2px solid rgba(255, 255, 255, 0.2) !important; /* ძალიან ნაზი, თითქმის უხილავი ჩარჩო */
-  transform: scale(1.05) !important; /* ოდნავ გადიდება, რომ მიხვდე სად ხარ */
-  background-color: #1f2937 !important; /* ფონის გამუქება */
-  z-index: 100;
-}
-
-/* 📺 PLAYER OPTIMIZATION (კიდევ უფრო დაპატარავებული) */
+/* 📺 SMART TV SPECIFIC PLAYER OPTIMIZATION 📺 */
 body.is-smart-tv #tv-player-container {
-  max-width: 60% !important; /* 🛑 85%-დან 60%-მდე ჩამოვწიეთ */
-  margin: 2rem auto !important; /* ცენტრში დგომა */
-  display: block !important;
+  max-width: 85% !important; /* მთელ ეკრანზე არ გაიშლება, გვერდებზე ადგილი დარჩება */
+  margin: 0 auto !important; /* ცენტრში დადგება */
+  margin-bottom: 2rem !important;
+  transform: scale(0.95); /* ოდნავ დავაპატარავებთ, რომ თვალისთვის კომფორტული იყოს */
+  transform-origin: top center;
 }
 
-/* აიფრეიმის გასწორება */
+/* აიფრეიმის იძულებითი გასწორება TV-ზე */
 body.is-smart-tv #kinobd, 
 body.is-smart-tv #kinobd iframe {
   width: 100% !important;
   height: 100% !important;
-  border-radius: 12px !important;
-  aspect-ratio: 16 / 9 !important; /* ფიქსირებული პროპორცია */
+  border-radius: 0 0 12px 12px !important; /* კუთხეების დამრგვალება */
 }
