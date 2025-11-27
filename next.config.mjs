@@ -1,22 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  
-  // ⚡ ჩართულია შეკუმშვა
   swcMinify: true,
   compress: true,
   poweredByHeader: false,
 
   images: {
-    // 💡 მნიშვნელოვანი: ვუთითებთ ზუსტ ზომებს ოპტიმიზაციისთვის
     deviceSizes: [320, 420, 768, 1024, 1200], 
     imageSizes: [16, 32, 48, 64, 96],
-    
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    formats: ['image/avif', 'image/webp'], // AVIF ტელევიზორებისთვის ძალიან კარგია
+    formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
-    
     remotePatterns: [
       {
         protocol: 'https',
@@ -46,6 +41,16 @@ const nextConfig = {
         ],
       },
     ]
+  },
+
+  // 👇 ДОБАВЛЕНО ДЛЯ SEO (чтобы ссылка /robots.txt работала)
+  async rewrites() {
+    return [
+      {
+        source: '/robots.txt',
+        destination: '/api/robots',
+      },
+    ];
   },
 };
 
