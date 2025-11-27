@@ -1,3 +1,4 @@
+// src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
 const KinoBDPlayer = ({ kinopoiskId }) => {
@@ -88,9 +89,9 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
     return null;
   };
 
-  // 💡 შეცვლილია: mb-8 md:mb-12 წაიშალა და გახდა mb-0
   return (
-    <div className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
+    // 💡 დაემატა ID: "tv-player-container"
+    <div id="tv-player-container" className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
          {/* Toolbar */}
