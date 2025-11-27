@@ -1,4 +1,3 @@
-// src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
 const KinoBDPlayer = ({ kinopoiskId }) => {
@@ -90,7 +89,6 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
   };
 
   return (
-    // 💡 დაემატა ID: "tv-player-container"
     <div id="tv-player-container" className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
@@ -130,8 +128,14 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             </div>
          </div>
 
-         <div className="w-full relative bg-black h-[360px] sm:h-[450px] lg:h-auto lg:aspect-video z-10">
-            {renderPlayer()}
+         {/* ✅ აქ არის მთავარი ცვლილება: 
+            ჩვეულებრივ რეჟიმში (Desktop/Mobile) ვიყენებთ h-[360px] და ა.შ.
+            მაგრამ TV რეჟიმში (globals.css-ის დახმარებით) tv-player-wrapper აიღებს კონტროლს 
+         */}
+         <div className="w-full relative bg-black z-10">
+            <div className="tv-player-wrapper aspect-video h-[360px] sm:h-[450px] lg:h-auto lg:aspect-video w-full relative">
+                {renderPlayer()}
+            </div>
          </div>
 
       </div>
