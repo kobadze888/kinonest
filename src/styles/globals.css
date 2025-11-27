@@ -83,7 +83,7 @@ body.is-smart-tv .tv-player-wrapper {
 body.is-smart-tv .tv-player-wrapper iframe,
 body.is-smart-tv .tv-player-wrapper #kinobd {
   width: 100% !important;
-  height: 100% !important;
+  height: 50vh !important;
   position: absolute !important; /* აბსოლუტური პოზიციონირება wrapper-ის შიგნით */
   top: 0;
   left: 0;
