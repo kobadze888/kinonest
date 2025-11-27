@@ -100,19 +100,61 @@ body.is-smart-tv button:focus {
   min-height: 100% !important; 
 }
 
-/* 📺 SMART TV SPECIFIC PLAYER OPTIMIZATION 📺 */
+ 
+/* 📺 SMART TV FIXES 📺 */
+
+/* 1. Настройки Контейнера (Отступ от хедера + Центровка) */
 body.is-smart-tv #tv-player-container {
-  max-width: 85% !important; /* მთელ ეკრანზე არ გაიშლება, გვერდებზე ადგილი დარჩება */
-  margin: 0 auto !important; /* ცენტრში დადგება */
-  margin-bottom: 2rem !important;
-  transform: scale(0.95); /* ოდნავ დავაპატარავებთ, რომ თვალისთვის კომფორტული იყოს */
-  transform-origin: top center;
+  max-width: 85% !important; /* Сужаем плеер */
+  margin: 0 auto !important; /* Центрируем */
+  
+  /* 👇 ГЛАВНОЕ: Отступ сверху, чтобы не залезал на хедер */
+  margin-top: 20px !important; 
+  margin-bottom: 3rem !important;
+  
+  display: block !important;
+  position: relative !important;
+  z-index: 10 !important;
 }
 
-/* აიფრეიმის იძულებითი გასწორება TV-ზე */
-body.is-smart-tv #kinobd, 
-body.is-smart-tv #kinobd iframe {
+/* 2. Рамка плеера (Ограничение высоты) */
+.player-wrapper {
+  aspect-ratio: 16/9; /* Стандарт для PC/Mobile */
+  width: 100%;
+}
+
+/* Только для TV переопределяем высоту */
+body.is-smart-tv .player-wrapper {
+  aspect-ratio: 16/9 !important;
+  height: 55vh !important;      /* Занимает 55% высоты экрана */
+  max-height: 550px !important; /* Не больше 550px */
+  position: relative !important;
+}
+
+/* 3. Исправление содержимого (Iframe на всю ширину) */
+body.is-smart-tv #kinobd,
+body.is-smart-tv iframe,
+body.is-smart-tv .player-wrapper > div {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  border-radius: 0 0 12px 12px !important; /* კუთხეების დამრგვალება */
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 4. Исправление кнопок (Табов) - чтобы нажимались */
+body.is-smart-tv button {
+  position: relative;
+  z-index: 60; /* Выше чем плеер */
+}
+
+/* Фокус на кнопках для пульта */
+body.is-smart-tv button:focus {
+  outline: 3px solid #e50914 !important;
+  outline-offset: 2px !important;
+  background-color: #1f2937 !important;
+  transform: scale(1.05);
 }
