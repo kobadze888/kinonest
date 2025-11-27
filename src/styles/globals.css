@@ -51,7 +51,11 @@ body.is-smart-tv .bg-white\/10 {
   opacity: 0.95;
 }
 
- 
+/* TV-ზე ჰოვერის ეფექტების გაუქმება (რადგან პულტზე "ჰოვერი" არ არის) */
+body.is-smart-tv .group-hover\:scale-105,
+body.is-smart-tv .hover\:-translate-y-1 {
+  transform: none !important;
+}
 
 /* TV-ზე სქროლის დამალვა (ვიზუალურად) */
 body.is-smart-tv ::-webkit-scrollbar {
@@ -72,8 +76,6 @@ body.is-smart-tv button:focus {
   transform: scale(1.02) !important; /* მცირე ზრდა ფოკუსზე დასაშვებია */
   background-color: #1f2937 !important; /* ფონის გამუქება ფოკუსზე */
 }
-
-/* src/styles/globals.css - ბოლოში დაამატე */
 
 /* 🛠️ Kinobd Player Hack */
 #kinobd {
@@ -97,7 +99,7 @@ body.is-smart-tv button:focus {
 }
 
  
-/* 📺 SMART TV FIXES 📺 */
+/* 📺 SMART TV FIXES (PLAYER) 📺 */
 
 /* 1. Настройки Контейнера (Отступ от хедера + Центровка) */
 body.is-smart-tv #tv-player-container {
@@ -105,7 +107,7 @@ body.is-smart-tv #tv-player-container {
   margin: 0 auto !important; /* Центрируем */
   
   /* 👇 ГЛАВНОЕ: Отступ сверху, чтобы не залезал на хедер */
-  margin-top: 20px !important; 
+  margin-top: 10px !important; 
   margin-bottom: 3rem !important;
   
   display: block !important;
@@ -153,4 +155,23 @@ body.is-smart-tv button:focus {
   outline-offset: 2px !important;
   background-color: #1f2937 !important;
   transform: scale(1.05);
+}
+
+/* 🛠️ MEDIA CARD ICONS FIX (TV) - აი ეს გაასწორებს გულს */
+/* სპეციფიკური წესი მედია ქარდის ღილაკისთვის (გული) */
+body.is-smart-tv .media-card button {
+  position: absolute !important;
+  bottom: 8px !important; /* იგივეა რაც bottom-2 */
+  right: 8px !important;  /* იგივეა რაც right-2 */
+  top: auto !important;   /* არ აუშვას ზევით */
+  left: auto !important;  /* არ წაიღოს მარცხნივ */
+  z-index: 30 !important;
+}
+
+/* სპეციფიკური წესი წლისთვის (თუ მარცხნივ არის) */
+body.is-smart-tv .media-card .absolute.bottom-2.left-2 {
+  bottom: 8px !important;
+  left: 8px !important;
+  top: auto !important;
+  right: auto !important;
 }
