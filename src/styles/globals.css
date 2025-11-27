@@ -70,7 +70,7 @@ body.is-smart-tv {
 /* როცა პულტით გადადიხარ, ელემენტს უნდა ჰქონდეს მკაფიო ჩარჩო */
 body.is-smart-tv a:focus,
 body.is-smart-tv button:focus {
-  outline: 3px solid #e50914; /* წითელი ჩარჩო */
+  
   outline-offset: 2px;
   z-index: 100;
   transform: scale(1.02) !important; /* მცირე ზრდა ფოკუსზე დასაშვებია */
@@ -107,7 +107,7 @@ body.is-smart-tv #tv-player-container {
   margin: 0 auto !important; /* Центрируем */
   
   /* 👇 ГЛАВНОЕ: Отступ сверху, чтобы не залезал на хедер */
-  margin-top: 10px !important; 
+  margin-top: 0px !important; 
   margin-bottom: 3rem !important;
   
   display: block !important;
@@ -150,8 +150,7 @@ body.is-smart-tv button {
 }
 
 /* Фокус на кнопках для пульта */
-body.is-smart-tv button:focus {
-  outline: 3px solid #e50914 !important;
+body.is-smart-tv button:focus { 
   outline-offset: 2px !important;
   background-color: #1f2937 !important;
   transform: scale(1.05);
