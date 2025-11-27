@@ -12,6 +12,14 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     const playerDiv = document.createElement('div');
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
+    
+    // Принудительные стили для самого плеера
+    playerDiv.style.width = '100%';
+    playerDiv.style.height = '100%';
+    playerDiv.style.position = 'absolute';
+    playerDiv.style.top = '0';
+    playerDiv.style.left = '0';
+    
     containerRef.current.appendChild(playerDiv);
 
     const scriptId = 'kinobd-script-loader';
@@ -93,8 +101,8 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
     <div id="tv-player-container" className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
-         {/* Toolbar */}
-         <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800 z-20 relative">
+         {/* Toolbar: z-[50] исправляет неработающие клики */}
+         <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800 relative z-[50]">
             <div className="flex items-center gap-2">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
                     {players.map((player) => (
@@ -102,7 +110,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
                         key={player.id}
                         onClick={() => handleTabClick(player.id)}
                         className={`
-                        px-3 py-1.5 md:px-4 md:py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wide transition-all duration-200
+                        px-3 py-1.5 md:px-4 md:py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wide transition-all duration-200 cursor-pointer
                         ${
                             activeTab === player.id
                             ? 'bg-brand-red text-white shadow-md'
@@ -119,7 +127,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             <div className="flex items-center gap-3">
                 <button 
                     onClick={() => setRefreshKey(prev => prev + 1)}
-                    className="text-gray-400 hover:text-white transition-colors p-1"
+                    className="text-gray-400 hover:text-white transition-colors p-1 cursor-pointer"
                     title="Перезагрузить плеер"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 md:w-5 md:h-5">
@@ -129,13 +137,8 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             </div>
          </div>
 
-         {/* 💡 FIX: Оптимизация высоты для больших экранов.
-            - Добавлен класс `player-wrapper`
-            - xl:max-h-[65vh] (или 600px) не дает плееру стать слишком высоким
-            - aspect-video сохраняет пропорции 16:9
-            - mx-auto центрирует его
-         */}
-         <div className="player-wrapper w-full relative bg-black h-[360px] sm:h-[450px] lg:h-auto lg:aspect-video xl:max-h-[65vh] 2xl:max-h-[600px] z-10 mx-auto transition-all duration-300">
+         {/* Контейнер плеера: Убрали лишние классы, оставили управление через CSS */}
+         <div className="player-wrapper relative w-full bg-black z-10 overflow-hidden">
             {renderPlayer()}
          </div>
 
