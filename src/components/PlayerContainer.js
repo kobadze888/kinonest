@@ -90,7 +90,6 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
   };
 
   return (
-    // 💡 დაემატა ID: "tv-player-container"
     <div id="tv-player-container" className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
@@ -130,7 +129,13 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             </div>
          </div>
 
-         <div className="w-full relative bg-black h-[360px] sm:h-[450px] lg:h-auto lg:aspect-video z-10">
+         {/* 💡 FIX: Оптимизация высоты для больших экранов.
+            - Добавлен класс `player-wrapper`
+            - xl:max-h-[65vh] (или 600px) не дает плееру стать слишком высоким
+            - aspect-video сохраняет пропорции 16:9
+            - mx-auto центрирует его
+         */}
+         <div className="player-wrapper w-full relative bg-black h-[360px] sm:h-[450px] lg:h-auto lg:aspect-video xl:max-h-[65vh] 2xl:max-h-[600px] z-10 mx-auto transition-all duration-300">
             {renderPlayer()}
          </div>
 

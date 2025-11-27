@@ -100,19 +100,36 @@ body.is-smart-tv button:focus {
   min-height: 100% !important; 
 }
 
-/* 📺 SMART TV SPECIFIC PLAYER OPTIMIZATION 📺 */
+ 
+
+/* 📺 SMART TV PLAYER OPTIMIZATION 📺 */
+
+/* Контейнер плеера на TV: Делаем его уже, чтобы по бокам было пространство */
 body.is-smart-tv #tv-player-container {
-  max-width: 85% !important; /* მთელ ეკრანზე არ გაიშლება, გვერდებზე ადგილი დარჩება */
-  margin: 0 auto !important; /* ცენტრში დადგება */
+  max-width: 80% !important; /* Уменьшаем ширину до 80% */
+  margin: 0 auto !important; /* Центрируем */
   margin-bottom: 2rem !important;
-  transform: scale(0.95); /* ოდნავ დავაპატარავებთ, რომ თვალისთვის კომფორტული იყოს */
-  transform-origin: top center;
+  transform: translateY(-20px); /* Чуть поднимаем вверх для баланса */
 }
 
-/* აიფრეიმის იძულებითი გასწორება TV-ზე */
-body.is-smart-tv #kinobd, 
-body.is-smart-tv #kinobd iframe {
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 0 0 12px 12px !important; /* კუთხეების დამრგვალება */
+/* Сам видео-блок (iframe/div) на TV */
+body.is-smart-tv .player-wrapper {
+  /* Принудительно ограничиваем высоту */
+  height: 50vh !important; 
+  max-height: 550px !important;
+  
+  /* Сохраняем пропорции, но не даем растянуться */
+  aspect-ratio: 16/9 !important; 
+  
+  /* Убираем лишние стили, которые могут мешать */
+  width: auto !important; 
+  margin: 0 auto !important;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* Коррекция верхнего отступа для TV, чтобы плеер не прилипал к меню */
+body.is-smart-tv section.pt-24,
+body.is-smart-tv section.md\:pt-32 {
+  padding-top: 5rem !important; /* pt-20 аналог */
 }
