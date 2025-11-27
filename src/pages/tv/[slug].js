@@ -10,6 +10,7 @@ import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
 import PlayerContainer from '@/components/PlayerContainer';
 import { useWatchlist } from '@/lib/useWatchlist';
+import SeoHead from '@/components/SeoHead';
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -42,7 +43,6 @@ export async function getServerSideProps(context) {
       tvShow = dbResult.rows[0];
       kinopoisk_id = tvShow.kinopoisk_id;
 
-      // 🔧 FIX: თარიღის ფორმატირება სერვერზე
       tvShow.formattedPremiere = tvShow.premiere_world
         ? new Date(tvShow.premiere_world).toLocaleDateString('ru-RU')
         : '-';
@@ -135,9 +135,54 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
   const backdropPath = tvShow.backdrop_path ? `${BACKDROP_BASE_URL}${tvShow.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
   const posterPath = tvShow.poster_path ? `${IMAGE_BASE_URL}${tvShow.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
 
+  // 🚀 SEO: Structured Data (Schema.org) TV Series
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "TVSeries",
+    "name": title,
+    "alternativeHeadline": tvShow.title_en,
+    "image": posterPath,
+    "description": tvShow.overview,
+    "startDate": tvShow.premiere_world || `${tvShow.release_year}-01-01`,
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": tvShow.rating_tmdb || tvShow.rating_kp || 0,
+      "bestRating": "10",
+      "ratingCount": tvShow.rating_imdb_count > 0 ? tvShow.rating_imdb_count : 50 // Default
+    },
+    "actor": actors.slice(0, 5).map(actor => ({
+      "@type": "Person",
+      "name": actor.name
+    })),
+    "genre": tvShow.genres_names,
+    "offers": {
+      "@type": "Offer",
+      "availability": "https://schema.org/InStock",
+      "price": "0",
+      "priceCurrency": "RUB"
+    }
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans">
-      <Head><title>{title} | Сериал</title></Head>
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title={title} 
+        description={tvShow.overview} 
+        image={posterPath} 
+        type="video.tv_show" 
+        releaseYear={tvShow.release_year}
+        rating={tvShow.rating_tmdb}
+      />
+
+      {/* 🚀 JSON-LD Schema инექция */}
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </Head>
+
       <Header />
       <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
 
@@ -148,13 +193,9 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
       )}
 
       {/* ================= MOBILE LAYOUT START ================= */}
-      {/* -mt-4: სურათის აწევა (overlap) */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-4 z-10">
         <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
-        
-        {/* ✨ TOP GRADIENT: ძალიან რბილი გადასვლა (via-ს გარეშე) */}
         <div className="absolute top-0 left-0 right-0 h-44 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
-
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
           <h1 className="text-3xl font-black text-white leading-tight drop-shadow-lg">{title}</h1>
@@ -240,14 +281,9 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
 
       {/* ================= DESKTOP LAYOUT START ================= */}
       <div className="hidden lg:block">
-        {/* -mt-4: სურათის აწევა დესკტოპზეც */}
         <section className="relative h-[70vh] w-full -mt-4 z-10">
           <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
-          
-          {/* ✨ TOP GRADIENT: რბილი გადასვლა (h-64) */}
           <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
-
-          {/* BOTTOM GRADIENTS */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
 
@@ -289,7 +325,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations }
                   {tvShow.rating_kp > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг КП</span><span className="text-white font-bold text-lg">{tvShow.rating_kp}</span></div>)}
                   {tvShow.countries && (<div><span className="text-gray-500 block mb-1">Страна</span><span className="text-white font-medium">{tvShow.countries.join(', ')}</span></div>)}
 
-                  {/* 🔧 FIX: დესკტოპზეც */}
                   <div><span className="text-gray-500 block mb-1">Премьера</span><span className="text-white font-medium">{tvShow.formattedPremiere}</span></div>
 
                   <div className="col-span-3 pt-2">

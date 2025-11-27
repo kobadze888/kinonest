@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head'; // 💡 Schema-სთვის
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
@@ -8,6 +9,7 @@ import MediaCardSkeleton from '@/components/MediaCardSkeleton';
 import FilterBar from '@/components/FilterBar';
 import Pagination from '@/components/Pagination';
 import { getDynamicFilters } from '@/lib/getFilters';
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
@@ -27,10 +29,6 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
-    // 💡 Top გვერდის განახლებული სორტირება:
-    // 1. პრიორიტეტი: ქვეყანა (აშშ ან დიდი ბრიტანეთი) -> 0, სხვა -> 1
-    // 2. შემდეგ რეიტინგი
-    // 3. შემდეგ წელი
     const sql = `
       SELECT ${columns} FROM media 
       WHERE type = 'movie' AND rating_tmdb > 0
@@ -80,8 +78,30 @@ export default function TopPage({ items, currentPage, totalPages, genres, countr
     router.push({ pathname: '/top', query: { page: newPage } });
   };
 
+  // 🚀 SEO Schema
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Топ фильмов - Рейтинг Кинопоиск и IMDb",
+    "description": "Список самых лучших фильмов по рейтингу. Топ 250 фильмов смотреть онлайн.",
+    "url": "https://kinonest.ge/top"
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title="Топ фильмов - Лучшие фильмы по рейтингу смотреть онлайн"
+        description="Самые высокооцененные фильмы всех времен. Рейтинг IMDb и Кинопоиск. Смотрите шедевры кино бесплатно."
+      />
+      {/* 🚀 JSON-LD Schema */}
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </Head>
+
       <Header />
       <div className="pt-20">
         <FilterBar genres={genres} countries={countries} />

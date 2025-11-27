@@ -11,35 +11,39 @@ export default function SeoHead({
 }) {
   const router = useRouter();
   
-  // 💡 ვიღებთ დომენს გარემოს ცვლადიდან. თუ არ არის, ვიყენებთ დეფოლტს
+  // 💡 შეცვალეთ ეს თქვენი რეალური დომენით (მაგ: https://kinonest.ge)
   const domain = process.env.NEXT_PUBLIC_SITE_URL || 'https://kinonest.vercel.app';
   
-  // კანონიკური ლინკის აწყობა (პარამეტრების გარეშე, სუფთა URL)
   const canonicalUrl = `${domain}${router.asPath.split('?')[0]}`;
-  
   const siteName = "KinoNest";
+
+  // 🔥 დინამიური წელი: იღებს სერვერის/ბრაუზერის მიმდინარე წელს (2025, 2026...)
+  const currentYear = new Date().getFullYear();
   
-  // სათაურის გენერაცია (თუ წელი არის, ვამატებთ)
+  // 🚀 SEO სათაური
+  // თუ კონკრეტული ფილმის წელი (releaseYear) გვაქვს, ვწერთ იმას.
+  // თუ არ გვაქვს (მაგალითად ჟანრების გვერდზე), ვწერთ მიმდინარე წელს (currentYear).
   const fullTitle = title 
-    ? `${title} (${releaseYear || '2025'}) смотреть онлайн бесплатно | ${siteName}`
-    : `${siteName} - Фильмы и сериалы онлайн бесплатно`;
+    ? `${title} (${releaseYear || currentYear}) смотреть онлайн бесплатно в хорошем качестве | ${siteName}`
+    : `${siteName} - Фильмы и сериалы онлайн бесплатно в HD`;
 
-  // აღწერის გენერაცია (მაქს 160 სიმბოლო SEO-სთვის)
+  // 🚀 SEO აღწერა
+  const cleanDescription = description ? description.replace(/<[^>]*>?/gm, '') : '';
   const finalDesc = description 
-    ? description.replace(/<[^>]*>?/gm, '').slice(0, 160).trim() + (description.length > 160 ? '...' : '')
-    : 'Смотрите новинки кино и сериалов бесплатно в высоком качестве HD 1080p. Большая база фильмов без регистрации.';
+    ? `Смотреть ${title} онлайн в HD 1080p. ${cleanDescription.slice(0, 130)}... Бесплатно.`
+    : `Онлайн кинотеатр KinoNest. Смотрите новинки кино и сериалов ${currentYear} года бесплатно в высоком качестве HD 1080p.`;
 
-  // სურათის სრული URL
   const imageUrl = image && image.startsWith('/') ? `${domain}${image}` : image;
 
   return (
     <Head>
       <title>{fullTitle}</title>
       <meta name="description" content={finalDesc} />
+      <meta name="keywords" content={`смотреть онлайн, ${title || ''}, бесплатно, в хорошем качестве, hd 1080, фильмы ${releaseYear || currentYear}`} />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* Open Graph (Facebook, Telegram, WhatsApp) */}
+      {/* Open Graph */}
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={siteName} />
       <meta property="og:title" content={fullTitle} />
@@ -48,17 +52,16 @@ export default function SeoHead({
       <meta property="og:locale" content="ru_RU" />
       {imageUrl && <meta property="og:image" content={imageUrl} />}
       
-      {/* Twitter Card */}
+      {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={finalDesc} />
       {imageUrl && <meta name="twitter:image" content={imageUrl} />}
       
-      {/* Robots Tag */}
+      {/* Robots */}
       <meta name="robots" content="index, follow" />
+      <meta name="googlebot" content="index, follow" />
       
-      {/* დამატებითი მეტა მონაცემები */}
-      {rating && <meta name="rating" content="general" />}
       <meta name="theme-color" content="#e50914" />
     </Head>
   );

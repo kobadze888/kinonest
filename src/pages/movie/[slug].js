@@ -10,6 +10,7 @@ import MediaCarousel from '@/components/MediaCarousel';
 import TrailerModal from '@/components/TrailerModal';
 import PlayerContainer from '@/components/PlayerContainer';
 import { useWatchlist } from '@/lib/useWatchlist';
+import SeoHead from '@/components/SeoHead';
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -137,9 +138,54 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const posterPath = movie.poster_path ? `${IMAGE_BASE_URL}${movie.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
   const backdropPath = movie.backdrop_path ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
 
+  // 🚀 SEO: Structured Data (Schema.org) - უმნიშვნელოვანესია!
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "Movie",
+    "name": title,
+    "alternativeHeadline": movie.title_en,
+    "image": posterPath,
+    "description": movie.overview,
+    "datePublished": movie.premiere_world || `${releaseYear}-01-01`,
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": movie.rating_tmdb || movie.rating_kp || 0,
+      "bestRating": "10",
+      "ratingCount": movie.rating_imdb_count > 0 ? movie.rating_imdb_count : 50 // Default
+    },
+    "actor": actors.slice(0, 5).map(actor => ({
+      "@type": "Person",
+      "name": actor.name
+    })),
+    "genre": movie.genres_names,
+    "offers": {
+      "@type": "Offer",
+      "availability": "https://schema.org/InStock",
+      "price": "0",
+      "priceCurrency": "RUB"
+    }
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
-      <Head><title>{title} | Фильм</title></Head>
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title={title} 
+        description={movie.overview} 
+        image={posterPath} 
+        type="video.movie" 
+        releaseYear={releaseYear}
+        rating={movie.rating_tmdb}
+      />
+      
+      {/* 🚀 JSON-LD Schema ინექცია */}
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </Head>
+
       <Header />
       <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
 
@@ -151,19 +197,10 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       )}
 
       {/* ================= MOBILE LAYOUT START ================= */}
-      {/* -mt-2: მცირე უარყოფითი მარჯინი, რომ "თეთრი ხაზი" გაქრეს */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-2 z-10">
         <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
-        
-        {/* ✨ TOP GRADIENT: რბილი გადასვლა პლეერიდან სურათზე.
-           - h-40: საკმარისი სიმაღლე, რომ არ იყოს "მოჭრილი"
-           - from-[#10141A] to-transparent: ყველაზე სუფთა გადასვლა
-        */}
         <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
-        
-        {/* BOTTOM GRADIENT */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
-        
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
           <h1 className="text-3xl font-black text-white leading-tight drop-shadow-lg">{title}</h1>
           <div className="flex items-center gap-3 mt-2 text-sm text-gray-300">
@@ -252,14 +289,9 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
 
       {/* ================= DESKTOP LAYOUT START ================= */}
       <div className="hidden lg:block">
-        {/* -mt-2: მცირე გადაფარვა ხაზების მოსაშორებლად */}
         <section className="relative h-[70vh] w-full -mt-2 z-10">
           <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority sizes="100vw" />
-          
-          {/* ✨ TOP GRADIENT: უფრო მაღალი (h-64) და ძალიან რბილი დესკტოპისთვის */}
           <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
-
-          {/* BOTTOM GRADIENTS */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
 

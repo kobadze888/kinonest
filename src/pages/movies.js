@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Head from 'next/head'; // 💡 Schema-სთვის
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
@@ -7,6 +8,7 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
 import { getDynamicFilters } from '@/lib/getFilters';
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
 export async function getServerSideProps() {
   const limit = 30;
@@ -24,7 +26,6 @@ export async function getServerSideProps() {
   let initialMovies = [];
 
   try {
-    // 💡 პრიორიტეტი + tmdb_id DESC სტაბილურობისთვის
     const moviesRes = await query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie'
@@ -78,7 +79,6 @@ export default function MoviesPage({ initialMovies, genres, countries }) {
         const newMovies = await res.json();
         if (newMovies.length > 0) {
           setMovies(prev => {
-            // 💡 დუბლიკატების ფილტრაცია
             const existingIds = new Set(prev.map(m => m.tmdb_id));
             const uniqueNewMovies = newMovies.filter(m => !existingIds.has(m.tmdb_id));
             
@@ -110,8 +110,38 @@ export default function MoviesPage({ initialMovies, genres, countries }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [loadMoreMovies]);
 
+  // 🚀 SEO Schema (CollectionPage)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Фильмы смотреть онлайн",
+    "description": "Каталог лучших фильмов онлайн бесплатно в хорошем качестве.",
+    "url": "https://kinonest.ge/movies",
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": movies.slice(0, 20).map((movie, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "url": `https://kinonest.ge/movie/${movie.tmdb_id}`
+      }))
+    }
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title="Фильмы смотреть онлайн бесплатно в хорошем качестве HD"
+        description="Огромная коллекция фильмов онлайн. Новинки кино, популярные блокбастеры и классика кинематографа абсолютно бесплатно на KinoNest."
+      />
+      {/* 🚀 JSON-LD Schema */}
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </Head>
+
       <Header />
       <div className="pt-20">
         <FilterBar genres={genres} countries={countries} />

@@ -5,7 +5,8 @@ import Header from '../components/Header';
 import HeroSlider from '../components/HeroSlider';
 import MediaCarousel from '../components/MediaCarousel';
 import Footer from '../components/Footer'; 
-import TrailerModal from '../components/TrailerModal'; 
+import TrailerModal from '../components/TrailerModal';
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO დამატებულია
 
 export async function getServerSideProps() {
   const currentYear = new Date().getFullYear(); 
@@ -17,11 +18,6 @@ export async function getServerSideProps() {
     created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
   `;
 
-  // 💡 მკაცრი ფილტრი მთავარი გვერდისთვის:
-  // 1. kinopoisk_id IS NOT NULL -> პლეერის გარეშე არ გამოჩნდეს
-  // 2. rating_imdb > 0           -> რეიტინგის გარეშე არ გამოჩნდეს
-  // 3. title_ru ~ '[а-яА-ЯёЁ]'   -> მხოლოდ რუსული სათაურები
-  // 4. release_year > 0          -> წლის გარეშე (N/A) არ გამოჩნდეს (ახალი)
   const strictCondition = `
     backdrop_path IS NOT NULL 
     AND poster_path IS NOT NULL
@@ -33,7 +29,6 @@ export async function getServerSideProps() {
   `;
 
   try {
-    // Hero Slider (Top 10)
     const heroQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -47,7 +42,6 @@ export async function getServerSideProps() {
       LIMIT 10
     `);
 
-    // Now Playing
     const nowPlayingQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -57,7 +51,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // New Movies
     const newMoviesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -67,7 +60,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // New Series (აქ იყო პრობლემა N/A წელზე)
     const newSeriesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv' 
@@ -76,7 +68,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // Horror
     const horrorQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
@@ -87,7 +78,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // Comedy
     const comedyQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
@@ -98,7 +88,6 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // Actors
     const actorsQuery = query(`
       SELECT * FROM (
         SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity 
@@ -198,6 +187,12 @@ export default function Home({
 
   return (
     <div className="bg-[#10141A] text-white font-sans">
+      {/* 🚀 SEO Head: მთავარი გვერდის ოპტიმიზაცია */}
+      <SeoHead 
+        title={`Фильмы и сериалы онлайн бесплатно`} 
+        description={`KinoNest - ваш онлайн кинотеатр. Смотрите новинки ${currentYear} года, популярные сериалы и классику мирового кино абсолютно бесплатно и без регистрации в высоком качестве HD.`}
+      />
+
       <Header />
       <TrailerModal isOpen={isModalOpen} onClose={closeModal} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
 

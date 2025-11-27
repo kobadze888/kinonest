@@ -1,16 +1,16 @@
-// src/pages/genre/[slug].js (Stranica zhanra + Skeleton)
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCard from '@/components/MediaCard';
-import MediaCardSkeleton from '@/components/MediaCardSkeleton'; // 💡 Импорт скелетона
+import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
 export async function getServerSideProps(context) {
   const { slug, page } = context.query;
   const currentPage = parseInt(page) || 1;
-  const limit = 30; // 💡 Лимит 30 для заполнения сетки
+  const limit = 30; 
   const offset = (currentPage - 1) * limit;
 
   const genreMap = {
@@ -81,10 +81,8 @@ export default function GenrePage({ results, genreName, currentPage, totalPages,
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // 💡 Логика отображения скелетонов при смене страницы
   useEffect(() => {
     const start = (url) => {
-        // Если мы остаемся на странице жанра (пагинация), включаем загрузку
         if (url.startsWith(`/genre/${slug}`)) {
             setLoading(true);
         }
@@ -106,6 +104,12 @@ export default function GenrePage({ results, genreName, currentPage, totalPages,
 
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title={`${displayGenre} - Смотреть фильмы и сериалы онлайн бесплатно`}
+        description={`Лучшие фильмы и сериалы в жанре ${displayGenre}. Смотрите онлайн бесплатно в хорошем качестве на KinoNest.`}
+      />
+
       <Header />
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">
@@ -114,7 +118,6 @@ export default function GenrePage({ results, genreName, currentPage, totalPages,
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {loading ? (
-                // 💡 Показываем скелетоны при загрузке
                 Array.from({ length: 30 }).map((_, i) => <MediaCardSkeleton key={i} />)
             ) : results.length > 0 ? (
                 results.map(item => (
@@ -125,7 +128,6 @@ export default function GenrePage({ results, genreName, currentPage, totalPages,
             )}
         </div>
 
-        {/* Пагинация (обычная, не Infinite Scroll, так как это специфичная страница) */}
         {totalPages > 1 && (
             <div className="flex justify-center mt-10 space-x-4">
             <button 

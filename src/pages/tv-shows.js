@@ -1,7 +1,5 @@
-// src/pages/tv-shows.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/router';
-import Head from 'next/head';
+import Head from 'next/head'; // 💡 Schema-სთვის
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -9,12 +7,12 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
 import { getDynamicFilters } from '@/lib/getFilters';
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
 export async function getServerSideProps() {
   const limit = 30;
   const offset = 0;
 
-  // Получаем фильтры для FilterBar
   const { genres, countries } = await getDynamicFilters();
 
   const columns = `
@@ -27,7 +25,6 @@ export async function getServerSideProps() {
   let initialShows = [];
 
   try {
-    // Запрашиваем только сериалы (type = 'tv')
     const showsRes = await query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv'
@@ -76,13 +73,11 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
     const nextPage = page + 1;
     
     try {
-      // Используем API для подгрузки (type=tv)
       const res = await fetch(`/api/media?type=tv&page=${nextPage}`);
       if (res.ok) {
         const newShows = await res.json();
         if (newShows.length > 0) {
           setShows(prev => {
-            // Фильтрация дубликатов
             const existingIds = new Set(prev.map(m => m.tmdb_id));
             const uniqueNewShows = newShows.filter(m => !existingIds.has(m.tmdb_id));
             
@@ -104,7 +99,6 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
     }
   }, [page, loading, hasMore]);
 
-  // Бесконечная прокрутка
   useEffect(() => {
     const handleScroll = () => {
       if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 500) {
@@ -115,10 +109,36 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [loadMoreShows]);
 
+  // 🚀 SEO Schema (CollectionPage)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Сериалы смотреть онлайн",
+    "description": "Лучшие зарубежные и российские сериалы онлайн бесплатно.",
+    "url": "https://kinonest.ge/tv-shows",
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": shows.slice(0, 20).map((show, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "url": `https://kinonest.ge/tv/${show.tmdb_id}`
+      }))
+    }
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title="Сериалы смотреть онлайн бесплатно в хорошем качестве"
+        description="Смотрите популярные сериалы онлайн. Новые серии, русская озвучка, высокое качество HD на KinoNest."
+      />
+      {/* 🚀 JSON-LD Schema */}
       <Head>
-        <title>Сериалы | KinoNest</title>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
       </Head>
       
       <Header />

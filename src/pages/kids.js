@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head'; // 💡 Schema-სთვის
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
@@ -8,6 +9,7 @@ import MediaCardSkeleton from '@/components/MediaCardSkeleton';
 import FilterBar from '@/components/FilterBar';
 import Pagination from '@/components/Pagination';
 import { getDynamicFilters } from '@/lib/getFilters';
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
@@ -27,7 +29,6 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
-    // 💡 Kids გვერდზეც პრიორიტეტი
     const sql = `
       SELECT ${columns} FROM media 
       WHERE genres_names && ARRAY['мультфильм', 'семейный']
@@ -79,8 +80,38 @@ export default function KidsPage({ items, currentPage, totalPages, genres, count
     router.push({ pathname: '/kids', query: { page: newPage } });
   };
 
+  // 🚀 SEO Schema (CollectionPage)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Мультфильмы и семейное кино",
+    "description": "Лучшие мультфильмы и фильмы для детей. Смотрите онлайн бесплатно в хорошем качестве.",
+    "url": "https://kinonest.ge/kids",
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": items.slice(0, 20).map((item, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "url": `https://kinonest.ge/${item.type === 'movie' ? 'movie' : 'tv'}/${item.tmdb_id}`
+      }))
+    }
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title="Мультфильмы и фильмы для детей смотреть онлайн бесплатно"
+        description="Коллекция лучших мультфильмов и семейных фильмов. Развивающие, веселые и добрые мультики для детей всех возрастов на KinoNest."
+      />
+      {/* 🚀 JSON-LD Schema */}
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </Head>
+
       <Header />
       <div className="pt-20">
         <FilterBar genres={genres} countries={countries} />

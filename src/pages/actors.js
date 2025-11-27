@@ -1,10 +1,12 @@
 import React from 'react';
+import Head from 'next/head'; // 💡 Schema-სთვის
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ActorCard from '@/components/ActorCard'; 
 import Pagination from '@/components/Pagination';
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
 export async function getServerSideProps({ query: urlQuery }) {
   const page = parseInt(urlQuery.page) || 1;
@@ -15,8 +17,6 @@ export async function getServerSideProps({ query: urlQuery }) {
   let total = 0;
 
   try {
-    // 💡 ახალი ლოგიკა: ვიღებთ მხოლოდ მაღალრეიტინგული (>7.0) US/UK ფილმების მსახიობებს
-    // და ვალაგებთ პოპულარობის მიხედვით
     const actorsQuery = `
       SELECT DISTINCT a.id, a.name, a.profile_path, a.popularity 
       FROM actors a
@@ -33,10 +33,6 @@ export async function getServerSideProps({ query: urlQuery }) {
     const actorsRes = await query(actorsQuery, [limit, offset]);
     actors = actorsRes.rows;
 
-    // მთლიანი რაოდენობის დათვლა იგივე კრიტერიუმით (მიახლოებით)
-    // ზუსტი count რთული ქუერით ძვირია, ამიტომ უბრალოდ actors ცხრილიდან ვიღებთ, 
-    // ან შეგვიძლია დავტოვოთ ძველი count თუ პერფორმანსი პრობლემაა.
-    // აქ სჯობს დავტოვოთ მარტივი count, რადგან ფილტრაცია ლიმიტირებულია.
     const countRes = await query(`SELECT COUNT(*) FROM actors WHERE profile_path IS NOT NULL`);
     total = parseInt(countRes.rows[0].count);
 
@@ -63,8 +59,42 @@ export default function ActorsPage({ actors, currentPage, totalPages }) {
     });
   };
 
+  // 🚀 SEO Schema (CollectionPage for Persons)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Популярные актеры кино",
+    "description": "Список известных актеров и актрис. Биографии, фото и фильмография.",
+    "url": "https://kinonest.ge/actors",
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": actors.slice(0, 20).map((actor, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "item": {
+            "@type": "Person",
+            "name": actor.name,
+            "url": `https://kinonest.ge/actor/${actor.id}`
+        }
+      }))
+    }
+  };
+
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title="Актеры и актрисы - Биографии, фото, фильмография"
+        description="Каталог популярных актеров мирового и российского кино. Полная фильмография, фото и биографии звезд на KinoNest."
+      />
+      {/* 🚀 JSON-LD Schema */}
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </Head>
+
       <Header />
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 w-full">
         <h1 className="text-3xl font-bold text-white mb-8">Популярные актеры</h1>

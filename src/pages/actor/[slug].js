@@ -1,6 +1,5 @@
-// src/pages/actor/[slug].js (УПРОЩЕННАЯ ВЕРСИЯ БЕЗ ЛИШНИХ ПОЛЕЙ)
 import React from 'react';
-import Head from 'next/head';
+import Head from 'next/head'; // 💡 Schema-სთვის
 import Image from 'next/image';
 
 import { IMAGE_BASE_URL } from '@/lib/api';
@@ -8,6 +7,7 @@ import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MediaCarousel from '@/components/MediaCarousel';
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
@@ -18,9 +18,8 @@ export async function getServerSideProps(context) {
   let filmography = [];
 
   try {
-    // 1. Получаем только необходимые поля актера (ID, Name, Original Name, Image)
     const actorRes = await query(`
-      SELECT id, name, original_name, profile_path
+      SELECT id, name, original_name, profile_path, popularity
       FROM actors 
       WHERE id = $1
     `, [actorId]);
@@ -28,7 +27,6 @@ export async function getServerSideProps(context) {
 
     if (!actor) return { notFound: true };
 
-    // 2. Получаем фильмографию актера (этот запрос остался без изменений)
     const columns = `
       m.tmdb_id, m.type, m.title_ru, m.title_en, m.overview,
       m.poster_path, m.release_year, m.rating_tmdb
@@ -45,15 +43,11 @@ export async function getServerSideProps(context) {
     
     filmography = filmographyRes.rows.map(item => ({
         ...item,
-        // Добавляем описание роли в item
         overview: `Роль: ${item.character || 'Неизвестно'} | ${item.overview}`, 
     }));
 
   } catch (e) {
-    // 💡 Оставляем лог ошибки на случай проблем с JOIN или другими запросами
     console.error("Actor Page Database Error:", e.message); 
-    // Поскольку мы теперь не запрашиваем несуществующие поля, этот блок 
-    // будет срабатывать реже, и страница должна работать.
   }
 
   if (!actor) {
@@ -75,15 +69,32 @@ export default function ActorPage({ actor, filmography }) {
     ? `${IMAGE_BASE_URL}${actor.profile_path}` 
     : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Photo';
   
-  const pageTitle = `${actor.name} | Фильмография | KinoNest`;
-  const keywords = [actor.name, actor.original_name, 'фильмы актера'].join(', ');
+  // 🚀 Schema.org მსახიობისთვის
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": actor.name,
+    "alternateName": actor.original_name,
+    "image": profilePath,
+    "description": `Актер ${actor.name}. Фильмография и лучшие фильмы смотреть онлайн.`,
+    "jobTitle": "Actor"
+  };
 
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title={`${actor.name} - Фильмы, биография, фото`}
+        description={`Смотреть лучшие фильмы с участием ${actor.name} (${actor.original_name}) онлайн бесплатно. Полная фильмография актера на KinoNest.`}
+        image={profilePath}
+      />
+
+      {/* 🚀 JSON-LD Schema */}
       <Head>
-        <title>{pageTitle}</title>
-        <meta name="description" content={`Фильмография актера ${actor.name} (${actor.original_name})`} />
-        <meta name="keywords" content={keywords} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
       </Head>
       
       <Header />
@@ -110,7 +121,7 @@ export default function ActorPage({ actor, filmography }) {
             
             <h3 className="text-2xl font-bold text-white mb-3">Фильмография</h3>
             <p className="text-gray-300 leading-relaxed">
-              Здесь вы найдете список фильмов и сериалов, в которых участвовал {actor.name}.
+              Здесь вы найдете список фильмов и сериалов, в которых участвовал {actor.name}. Смотрите онлайн бесплатно в хорошем качестве.
             </p>
           </div>
         </div>

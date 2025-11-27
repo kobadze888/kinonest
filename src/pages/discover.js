@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head'; // 💡 Schema-სთვის
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
@@ -7,18 +8,9 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar'; 
 import Pagination from '@/components/Pagination'; 
+import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
 
-const countryEnToRuMap = {
-  "United States of America": "США",
-  "Russian Federation": "Россия", "Russia": "Россия",
-  "United Kingdom": "Великобритания", "France": "Франция",
-  "Japan": "Япония", "South Korea": "Южная Корея", "Germany": "Германия",
-  "China": "Китай", "Canada": "Канада", "Australia": "Австралия",
-  "India": "Индия", "Spain": "Испания", "Italy": "Италия",
-  "Mexico": "Мексика", "Brazil": "Бразилия", "Turkey": "Турция",
-  "Sweden": "Швеция", "Denmark": "Дания", "Norway": "Норвегия",
-  "Ukraine": "Украина", "Belarus": "Беларусь", "Kazakhstan": "Казахстан"
-};
+const countryEnToRuMap = { "United States of America": "США", "Russian Federation": "Россия", "Russia": "Россия", "United Kingdom": "Великобритания", "France": "Франция", "Japan": "Япония", "South Korea": "Южная Корея", "Germany": "Германия", "China": "Китай", "Canada": "Канада", "Australia": "Австралия", "India": "Индия", "Spain": "Испания", "Italy": "Италия", "Mexico": "Мексика", "Brazil": "Бразилия", "Turkey": "Турция", "Sweden": "Швеция", "Denmark": "Дания", "Norway": "Норвегия", "Ukraine": "Украина", "Belarus": "Беларусь", "Kazakhstan": "Казахстан" };
 
 export async function getServerSideProps({ query: urlQuery }) {
   const { type, genre, year, rating, country, page, sort } = urlQuery; 
@@ -50,17 +42,7 @@ export async function getServerSideProps({ query: urlQuery }) {
 
   const whereClause = sqlConditions.join(' AND ');
 
-  // 💡 განახლებული სორტირება (პრიორიტეტი)
-  const priorityCase = `
-    CASE 
-      WHEN title_ru ~ '[а-яА-ЯёЁ]' 
-           AND poster_path IS NOT NULL 
-           AND kinopoisk_id IS NOT NULL 
-      THEN 0 
-      ELSE 1 
-    END ASC
-  `;
-
+  const priorityCase = `CASE WHEN title_ru ~ '[а-яА-ЯёЁ]' AND poster_path IS NOT NULL AND kinopoisk_id IS NOT NULL THEN 0 ELSE 1 END ASC`;
   let orderBy = '';
   switch (sort) {
       case 'rating_asc': orderBy = `${priorityCase}, rating_imdb ASC NULLS LAST, rating_tmdb ASC`; break;
@@ -68,16 +50,9 @@ export async function getServerSideProps({ query: urlQuery }) {
       case 'year_asc': orderBy = `${priorityCase}, release_year ASC NULLS LAST, rating_tmdb DESC`; break;
       case 'year_desc': default: orderBy = `${priorityCase}, release_year DESC NULLS LAST, rating_tmdb DESC`; break;
   }
-  
-  // ბოლოს ვამატებთ tmdb_id-ს სტაბილურობისთვის
   orderBy += `, tmdb_id DESC`;
 
-  const columns = `
-    tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
-    poster_path, backdrop_path, release_year, rating_tmdb,
-    genres_ids, genres_names,
-    created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
-  `;
+  const columns = `tmdb_id, kinopoisk_id, type, title_ru, title_en, overview, poster_path, backdrop_path, release_year, rating_tmdb, genres_ids, genres_names, created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp`;
 
   let results = [];
   let total = 0;
@@ -93,17 +68,7 @@ export async function getServerSideProps({ query: urlQuery }) {
     console.error("Discover Page Error:", e.message);
   }
 
-  return {
-    props: {
-      results,
-      total, 
-      currentPage,
-      totalPages: Math.ceil(total / limit),
-      filters: { type: type || 'all', genre: genre || 'all', year: year || 'all', rating: rating || 'all', country: country || 'all', sort: sort || 'year_desc' },
-      dynamicGenres,
-      dynamicCountries,
-    },
-  };
+  return { props: { results, total, currentPage, totalPages: Math.ceil(total / limit), filters: { type: type || 'all', genre: genre || 'all', year: year || 'all', rating: rating || 'all', country: country || 'all', sort: sort || 'year_desc' }, dynamicGenres, dynamicCountries } };
 }
 
 export default function DiscoverPage({ results, total, currentPage, totalPages, filters, dynamicGenres, dynamicCountries }) {
@@ -142,9 +107,31 @@ export default function DiscoverPage({ results, total, currentPage, totalPages, 
     return active;
   };
   const activeFilters = getActiveFilters();
+
+  // 🚀 დინამიური SEO სათაურის გენერაცია
+  const generateSeoTitle = () => {
+    const parts = [];
+    if (filters.genre && filters.genre !== 'all') parts.push(decodeURIComponent(filters.genre));
+    if (filters.year && filters.year !== 'all') parts.push(`${filters.year} года`);
+    if (filters.type === 'movie') parts.push('фильмы');
+    else if (filters.type === 'tv') parts.push('сериалы');
+    else parts.push('фильмы и сериалы');
+    
+    const titleText = parts.length > 0 
+        ? `${parts.join(' ')} смотреть онлайн бесплатно` 
+        : 'Фильтры поиска фильмов и сериалов';
+        
+    return titleText.charAt(0).toUpperCase() + titleText.slice(1);
+  };
   
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+      {/* 🚀 SEO Head */}
+      <SeoHead 
+        title={generateSeoTitle()}
+        description={`Подбор фильмов по параметрам: ${activeFilters.map(f => `${f.label}: ${f.value}`).join(', ')}. Смотреть онлайн бесплатно.`}
+      />
+
       <Header />
       <div className="pt-20">
         <FilterBar initialFilters={filters} genres={dynamicGenres} countries={dynamicCountries} />
