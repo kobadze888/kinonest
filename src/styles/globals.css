@@ -26,81 +26,9 @@
   }
 }
 
-/* 📺 SMART TV OPTIMIZATION LAYER 📺 */
-/* ეს სტილები მხოლოდ ტელევიზორებზე ირთვება */
-body.is-smart-tv * {
-  /* 1. ვთიშავთ მძიმე ანიმაციებს და ტრანზიციებს CPU-ს დასაზოგად */
-  transition: none !important;
-  animation: none !important;
-  
-  /* 2. ვთიშავთ ბლარს (ყველაზე მძიმე ეფექტი GPU-სთვის) */
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  
-  /* 3. ვთიშავთ ჩრდილებს */
-  box-shadow: none !important;
-  text-shadow: none !important;
-}
+ 
 
-/* TV-ზე ფონის გამუქება ბლარის ნაცვლად (რომ ტექსტი იკითხებოდეს) */
-body.is-smart-tv .bg-black\/60,
-body.is-smart-tv .backdrop-blur-sm,
-body.is-smart-tv .backdrop-blur-md,
-body.is-smart-tv .bg-white\/10 {
-  background-color: #000000 !important;
-  opacity: 0.95;
-}
-
-/* TV-ზე ჰოვერის ეფექტების გაუქმება (რადგან პულტზე "ჰოვერი" არ არის) */
-body.is-smart-tv .group-hover\:scale-105,
-body.is-smart-tv .hover\:-translate-y-1 {
-  transform: none !important;
-}
-
-/* TV-ზე სქროლის დამალვა (ვიზუალურად) */
-body.is-smart-tv ::-webkit-scrollbar {
-  display: none;
-}
-body.is-smart-tv {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* 🎮 SPATIAL NAVIGATION (პულტისთვის ფოკუსი) */
-/* როცა პულტით გადადიხარ, ელემენტს უნდა ჰქონდეს მკაფიო ჩარჩო */
-body.is-smart-tv a:focus,
-body.is-smart-tv button:focus {
-  outline: 3px solid #e50914; /* წითელი ჩარჩო */
-  outline-offset: 2px;
-  z-index: 100;
-  transform: scale(1.02) !important; /* მცირე ზრდა ფოკუსზე დასაშვებია */
-  background-color: #1f2937 !important; /* ფონის გამუქება ფოკუსზე */
-}
-
-/* src/styles/globals.css - ბოლოში დაამატე */
-
-/* 🛠️ Kinobd Player Hack */
-#kinobd {
-  width: 100% !important;
-  height: 100% !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  overflow: hidden !important;
-}
-
-#kinobd iframe {
-  width: 100% !important;
-  height: 100% !important;
-  border: none !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  /* ეს უზრუნველყოფს, რომ აიფრეიმის შიგთავსი არ გაიჭრას */
-  min-height: 100% !important; 
-}
-
-/* Вставьте это в самый конец файла globals.css */
+ 
 
 /* 📺 SMART TV FIXES 📺 */
 
