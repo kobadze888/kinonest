@@ -51,11 +51,7 @@ body.is-smart-tv .bg-white\/10 {
   opacity: 0.95;
 }
 
-/* TV-ზე ჰოვერის ეფექტების გაუქმება (რადგან პულტზე "ჰოვერი" არ არის) */
-body.is-smart-tv .group-hover\:scale-105,
-body.is-smart-tv .hover\:-translate-y-1 {
-  transform: none !important;
-}
+ 
 
 /* TV-ზე სქროლის დამალვა (ვიზუალურად) */
 body.is-smart-tv ::-webkit-scrollbar {
