@@ -38,7 +38,7 @@ body.is-smart-tv #tv-player-container {
   margin: 0 auto !important; /* Центрируем */
   
   /* 👇 ГЛАВНОЕ: Отступ сверху, чтобы не залезал на хедер */
-  margin-top: 120px !important; 
+  margin-top: 30px !important; 
   margin-bottom: 3rem !important;
   
   display: block !important;
