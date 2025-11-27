@@ -100,21 +100,64 @@ body.is-smart-tv button:focus {
   min-height: 100% !important; 
 }
 
-/* 📺 SMART TV SPECIFIC PLAYER OPTIMIZATION 📺 */
- 
-body.is-smart-tv #tv-player-container {
-  width: 60% !important; /* 🛑 შევამცირეთ 80%-დან 60%-მდე */
-  max-width: 1200px; /* მაქსიმალური ზომაც შევზღუდეთ */
-  margin: 5vh auto !important; /* ვერტიკალური ცენტრირება */
-  display: block !important;
-  position: relative;
-  z-index: 20;
+/* 📺 SMART TV OPTIMIZATION (V4.0 - Fixed & Clean) 📺 */
+
+/* 1. მხოლოდ TV-სთვის: სქროლის დაბრუნება (უხილავი) */
+body.is-smart-tv {
+  overflow-y: scroll !important;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  background-color: #000 !important;
+}
+body.is-smart-tv ::-webkit-scrollbar {
+  display: none !important;
 }
 
-/* აიფრეიმის იძულებითი გასწორება TV-ზე */
-body.is-smart-tv #kinobd, 
-body.is-smart-tv #kinobd iframe {
+/* 2. ფოკუსის სტილი (თეთრი ჩარჩო) */
+body.is-smart-tv a:focus,
+body.is-smart-tv button:focus {
+  outline: 4px solid white !important;
+  outline-offset: 2px;
+  transform: scale(1.03);
+  z-index: 50;
+  background-color: #2a2a2a !important;
+  box-shadow: 0 0 20px rgba(0,0,0,0.8);
+}
+
+/* 3. პლეერის კონტეინერი - TV-ზე პატარავდება და ცენტრდება */
+body.is-smart-tv #tv-player-container {
+  width: 60% !important; /* 🛑 სიგანე 60% */
+  max-width: 1200px;
+  margin: 30px auto 50px auto !important; /* ცენტრში */
+  display: block !important;
+}
+
+/* 4. პლეერის ჩარჩო - TV-ზე იღებს ფიქსირებულ 16:9-ს */
+body.is-smart-tv .tv-player-wrapper {
+  width: 100% !important;
+  height: auto !important; /* ძველ სიმაღლეებს ვაუქმებთ TV-ზე */
+  aspect-ratio: 16 / 9 !important; /* მკაცრი 16:9 */
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.7);
+}
+
+/* 5. აიფრეიმის ჩასმა */
+body.is-smart-tv .tv-player-wrapper iframe,
+body.is-smart-tv .tv-player-wrapper #kinobd {
+  position: relative !important;
   width: 100% !important;
   height: 100% !important;
-  border-radius: 0 0 12px 12px !important; /* კუთხეების დამრგვალება */
+}
+
+/* 6. მენიუს გამჭვირვალობა TV-ზე */
+body.is-smart-tv .bg-\[\#1a1f26\] {
+  background-color: transparent !important;
+  border: none !important;
+}
+body.is-smart-tv .bg-[#151a21] {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
