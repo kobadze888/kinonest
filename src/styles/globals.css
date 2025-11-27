@@ -63,11 +63,15 @@ body.is-smart-tv #tv-player-container {
   display: block !important;
 }
 
-/* პლეერის ჩარჩო (ზუსტი პროპორცია 16:9) */
+/* პლეერის ჩარჩო (ზუსტი პროპორცია 16:9 და სიმაღლის კონტროლი) */
 body.is-smart-tv .tv-player-wrapper {
   width: 100%;
-  height: 0; /* სიმაღლე ნული, რადგან padding-bottom განსაზღვრავს მას */
-  padding-bottom: 56.25%; /* 16:9 Aspect Ratio (ზუსტად განსაზღვრავს სიმაღლეს სიგანის მიხედვით) */
+  /* padding-bottom-ით ვადგენთ სიმაღლეს სიგანის მიხედვით.
+     16:9 = 56.25% (9/16). ეს უზრუნველყოფს, რომ სიმაღლე ყოველთვის
+     იქნება ზუსტად 16:9 პროპორციის შესაბამისი.
+  */
+  padding-bottom: 56.25%; 
+  height: 0; /* სიმაღლე ნული, რადგან padding აკონტროლებს */
   background: #000;
   border: 1px solid #333; /* მარტივი, მსუბუქი ჩარჩო */
   border-radius: 8px;
