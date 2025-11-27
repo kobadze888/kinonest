@@ -67,8 +67,8 @@ body.is-smart-tv #tv-player-container {
 /* პლეერის ჩარჩო (მკაცრი 16:9 პროპორცია) */
 body.is-smart-tv .tv-player-wrapper {
   width: 100%;
-  height: auto !important; /* ავტომატური სიმაღლე */
-  aspect-ratio: 16 / 9 !important; /* ეს აიძულებს იყოს ზუსტად 16:9 */
+  height: 500px !important; /* ავტომატური სიმაღლე */
+  /* aspect-ratio: 16 / 9 !important;   */
   padding-bottom: 0 !important; /* ძველი მეთოდის გაუქმება */
   background: #000;
   border: 1px solid #2a2a2a; /* დახვეწილი ჩარჩო */
@@ -83,7 +83,7 @@ body.is-smart-tv .tv-player-wrapper {
 body.is-smart-tv .tv-player-wrapper iframe,
 body.is-smart-tv .tv-player-wrapper #kinobd {
   width: 100% !important;
-  height: 70% !important;
+  height: 100% !important;
   position: absolute !important;
   top: 0;
   left: 0;
