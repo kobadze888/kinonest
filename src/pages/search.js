@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Head from 'next/head'; // 💡 Schema-სთვის
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
@@ -8,9 +8,9 @@ import MediaCard from '@/components/MediaCard';
 import MediaCardSkeleton from '@/components/MediaCardSkeleton'; 
 import FilterBar from '@/components/FilterBar';
 import { getDynamicFilters } from '@/lib/getFilters';
-import { slugify } from '@/lib/utils';
-import SeoHead from '@/components/SeoHead'; // 🚀 SEO იმპორტი
+import SeoHead from '@/components/SeoHead';
 
+// დამხმარე ფუნქცია ტრანსლიტერაციისთვის (ინგლისური -> რუსული)
 function transliterate(text) {
   if (!text) return '';
   let res = text.toLowerCase();
@@ -28,8 +28,10 @@ export async function getServerSideProps(context) {
   let rawQuery = q ? q.trim() : '';
   let extractedYear = null;
 
+  // pg_trgm ექსტენშენის ჩართვა (თუ გამორთულია)
   try { await query('CREATE EXTENSION IF NOT EXISTS pg_trgm'); } catch (e) {}
 
+  // წლის ამოღება ძებნის ტექსტიდან (მაგ: "Matrix 1999")
   const yearMatch = rawQuery.match(/\b(19|20)\d{2}\b/);
   if (yearMatch) {
       extractedYear = parseInt(yearMatch[0]);
@@ -42,51 +44,94 @@ export async function getServerSideProps(context) {
   let queryParams = [];
   let paramIndex = 1;
 
+  // --- 🔍 მთავარი ძებნის ლოგიკა (სათაურები + მსახიობები) ---
   if (rawQuery.length > 0) {
       const words = rawQuery.split(/\s+/).filter(w => w.length > 0);
+      
       const wordConditions = words.map(word => {
           const transWord = transliterate(word);
+          
+          // პარამეტრების დამატება მასივში თანმიმდევრობით
           queryParams.push(`%${word}%`);      const idxEnLike = paramIndex++;
           queryParams.push(`%${transWord}%`); const idxRuLike = paramIndex++;
           queryParams.push(word);             const idxEnSim = paramIndex++;
           queryParams.push(transWord);        const idxRuSim = paramIndex++;
+          
+          // 🆕 მსახიობებისთვის (იგივე სიტყვებს ვიყენებთ)
+          queryParams.push(`%${word}%`);      const idxActorRaw = paramIndex++;
+          queryParams.push(`%${transWord}%`); const idxActorTrans = paramIndex++;
 
           return `(
+              -- 1. ძებნა სათაურებში
               title_en ILIKE $${idxEnLike} OR
               search_slug ILIKE $${idxEnLike} OR
               title_ru ILIKE $${idxRuLike} OR
               similarity(title_en, $${idxEnSim}) > 0.3 OR
               similarity(replace(search_slug, '-', ' '), $${idxEnSim}) > 0.3 OR
-              similarity(title_ru, $${idxRuSim}) > 0.3
+              similarity(title_ru, $${idxRuSim}) > 0.3 OR
+
+              -- 2. 🆕 ძებნა მსახიობებში (სახელი ან ორიგინალი სახელი)
+              EXISTS (
+                SELECT 1 FROM media_actors ma
+                JOIN actors a ON ma.actor_id = a.id
+                WHERE ma.media_id = media.tmdb_id
+                AND (
+                  a.name ILIKE $${idxActorRaw} OR 
+                  a.original_name ILIKE $${idxActorRaw} OR
+                  a.name ILIKE $${idxActorTrans}
+                )
+              )
           )`;
       });
+      
+      // ყველა სიტყვა უნდა ემთხვეოდეს (AND ლოგიკა სიტყვებს შორის)
       sqlConditions.push(`(${wordConditions.join(' AND ')})`);
   }
 
+  // --- ფილტრები ---
   if (type && type !== 'all') { sqlConditions.push(`type = $${paramIndex}`); queryParams.push(type); paramIndex++; }
+  
   const targetYear = (year && year !== 'all') ? parseInt(year) : extractedYear;
   if (targetYear) { sqlConditions.push(`release_year = $${paramIndex}`); queryParams.push(targetYear); paramIndex++; }
+  
   if (rating && rating !== 'all') { sqlConditions.push(`rating_imdb >= $${paramIndex}`); queryParams.push(parseFloat(rating)); paramIndex++; }
+  
   if (genre && genre !== 'all') { sqlConditions.push(`EXISTS(SELECT 1 FROM UNNEST(genres_names) AS g WHERE g ILIKE $${paramIndex})`); queryParams.push(`%${genre.toLowerCase()}%`); paramIndex++; }
+  
   if (country && country !== 'all') { sqlConditions.push(`EXISTS(SELECT 1 FROM UNNEST(countries) AS c WHERE c ILIKE $${paramIndex})`); queryParams.push(`%${country}%`); paramIndex++; }
 
   const whereClause = sqlConditions.join(' AND ');
 
+  // --- სორტირება (Relevance) ---
   let orderBy = 'rating_imdb DESC NULLS LAST'; 
+  
+  // თუ ძებნა ჩართულია, პრიორიტეტი მივანიჭოთ ზუსტ სათაურებს
   if (rawQuery.length > 0) {
      const fullTrans = transliterate(rawQuery);
      queryParams.push(fullTrans); const idxFullTrans = paramIndex++;
      queryParams.push(rawQuery); const idxFullRaw = paramIndex++;
+     
      orderBy = `
        CASE 
+         -- ზუსტი დამთხვევა სათაურში (ყველაზე მაღლა)
          WHEN title_ru ILIKE $${idxFullTrans} THEN 0       
          WHEN title_en ILIKE $${idxFullRaw} THEN 0       
          WHEN search_slug ILIKE '%' || $${idxFullRaw} || '%' THEN 1 
-         ELSE 2
+         
+         -- მსახიობის პრიორიტეტი (თუ მსახიობი ვიპოვეთ, ცოტა ქვემოთ იყოს ვიდრე ზუსტი სათაური)
+         WHEN EXISTS (
+            SELECT 1 FROM media_actors ma
+            JOIN actors a ON ma.actor_id = a.id
+            WHERE ma.media_id = media.tmdb_id
+            AND (a.name ILIKE $${idxFullTrans} OR a.original_name ILIKE $${idxFullRaw})
+         ) THEN 2
+
+         ELSE 3
        END ASC, release_year DESC NULLS LAST
      `;
   }
   
+  // ფილტრის სორტირება (გადაფარავს რეელევანტურობას თუ მომხმარებელმა აირჩია)
   if (sort === 'year_desc') orderBy = 'release_year DESC NULLS LAST';
   if (sort === 'year_asc') orderBy = 'release_year ASC NULLS LAST';
   if (sort === 'rating_desc') orderBy = 'rating_imdb DESC NULLS LAST';
@@ -99,7 +144,9 @@ export async function getServerSideProps(context) {
     const dbResult = await query(sql, queryParams);
     results = dbResult.rows;
   } catch (e) { 
+      // Fallback (თუ რამე რთული ერორი მოხდა, მარტივი ძებნა)
       try {
+        console.error("Search Error, running fallback:", e.message);
         const fallbackSql = `SELECT ${columns} FROM media WHERE title_ru ILIKE '%' || $1 || '%' OR title_en ILIKE '%' || $1 || '%' LIMIT 40`;
         const fbRes = await query(fallbackSql, [rawQuery]); 
         results = fbRes.rows;
@@ -126,7 +173,7 @@ export default function SearchPage({ results, query, filters, genres, countries 
       };
     }, [router]);
 
-    // 🚀 SEO Schema (SearchResultsPage)
+    // SEO
     const schemaData = {
         "@context": "https://schema.org",
         "@type": "SearchResultsPage",
@@ -136,19 +183,17 @@ export default function SearchPage({ results, query, filters, genres, countries 
             "itemListElement": results.map((item, index) => ({
                 "@type": "ListItem",
                 "position": index + 1,
-                "url": `https://kinonest.ge/${item.type === 'movie' ? 'movie' : 'tv'}/${item.tmdb_id}`
+                "url": `https://kinonest.tv/${item.type === 'movie' ? 'movie' : 'tv'}/${item.tmdb_id}`
             }))
         }
     };
 
     return (
         <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
-             {/* 🚀 SEO Head */}
              <SeoHead 
                 title={query ? `Поиск: ${query} - KinoNest` : "Поиск фильмов и сериалов"}
-                description={`Результаты поиска по запросу "${query}". Смотреть онлайн бесплатно в хорошем качестве.`}
+                description={`Результаты поиска по запросу "${query}". Смотреть онлайн бесплатно.`}
              />
-             {/* 🚀 JSON-LD Schema */}
              <Head>
                 <script
                   type="application/ld+json"
