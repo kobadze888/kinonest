@@ -26,8 +26,9 @@ const CustomDropdown = ({ label, value, options, onChange, hasSearch = false, se
   const selectedLabel = options.find(opt => opt.value === value)?.label || label;
 
   return (
-    // 💡 შესწორება 1: დინამიური z-index. როცა ღიაა (isOpen), ენიჭება z-50, რომ ყველაფერს გადაფაროს.
-    <div className={`relative w-full ${isOpen ? 'z-50' : 'z-auto'}`} ref={dropdownRef}>
+    // 💡 შესწორება: როცა ღიაა, ვიყენებთ z-[999]-ს, რომ ყველაფერს გადაფაროს. 
+    // როცა დახურულია, z-10 საკმარისია.
+    <div className={`relative w-full ${isOpen ? 'z-[999]' : 'z-10'}`} ref={dropdownRef}>
       <div className="text-xs text-gray-400 mb-1.5 ml-1">{label}</div>
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -43,22 +44,23 @@ const CustomDropdown = ({ label, value, options, onChange, hasSearch = false, se
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 w-full bg-[#1F1F1F] border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
+        // 💡 დამატებითი z-index თვითონ მენიუსთვისაც
+        <div className="absolute top-full mt-2 w-full bg-[#1F1F1F] border border-gray-700 rounded-lg shadow-2xl overflow-hidden z-[1000]">
           {hasSearch && (
-            <div className="p-2 border-b border-gray-700 sticky top-0 bg-[#1F1F1F] z-10">
+            <div className="p-2 border-b border-gray-700 sticky top-0 bg-[#1F1F1F] z-[1001]">
               <input
                 type="text"
                 placeholder={searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                // 💡 შესწორება 2: text-base (16px) მობილურისთვის, რომ არ დაზუმდეს. md:text-xs კომპიუტერისთვის.
+                // მობილურის ზუმის ფიქსი (text-base)
                 className="w-full bg-[#141414] text-white text-base md:text-xs rounded-md p-2 outline-none focus:ring-1 focus:ring-brand-red border border-gray-700"
                 autoFocus
               />
             </div>
           )}
           
-          <div className="max-h-60 overflow-y-auto custom-scrollbar">
+          <div className="max-h-60 overflow-y-auto custom-scrollbar relative z-[1001]">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt) => (
                 <div
@@ -162,6 +164,8 @@ export default function FilterBar({ initialFilters = {}, genres = [], countries 
   ];
 
   return (
+    // მთავარ კონტეინერს აქვს z-40, რაც საკმარისია ჰედერისთვის, 
+    // მაგრამ დროპდაუნები მას "გაარღვევენ" თავიანთი z-999-ით
     <div className="w-full bg-[#141414] py-8 border-b border-gray-800 relative z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
