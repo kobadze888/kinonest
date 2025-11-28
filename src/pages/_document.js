@@ -8,7 +8,7 @@ export default function Document() {
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         
         {/* Favicon - აი აქ ვამატებთ */}
-        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.png" sizes="any" />
         
         {/* Google Font: Inter */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

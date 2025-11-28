@@ -2,19 +2,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import Head from 'next/head'; 
-import { useWatchlist } from '@/lib/useWatchlist'; 
+import Head from 'next/head';
+import { useWatchlist } from '@/lib/useWatchlist';
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [placeholder, setPlaceholder] = useState(''); 
+  const [placeholder, setPlaceholder] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // მობილური მენიუსთვის
   const [isSearchFocused, setIsSearchFocused] = useState(false); // ძებნის ფოკუსისთვის
   const router = useRouter();
   const searchInputRef = useRef(null);
 
-  const { watchlist } = useWatchlist(); 
+  const { watchlist } = useWatchlist();
   const hasItems = watchlist.length > 0;
 
   // საბეჭდი ეფექტი ძებნის ველში
@@ -26,15 +26,15 @@ export default function Header() {
     let timeoutId;
     const type = () => {
       const currentPhrase = phrases[phraseIndex];
-      if (isDeleting) { setPlaceholder(currentPhrase.substring(0, charIndex - 1)); charIndex--; } 
+      if (isDeleting) { setPlaceholder(currentPhrase.substring(0, charIndex - 1)); charIndex--; }
       else { setPlaceholder(currentPhrase.substring(0, charIndex + 1)); charIndex++; }
       let typeSpeed = 100;
-      if (isDeleting) typeSpeed /= 2; 
-      if (!isDeleting && charIndex === currentPhrase.length) { typeSpeed = 2000; isDeleting = true; } 
+      if (isDeleting) typeSpeed /= 2;
+      if (!isDeleting && charIndex === currentPhrase.length) { typeSpeed = 2000; isDeleting = true; }
       else if (isDeleting && charIndex === 0) { isDeleting = false; phraseIndex = (phraseIndex + 1) % phrases.length; typeSpeed = 500; }
       timeoutId = setTimeout(type, typeSpeed);
     };
-    type(); 
+    type();
     return () => clearTimeout(timeoutId);
   }, []);
 
@@ -47,7 +47,7 @@ export default function Header() {
 
   const handleSearchSubmit = () => {
     const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery) { 
+    if (trimmedQuery) {
       router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
       setIsSearchFocused(false); // ძებნის შემდეგ ფოკუსის მოხსნა
       if (searchInputRef.current) searchInputRef.current.blur();
@@ -58,7 +58,7 @@ export default function Header() {
 
   // URL-დან ძებნის ველის განახლება
   useEffect(() => {
-    if (router.isReady && !router.pathname.startsWith('/search')) { setSearchQuery(''); } 
+    if (router.isReady && !router.pathname.startsWith('/search')) { setSearchQuery(''); }
     else if (router.isReady && router.query.q) { setSearchQuery(router.query.q); }
     setIsMobileMenuOpen(false); // გვერდის შეცვლისას მენიუს დახურვა
   }, [router.isReady, router.pathname, router.query.q]);
@@ -84,19 +84,19 @@ export default function Header() {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-[#10141A]/95 backdrop-blur-md shadow-lg py-2' : 'bg-gradient-to-b from-[#10141A]/90 to-transparent py-4'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            
+
             {/* ლოგო */}
             <div className="flex-shrink-0 flex items-center gap-2">
               <Link href="/" className="group flex items-center gap-2 cursor-pointer">
-                 {/* აიქონი ლოგოსთან */}
-                 <div className="w-8 h-8 bg-brand-red rounded-lg flex items-center justify-center shadow-lg shadow-red-600/30 transform group-hover:rotate-12 transition-transform duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                    </svg>
-                 </div>
-                 <span className="text-2xl font-black text-white tracking-wider group-hover:text-gray-200 transition-colors">
-                   Kino<span className="text-brand-red">Nest</span>
-                 </span>
+                {/* აიქონი ლოგოსთან */}
+                <div className="w-8 h-8 bg-brand-red rounded-lg flex items-center justify-center shadow-lg shadow-red-600/30 transform group-hover:rotate-12 transition-transform duration-300">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                  </svg>
+                </div>
+                <span className="text-2xl font-black text-white tracking-wider group-hover:text-gray-200 transition-colors">
+                  Kino<span className="text-brand-red">Nest</span>
+                </span>
               </Link>
             </div>
 
@@ -114,18 +114,18 @@ export default function Header() {
 
             {/* მარჯვენა მხარე: Watchlist, Search, Mobile Menu */}
             <div className="flex items-center gap-3">
-              
+
               {/* Watchlist Link (Desktop) */}
               <Link href="/watchlist" className="relative group hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5 hover:border-white/20">
                 <div className={`transition-colors ${hasItems ? 'text-brand-red' : 'text-gray-400 group-hover:text-white'}`}>
-                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill={hasItems ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                   </svg>
-                   {hasItems && (
-                     <span className="absolute -top-1 -right-1 bg-brand-red text-white text-[9px] font-bold px-1.5 rounded-full min-w-[16px] h-4 flex items-center justify-center shadow-sm border border-[#10141A]">
-                       {watchlist.length}
-                     </span>
-                   )}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill={hasItems ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {hasItems && (
+                    <span className="absolute -top-1 -right-1 bg-brand-red text-white text-[9px] font-bold px-1.5 rounded-full min-w-[16px] h-4 flex items-center justify-center shadow-sm border border-[#10141A]">
+                      {watchlist.length}
+                    </span>
+                  )}
                 </div>
               </Link>
 
@@ -136,21 +136,22 @@ export default function Header() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <input 
+                <input
                   ref={searchInputRef}
-                  type="text" 
+                  type="text"
                   placeholder={isSearchFocused ? "Введите название..." : (placeholder || "Поиск...")}
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={handleSearchKey}
                   onFocus={() => setIsSearchFocused(true)}
                   onBlur={() => setIsSearchFocused(false)}
-                  className={`bg-white/5 border border-white/10 hover:border-white/20 text-white text-sm rounded-full block w-full pl-10 p-2.5 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red focus:bg-[#1a1f26] transition-all shadow-inner`}
+                  // 💡 შესწორება: text-base (მობილურზე 16px) და md:text-sm (კომპიუტერზე 14px)
+                  className={`bg-white/5 border border-white/10 hover:border-white/20 text-white text-base md:text-sm rounded-full block w-full pl-10 p-2.5 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red focus:bg-[#1a1f26] transition-all shadow-inner`}
                 />
               </div>
-              
+
               {/* Mobile Menu Button */}
-              <button 
+              <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
               >
@@ -173,8 +174,8 @@ export default function Header() {
         <div className={`lg:hidden bg-[#10141A] border-b border-gray-800 overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-4 pt-2 pb-4 space-y-1">
             {navLinks.map((link) => (
-              <Link 
-                key={link.href} 
+              <Link
+                key={link.href}
                 href={link.href}
                 className={`flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-colors ${router.pathname === link.href ? 'bg-brand-red text-white' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}
               >
@@ -184,17 +185,17 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
-            <Link 
-              href="/watchlist" 
+            <Link
+              href="/watchlist"
               className={`flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-colors ${router.pathname === '/watchlist' ? 'bg-brand-red text-white' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}
             >
-               <span className={`${router.pathname === '/watchlist' ? 'text-white' : 'text-gray-500'}`}>
-                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                 </svg>
-               </span>
-               Избранное
-               {hasItems && <span className="ml-auto bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">{watchlist.length}</span>}
+              <span className={`${router.pathname === '/watchlist' ? 'text-white' : 'text-gray-500'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </span>
+              Избранное
+              {hasItems && <span className="ml-auto bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">{watchlist.length}</span>}
             </Link>
           </div>
         </div>

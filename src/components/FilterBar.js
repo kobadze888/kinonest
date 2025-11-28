@@ -9,7 +9,6 @@ const CustomDropdown = ({ label, value, options, onChange, hasSearch = false, se
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef(null);
 
-  // დახურვა გარე კლიკზე
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -20,16 +19,15 @@ const CustomDropdown = ({ label, value, options, onChange, hasSearch = false, se
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ფილტრაცია ძებნისას
   const filteredOptions = hasSearch
     ? options.filter(opt => opt.label.toLowerCase().includes(searchTerm.toLowerCase()))
     : options;
 
-  // არჩეული ლეიბლის პოვნა
   const selectedLabel = options.find(opt => opt.value === value)?.label || label;
 
   return (
-    <div className="relative w-full" ref={dropdownRef}>
+    // 💡 შესწორება 1: დინამიური z-index. როცა ღიაა (isOpen), ენიჭება z-50, რომ ყველაფერს გადაფაროს.
+    <div className={`relative w-full ${isOpen ? 'z-50' : 'z-auto'}`} ref={dropdownRef}>
       <div className="text-xs text-gray-400 mb-1.5 ml-1">{label}</div>
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -45,7 +43,7 @@ const CustomDropdown = ({ label, value, options, onChange, hasSearch = false, se
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 top-full mt-2 w-full bg-[#1F1F1F] border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
+        <div className="absolute top-full mt-2 w-full bg-[#1F1F1F] border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
           {hasSearch && (
             <div className="p-2 border-b border-gray-700 sticky top-0 bg-[#1F1F1F] z-10">
               <input
@@ -53,7 +51,8 @@ const CustomDropdown = ({ label, value, options, onChange, hasSearch = false, se
                 placeholder={searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-[#141414] text-white text-xs rounded-md p-2 outline-none focus:ring-1 focus:ring-brand-red border border-gray-700"
+                // 💡 შესწორება 2: text-base (16px) მობილურისთვის, რომ არ დაზუმდეს. md:text-xs კომპიუტერისთვის.
+                className="w-full bg-[#141414] text-white text-base md:text-xs rounded-md p-2 outline-none focus:ring-1 focus:ring-brand-red border border-gray-700"
                 autoFocus
               />
             </div>
@@ -73,7 +72,6 @@ const CustomDropdown = ({ label, value, options, onChange, hasSearch = false, se
                     ${value === opt.value ? 'bg-brand-red text-white' : 'text-gray-300 hover:bg-white/10'}
                   `}
                 >
-                  {/* რადიო ბუტონის იმიტაცია სტილისთვის */}
                   <div className={`w-2 h-2 rounded-full ${value === opt.value ? 'bg-white' : 'bg-gray-600'}`}></div>
                   {opt.label}
                 </div>
@@ -98,12 +96,10 @@ export default function FilterBar({ initialFilters = {}, genres = [], countries 
   const [country, setCountry] = useState(initialFilters.country || 'all');
   const [sort, setSort] = useState(initialFilters.sort || 'year_desc');
 
-  // URL-თან სინქრონიზაცია
   useEffect(() => {
     if (!router.isReady) return;
     const q = router.query;
     
-    // გვერდის მიხედვით ტიპის განსაზღვრა
     if (router.pathname === '/kids') setType('kids');
     else if (router.pathname === '/top') setType('top');
     else if (router.pathname === '/tv-shows') setType('tv');
@@ -124,45 +120,25 @@ export default function FilterBar({ initialFilters = {}, genres = [], countries 
   }, [router.query, router.isReady, router.pathname, countries]);
 
   const handleFilter = () => {
-    // 1. სპეციალური გვერდების ლოგიკა
-    if (type === 'kids') {
-        router.push('/kids');
-        return;
-    }
-    if (type === 'top') {
-        router.push('/top');
-        return;
-    }
-    // (აქ შეგიძლიათ დაამატოთ actors ან სხვა გვერდები)
+    if (type === 'kids') { router.push('/kids'); return; }
+    if (type === 'top') { router.push('/top'); return; }
 
-    // 2. სტანდარტული ფილტრაცია (/discover ან /search)
     const newQuery = {};
-
-    if (router.pathname === '/search' && router.query.q) {
-        newQuery.q = router.query.q;
-    }
-
-    // თუ არჩეულია კონკრეტული ტიპი (movie/tv), ვუშვებთ
+    if (router.pathname === '/search' && router.query.q) { newQuery.q = router.query.q; }
     if (type === 'movie' || type === 'tv') newQuery.type = type;
-    // თუ 'all' არის, არაფერს ვუშვებთ (ყველა ტიპი)
-
     if (year !== 'all') newQuery.year = year;
     if (rating !== 'all') newQuery.rating = rating;
     if (sort !== 'year_desc') newQuery.sort = sort;
-    
     if (genre !== 'all') newQuery.genre = genre.toLowerCase(); 
     if (country !== 'all') {
       const cObj = countries.find(c => c.ru === country);
       newQuery.country = cObj ? cObj.en : country; 
     }
-
     newQuery.page = 1;
     
     const targetPath = router.pathname === '/search' ? '/search' : '/discover';
     router.push({ pathname: targetPath, query: newQuery });
   };
-
-  // --- Options Data Preparation ---
 
   const typeOptions = [
     { label: 'Все', value: 'all' },
@@ -170,24 +146,12 @@ export default function FilterBar({ initialFilters = {}, genres = [], countries 
     { label: 'Сериалы', value: 'tv' },
     { label: 'Детям', value: 'kids' },
     { label: 'Топ', value: 'top' },
-    // { label: 'Актеры', value: 'actors' }, // სურვილისამებრ
   ];
 
-  const genreOptions = [
-    { label: 'Все жанры', value: 'all' },
-    ...genres.map(g => ({ label: g, value: g }))
-  ];
-
-  const yearOptions = [
-    { label: 'Любой год', value: 'all' },
-    ...years.map(y => ({ label: y, value: y }))
-  ];
-
-  const countryOptions = [
-    { label: 'Все страны', value: 'all' },
-    ...countries.map(c => ({ label: c.ru, value: c.ru }))
-  ];
-
+  const genreOptions = [{ label: 'Все жанры', value: 'all' }, ...genres.map(g => ({ label: g, value: g }))];
+  const yearOptions = [{ label: 'Любой год', value: 'all' }, ...years.map(y => ({ label: y, value: y }))];
+  const countryOptions = [{ label: 'Все страны', value: 'all' }, ...countries.map(c => ({ label: c.ru, value: c.ru }))];
+  
   const ratingOptions = [
     { label: 'Любой', value: 'all' },
     { label: 'От 9.0', value: '9.0' },
@@ -197,81 +161,34 @@ export default function FilterBar({ initialFilters = {}, genres = [], countries 
     { label: 'От 5.0', value: '5.0' },
   ];
 
-  const sortOptions = [
-    { label: 'Новые', value: 'year_desc' },
-    { label: 'Старые', value: 'year_asc' },
-    { label: 'Высокий рейтинг', value: 'rating_desc' },
-    { label: 'Низкий рейтинг', value: 'rating_asc' },
-  ];
-
   return (
     <div className="w-full bg-[#141414] py-8 border-b border-gray-800 relative z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
           
-          {/* Type */}
           <div className="lg:col-span-1">
-            <CustomDropdown 
-              label="Тип"
-              value={type}
-              options={typeOptions}
-              onChange={setType}
-            />
+            <CustomDropdown label="Тип" value={type} options={typeOptions} onChange={setType} />
           </div>
 
-          {/* Genre (With Search) */}
           <div className="lg:col-span-1">
-            <CustomDropdown 
-              label="Жанр"
-              value={genre}
-              options={genreOptions}
-              onChange={setGenre}
-              hasSearch={true}
-              searchPlaceholder="Поиск жанра..."
-            />
+            <CustomDropdown label="Жанр" value={genre} options={genreOptions} onChange={setGenre} hasSearch={true} searchPlaceholder="Поиск жанра..." />
           </div>
 
-          {/* Year */}
           <div className="lg:col-span-1">
-            <CustomDropdown 
-              label="Год"
-              value={year}
-              options={yearOptions}
-              onChange={setYear}
-            />
+            <CustomDropdown label="Год" value={year} options={yearOptions} onChange={setYear} />
           </div>
           
-          {/* Country */}
           <div className="lg:col-span-1">
-            <CustomDropdown 
-              label="Страна"
-              value={country}
-              options={countryOptions}
-              onChange={setCountry}
-              hasSearch={true}
-              searchPlaceholder="Поиск страны..."
-            />
+            <CustomDropdown label="Страна" value={country} options={countryOptions} onChange={setCountry} hasSearch={true} searchPlaceholder="Поиск страны..." />
           </div>
 
-          {/* Rating & Sort (Combined visually if needed, or separate) */}
           <div className="lg:col-span-1">
-             <CustomDropdown 
-              label="Рейтинг"
-              value={rating}
-              options={ratingOptions}
-              onChange={setRating}
-            />
+             <CustomDropdown label="Рейтинг" value={rating} options={ratingOptions} onChange={setRating} />
           </div>
           
-          {/* Button */}
           <div className="lg:col-span-1">
-             {/* Сортировку можно добавить как еще один дропдаун или убрать, если места мало */}
-             {/* Для кнопки отводим все место */}
              <div className="text-xs text-transparent mb-1.5 select-none">Button</div>
-             <button 
-                onClick={handleFilter} 
-                className="w-full bg-gradient-to-r from-brand-red to-red-700 hover:from-red-600 hover:to-red-800 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-2 h-[46px]"
-             >
+             <button onClick={handleFilter} className="w-full bg-gradient-to-r from-brand-red to-red-700 hover:from-red-600 hover:to-red-800 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-2 h-[46px]">
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                </svg>
