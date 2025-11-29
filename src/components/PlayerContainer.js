@@ -1,6 +1,6 @@
-// src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
+// 1. KinoBD Player (თქვენი ძირითადი პლეერი)
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
@@ -13,7 +13,6 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
     
-    // Принудительные стили для самого плеера
     playerDiv.style.width = '100%';
     playerDiv.style.height = '100%';
     playerDiv.style.position = 'absolute';
@@ -22,32 +21,50 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     
     containerRef.current.appendChild(playerDiv);
 
-    const scriptId = 'kinobd-script-loader';
-    const oldScript = document.getElementById(scriptId);
-    if (oldScript) oldScript.remove();
-
     const script = document.createElement('script');
     script.src = 'https://kinobd.net/js/player_.js';
-    script.id = scriptId;
     script.async = true;
     document.body.appendChild(script);
 
     return () => {
       if (containerRef.current) containerRef.current.innerHTML = '';
-      const s = document.getElementById(scriptId);
-      if (s) s.remove();
+      if (script.parentNode) script.parentNode.removeChild(script);
     };
   }, [kinopoiskId]);
 
   return <div ref={containerRef} className="w-full h-full relative bg-black" />;
 };
 
-export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url, type }) {
+// 2. 🆕 უსაფრთხო Iframe პლეერი (VideoCDN / Alloha)
+// ეს არ იყენებს სკრიპტს, არამედ პირდაპირ ლინკს, რაც გამორიცხავს რედირექტებს.
+const SafeIframePlayer = ({ kinopoiskId, title }) => {
+  // ვიყენებთ VideoCDN-ს როგორც ყველაზე სანდო ალტერნატივას
+  // თუ KP ID არ გვაქვს, ვეძებთ სათაურით
+  const src = kinopoiskId 
+    ? `https://videocdn.tv/v17/iframe?kp_id=${kinopoiskId}`
+    : `https://videocdn.tv/v17/iframe?title=${encodeURIComponent(title)}`;
+
+  return (
+    <iframe
+      src={src}
+      className="w-full h-full absolute inset-0"
+      frameBorder="0"
+      allowFullScreen
+      // 🛡️ SANDBOX: ეს არის მთავარი დაცვა!
+      // ეს კრძალავს პლეერს თქვენი საიტის გადამისამართებისგან (allow-top-navigation-ის გარეშე)
+      sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen allow-forms"
+      title="Alternative Player"
+    />
+  );
+};
+
+export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url }) {
   const [activeTab, setActiveTab] = useState('main');
   const [refreshKey, setRefreshKey] = useState(0);
 
   const players = [
-    { id: 'main', label: 'Фильм' },
+    { id: 'main', label: 'Плеер 1' }, // KinoBD
+    { id: 'alt', label: 'Плеер 2' },  // VideoCDN (Safe)
     { id: 'trailer', label: 'Трейлер' },
   ];
 
@@ -63,10 +80,23 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
   const renderPlayer = () => {
     const contentKey = `${activeTab}-${refreshKey}`;
 
+    // პლეერი 1 (KinoBD - Script)
     if (activeTab === 'main') {
       return <KinoBDPlayer key={contentKey} kinopoiskId={kinopoisk_id} />;
     }
 
+    // პლეერი 2 (VideoCDN - Iframe)
+    if (activeTab === 'alt') {
+      return (
+        <SafeIframePlayer 
+            key={contentKey} 
+            kinopoiskId={kinopoisk_id} 
+            title={title} 
+        />
+      );
+    }
+
+    // ტრეილერი
     if (activeTab === 'trailer') {
       if (!trailer_url) {
         return (
@@ -101,7 +131,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
     <div id="tv-player-container" className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
-         {/* Toolbar: z-[50] исправляет неработающие клики */}
+         {/* Toolbar */}
          <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800 relative z-[50]">
             <div className="flex items-center gap-2">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
@@ -137,7 +167,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             </div>
          </div>
 
-         {/* Контейнер плеера: Убрали лишние классы, оставили управление через CSS */}
+         {/* კონტეინერი */}
          <div className="player-wrapper relative w-full bg-black z-10 overflow-hidden">
             {renderPlayer()}
          </div>
