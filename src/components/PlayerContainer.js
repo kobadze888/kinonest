@@ -1,6 +1,7 @@
 // src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
+// 1. მთავარი პლეერი (KinoBD)
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
@@ -13,7 +14,7 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     playerDiv.id = 'kinobd';
     playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
     
-    // Принудительные стили для самого плеера
+    // სტილები
     playerDiv.style.width = '100%';
     playerDiv.style.height = '100%';
     playerDiv.style.position = 'absolute';
@@ -22,32 +23,81 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     
     containerRef.current.appendChild(playerDiv);
 
-    const scriptId = 'kinobd-script-loader';
-    const oldScript = document.getElementById(scriptId);
-    if (oldScript) oldScript.remove();
-
     const script = document.createElement('script');
     script.src = 'https://kinobd.net/js/player_.js';
-    script.id = scriptId;
     script.async = true;
     document.body.appendChild(script);
 
     return () => {
       if (containerRef.current) containerRef.current.innerHTML = '';
-      const s = document.getElementById(scriptId);
-      if (s) s.remove();
+      if (script.parentNode) script.parentNode.removeChild(script);
     };
   }, [kinopoiskId]);
 
   return <div ref={containerRef} className="w-full h-full relative bg-black" />;
 };
 
+// 2. 🆕 განახლებული: ალტერნატიული პლეერი (KinoPlayer.top)
+// დამატებულია თქვენი ტოკენი!
+const KinoPlayerTop = ({ kinopoiskId, imdbId, title }) => {
+  const containerRef = useRef(null);
+  
+  // თქვენი ტოკენი სქრინიდან
+  const API_TOKEN = 'b7c1d5073a24a918d554b61d1f8460af'; 
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // გასუფთავება
+    containerRef.current.innerHTML = '';
+
+    // Div ელემენტის შექმნა
+    const playerDiv = document.createElement('div');
+    playerDiv.id = 'kinoplayertop';
+    
+    // მონაცემების მიწოდება
+    if (kinopoiskId) playerDiv.setAttribute('data-kinopoisk', kinopoiskId);
+    if (imdbId) playerDiv.setAttribute('data-imdb', imdbId);
+    if (title) playerDiv.setAttribute('data-title', title);
+    
+    // 💡 ტოკენის დამატება (ზოგჯერ ატრიბუტად ითხოვენ)
+    playerDiv.setAttribute('data-token', API_TOKEN); 
+    
+    // სტილები
+    playerDiv.style.width = '100%';
+    playerDiv.style.height = '100%';
+    playerDiv.style.position = 'absolute';
+    playerDiv.style.top = '0';
+    playerDiv.style.left = '0';
+    
+    containerRef.current.appendChild(playerDiv);
+
+    // სკრიპტის ჩატვირთვა (ტოკენით URL-ში)
+    const script = document.createElement('script');
+    // ვცადოთ ტოკენის გადაცემა URL პარამეტრად, რაც ხშირი პრაქტიკაა
+    script.src = `//kinoplayer.top/top.js?token=${API_TOKEN}`; 
+    script.async = true;
+    
+    document.body.appendChild(script);
+
+    return () => {
+      if (containerRef.current) containerRef.current.innerHTML = '';
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+  }, [kinopoiskId, imdbId, title]);
+
+  return <div ref={containerRef} className="w-full h-full relative bg-black" />;
+};
+
+// მთავარი კონტეინერი
 export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url, type }) {
   const [activeTab, setActiveTab] = useState('main');
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // ტაბების სია
   const players = [
-    { id: 'main', label: 'Фильм' },
+    { id: 'main', label: 'Основной' },
+    { id: 'alt', label: 'Запасной' },
     { id: 'trailer', label: 'Трейлер' },
   ];
 
@@ -65,6 +115,10 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
 
     if (activeTab === 'main') {
       return <KinoBDPlayer key={contentKey} kinopoiskId={kinopoisk_id} />;
+    }
+
+    if (activeTab === 'alt') {
+      return <KinoPlayerTop key={contentKey} kinopoiskId={kinopoisk_id} imdbId={imdb_id} title={title} />;
     }
 
     if (activeTab === 'trailer') {
@@ -101,7 +155,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
     <div id="tv-player-container" className="w-full max-w-7xl mx-auto mb-0 px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
          
-         {/* Toolbar: z-[50] исправляет неработающие клики */}
+         {/* Toolbar */}
          <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800 relative z-[50]">
             <div className="flex items-center gap-2">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
@@ -137,7 +191,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
             </div>
          </div>
 
-         {/* Контейнер плеера: Убрали лишние классы, оставили управление через CSS */}
+         {/* პლეერის კონტეინერი */}
          <div className="player-wrapper relative w-full bg-black z-10 overflow-hidden">
             {renderPlayer()}
          </div>

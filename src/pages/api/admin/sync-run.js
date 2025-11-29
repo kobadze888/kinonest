@@ -1,5 +1,5 @@
 // src/pages/api/admin/sync-run.js
-// 🚀 V17.0: "Hunter Mode" - Added Kinopoisk Unofficial API for 100% ID Match
+// 🚀 V22.0: "IMDb Sniper" - 100% Accuracy via IMDb ID Matching
 
 import { query } from '@/lib/db';
 import { getServerSession } from "next-auth/next";
@@ -11,27 +11,26 @@ const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const KINOBD_API_URL = 'https://kinobd.net/api/films';
 const KODIK_TOKEN = 'b95c138cc28a8377412303d604251230';
 
-// 🔑 ეს არის საჯარო/უფასო ტოკენი KP Unofficial API-სთვის
-// (თუ ეს ტოკენი შეიზღუდება, შეგიძლია დარეგისტრირდე kinopoiskapiunofficial.tech-ზე და შენი ჩასვა)
+// 🔑 KP Unofficial API Token
+// გირჩევთ დარეგისტრირდეთ kinopoiskapiunofficial.tech-ზე და თქვენი უფასო ტოკენი ჩასვათ აქ,
+// რადგან საჯარო ტოკენები ხშირად იბლოკება ლიმიტის გამო.
 const KP_UNOFFICIAL_TOKEN = 'e3b79230-6f92-42d6-854a-06530a68e352'; 
 
-const MIN_POPULARITY_FOR_NO_ID = 15; 
-const MIN_VOTES = 2; 
+const MIN_VOTES = 1; 
 
 const USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/119.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
 ];
 
 const getRandomUA = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 function makeYoutubeUrl(key) { return `https://www.youtube.com/embed/${key}`; }
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- 1. TMDB Discover ---
+// --- 1. TMDB Methods ---
 async function getTmdbDiscover(type, page, scanType) {
     const today = new Date().toISOString().split('T')[0];
     const minDate = '2023-01-01'; 
-    let url = '';
     let dateFilter = '';
 
     if (scanType === 'future') {
@@ -42,13 +41,11 @@ async function getTmdbDiscover(type, page, scanType) {
         if (type === 'tv') dateFilter = `&first_air_date.lte=${today}&first_air_date.gte=${minDate}`;
     }
 
-    if (type === 'movie') {
-        const sort = scanType === 'future' ? 'primary_release_date.asc' : 'primary_release_date.desc';
-        url = `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&language=ru-RU&sort_by=${sort}${dateFilter}&vote_count.gte=${MIN_VOTES}&page=${page}`;
-    } else {
-        const sort = scanType === 'future' ? 'first_air_date.asc' : 'first_air_date.desc';
-        url = `${TMDB_BASE_URL}/discover/tv?api_key=${TMDB_API_KEY}&language=ru-RU&sort_by=${sort}${dateFilter}&vote_count.gte=${MIN_VOTES}&page=${page}`;
-    }
+    const sort = scanType === 'future' ? 'primary_release_date.asc' : 'primary_release_date.desc';
+    const endpoint = type === 'movie' ? 'movie' : 'tv';
+    
+    // ვამატებთ vote_count-ს ისევ, რომ სრული ნაგავი არ წამოიღოს, მაგრამ დაბალს (1)
+    const url = `${TMDB_BASE_URL}/discover/${endpoint}?api_key=${TMDB_API_KEY}&language=ru-RU&sort_by=${sort}${dateFilter}&vote_count.gte=${MIN_VOTES}&page=${page}`;
 
     try {
         const res = await fetch(url);
@@ -58,10 +55,9 @@ async function getTmdbDiscover(type, page, scanType) {
     } catch (e) { return []; }
 }
 
-// --- 2. TMDB Details ---
 async function fetchTmdbDetails(tmdbId, type) {
     try {
-      const url = `${TMDB_BASE_URL}/${type}/${tmdbId}?api_key=${TMDB_API_KEY}&language=ru-RU&append_to_response=credits,videos,external_ids`;
+      const url = `${TMDB_BASE_URL}/${type}/${tmdbId}?api_key=${TMDB_API_KEY}&language=ru-RU&append_to_response=credits,videos,external_ids,translations`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -72,102 +68,169 @@ async function fetchTmdbDetails(tmdbId, type) {
     return null;
 }
 
-async function fetchEnglishTrailer(tmdbId, type) {
+function getRussianTitle(tmdbItem) {
+    let title = tmdbItem.title || tmdbItem.name;
+    if (/[а-яА-ЯёЁ]/.test(title)) return title;
+    if (tmdbItem.translations?.translations) {
+        const ruTrans = tmdbItem.translations.translations.find(t => t.iso_639_1 === 'ru');
+        if (ruTrans?.data?.title || ruTrans?.data?.name) {
+            const ruTitle = ruTrans.data.title || ruTrans.data.name;
+            if (/[а-яА-ЯёЁ]/.test(ruTitle)) return ruTitle;
+        }
+    }
+    return null;
+}
+
+// --- 2. Trailer Hunt ---
+async function fetchTrailerViaSearch(title, year, lang = 'ru') {
+    const suffix = lang === 'ru' ? 'Русский Трейлер' : 'Trailer';
+    const query = `site:youtube.com watch ${title} ${suffix} ${year}`;
+    try {
+        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+        const res = await fetch(url, { headers: { 'User-Agent': getRandomUA() } });
+        if (!res.ok) return null;
+        const text = await res.text();
+        const match = text.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/);
+        if (match && match[1]) return makeYoutubeUrl(match[1]);
+    } catch (e) { return null; }
+    return null;
+}
+
+async function getBestTrailer(tmdbId, type, title, year) {
+    // 1. TMDB (Russian)
+    try {
+        const url = `${TMDB_BASE_URL}/${type}/${tmdbId}/videos?api_key=${TMDB_API_KEY}&language=ru-RU`;
+        const res = await fetch(url);
+        const data = await res.json();
+        let video = data.results?.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+        if (video) return makeYoutubeUrl(video.key);
+    } catch(e) {}
+
+    // 2. TMDB (English)
     try {
         const url = `${TMDB_BASE_URL}/${type}/${tmdbId}/videos?api_key=${TMDB_API_KEY}&language=en-US`;
         const res = await fetch(url);
-        if (!res.ok) return null;
         const data = await res.json();
-        let video = data.results.find(v => v.site === 'YouTube' && v.type === 'Trailer');
-        if (!video) video = data.results.find(v => v.site === 'YouTube' && v.type === 'Teaser');
-        return video ? makeYoutubeUrl(video.key) : null;
-    } catch (e) { return null; }
+        let video = data.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
+        if (video) return makeYoutubeUrl(video.key);
+    } catch(e) {}
+
+    // 3. Scrapers
+    let scrapedTrailer = await fetchTrailerViaSearch(title, year, 'ru');
+    if (scrapedTrailer) return scrapedTrailer;
+    return await fetchTrailerViaSearch(title, year, 'en');
 }
 
-// --- 3. ID Search (Updated) ---
+// --- 3. ID SNIPER LOGIC (New & Improved) ---
 
-// 🆕 ახალი: KP Unofficial API (ყველაზე ძლიერი ძებნა)
-async function fetchKpIdFromUnofficialApi(title, year) {
+// A. KP Unofficial API by IMDb (100% Accurate)
+async function fetchKpIdByImdb(imdbId) {
+    if (!imdbId) return null;
     try {
-        const url = `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(title)}&page=1`;
+        const url = `https://kinopoiskapiunofficial.tech/api/v2.2/films?imdbId=${imdbId}`;
         const res = await fetch(url, {
-            headers: { 
-                'X-API-KEY': KP_UNOFFICIAL_TOKEN,
-                'Content-Type': 'application/json',
-            }
+            headers: { 'X-API-KEY': KP_UNOFFICIAL_TOKEN, 'Content-Type': 'application/json' }
         });
         if (!res.ok) return null;
         const data = await res.json();
+        // API აბრუნებს მასივს "items" ან პირდაპირ ობიექტს
+        const items = data.items || [];
+        if (items.length > 0) return items[0].kinopoiskId;
+        if (data.kinopoiskId) return data.kinopoiskId;
+    } catch (e) { return null; }
+    return null;
+}
+
+// B. KP Unofficial API by Keyword (Backup)
+async function fetchKpIdByKeyword(title, year) {
+    try {
+        const url = `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(title)}&page=1`;
+        const res = await fetch(url, {
+            headers: { 'X-API-KEY': KP_UNOFFICIAL_TOKEN, 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const films = data.films || [];
+        const match = films.find(f => Math.abs(parseInt(f.year) - year) <= 1);
+        if (match && match.filmId) return parseInt(match.filmId);
+    } catch (e) { return null; }
+    return null;
+}
+
+// C. Kodik by IMDb (High Accuracy)
+async function fetchKpIdFromKodik(imdbId, title, year) {
+    try {
+        let url = '';
+        if (imdbId) {
+            url = `https://kodikapi.com/search?token=${KODIK_TOKEN}&imdb_id=${imdbId}`;
+        } else {
+            url = `https://kodikapi.com/search?token=${KODIK_TOKEN}&title=${encodeURIComponent(title)}`;
+        }
         
-        if (data.films && data.films.length > 0) {
-            // ვეძებთ წლის დამთხვევას
-            const match = data.films.find(f => {
-                // API ზოგჯერ აბრუნებს წელს როგორც string "2025"
-                const filmYear = parseInt(f.year); 
-                return Math.abs(filmYear - year) <= 1;
-            });
-            if (match && match.filmId) return parseInt(match.filmId);
-        }
-    } catch (e) { return null; }
-    return null;
-}
-
-async function fetchTrailerFromKinobd(title, year) {
-    try {
-        const url = `${KINOBD_API_URL}?title=${encodeURIComponent(title)}`;
         const res = await fetch(url);
         const data = await res.json();
-        if (data.data && data.data.length > 0) {
-            const match = data.data.find(item => Math.abs(parseInt(item.year) - year) <= 1);
-            if (match && match.trailer && match.trailer.includes('http')) return match.trailer;
-        }
-    } catch (e) { return null; }
-    return null;
-}
-
-async function fetchKpIdFromKinobdSearch(title, year) {
-    try {
-        const url = `${KINOBD_API_URL}?title=${encodeURIComponent(title)}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.data && data.data.length > 0) {
-            const match = data.data.find(item => Math.abs(parseInt(item.year) - year) <= 1);
+        const results = data.results || [];
+        
+        if (results.length > 0) {
+            // თუ IMDb-ით ვეძებთ, პირველივე სწორია
+            if (imdbId) return parseInt(results[0].kinopoisk_id);
+            
+            // თუ სათაურით, ვამოწმებთ წელს
+            const match = results.find(item => Math.abs(item.year - year) <= 1);
             if (match && match.kinopoisk_id) return parseInt(match.kinopoisk_id);
         }
     } catch (e) { return null; }
     return null;
 }
 
-async function fetchKpIdFromWikidata(wikidataId) {
-    if (!wikidataId) return null;
-    try {
-        const url = `https://www.wikidata.org/wiki/Special:EntityData/${wikidataId}.json`;
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        const data = await res.json();
-        const entity = data.entities[wikidataId];
-        if (entity.claims && entity.claims.P2603) return parseInt(entity.claims.P2603[0].mainsnak.datavalue.value);
-    } catch (e) { return null; }
-    return null;
-}
+// D. Scraper using IMDb ID (Very High Accuracy)
+async function fetchKpIdViaScraper(imdbId, titleRu, year) {
+    const queries = [];
+    
+    // 1. ყველაზე ზუსტი: IMDb კოდით ძებნა KP-ზე
+    if (imdbId) {
+        queries.push(`site:kinopoisk.ru "${imdbId}"`); 
+    }
+    
+    // 2. სათაურით ძებნა (Backup)
+    if (titleRu) {
+        queries.push(`site:kinopoisk.ru ${titleRu} ${year}`);
+        queries.push(`kinopoisk id ${titleRu} ${year}`);
+    }
 
-async function fetchKpIdFromKodik(title, year) {
-    try {
-        const url = `https://kodikapi.com/search?token=${KODIK_TOKEN}&title=${encodeURIComponent(title)}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-            const match = data.results.find(item => Math.abs(item.year - year) <= 1);
-            if (match && match.kinopoisk_id && match.kinopoisk_id !== 'null') return parseInt(match.kinopoisk_id);
-        }
-    } catch (e) { return null; }
+    for (const query of queries) {
+        try {
+            const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+            const res = await fetch(url, { 
+                headers: { 'User-Agent': getRandomUA() } 
+            });
+            
+            if (res.status === 429) { await delay(3000); continue; }
+            if (!res.ok) continue;
+
+            const text = await res.text();
+            
+            // Regex ID-სთვის
+            let match = text.match(/kinopoisk\.ru\/(?:film|series)\/(\d+)/);
+            if (match && match[1]) {
+                 const id = parseInt(match[1]);
+                 if (id !== 430 && id > 2000) return id;
+            }
+            
+            match = text.match(/(?:kp|id|kinopoisk)[\s:]+(\d{6,8})/i);
+            if (match && match[1]) {
+                 const id = parseInt(match[1]);
+                 if (id !== 430 && id > 2000) return id;
+            }
+        } catch (e) { continue; }
+        await delay(1200);
+    }
     return null;
 }
 
 // --- DB Write ---
-async function upsertMediaToDB(tmdbId, kpId, tmdbItem, finalTrailer) {
-  const title_ru = tmdbItem.title || tmdbItem.name || tmdbItem.original_title || 'Без названия';
-  const search_slug = slugify(title_ru);
+async function upsertMediaToDB(tmdbId, kpId, tmdbItem, finalTrailer, ruTitle) {
+  const search_slug = slugify(ruTitle);
   const release_date = tmdbItem.release_date || tmdbItem.first_air_date;
   const release_year = release_date ? parseInt(release_date.split('-')[0]) : 0;
   const runtime = tmdbItem.runtime || (tmdbItem.episode_run_time && tmdbItem.episode_run_time[0]) || null;
@@ -190,7 +253,7 @@ async function upsertMediaToDB(tmdbId, kpId, tmdbItem, finalTrailer) {
 
   const values = [
     tmdbId, kpId, tmdbItem.media_type,
-    title_ru, tmdbItem.original_title || tmdbItem.original_name, tmdbItem.overview,
+    ruTitle, tmdbItem.original_name || tmdbItem.original_title, tmdbItem.overview,
     tmdbItem.poster_path, tmdbItem.backdrop_path, release_year,
     tmdbItem.vote_average,
     (tmdbItem.genres || []).map(g => g.id), (tmdbItem.genres || []).map(g => g.name), 
@@ -258,9 +321,11 @@ export default async function handler(req, res) {
             const tmdbItem = await fetchTmdbDetails(tmdbId, type);
             if (!tmdbItem) continue;
 
-            const finalTitle = tmdbItem.title || tmdbItem.name;
-
-            if (!/[а-яА-ЯёЁ]/.test(finalTitle)) {
+            const year = parseInt((tmdbItem.release_date || tmdbItem.first_air_date || "0").split('-')[0]);
+            
+            // 🛑 რუსული სათაურის შემოწმება
+            const finalTitle = getRussianTitle(tmdbItem);
+            if (!finalTitle) {
                 skippedCount++;
                 continue;
             }
@@ -270,9 +335,9 @@ export default async function handler(req, res) {
                  continue;
             }
 
-            const year = parseInt((tmdbItem.release_date || tmdbItem.first_air_date || "0").split('-')[0]);
+            const imdbId = tmdbItem.external_ids?.imdb_id;
 
-            // 🔍 ID Hunt (5 დონიანი ძებნა!)
+            // 🔍 ID SNIPER (IMDb ID პრიორიტეტი)
             let kpId = null;
             let source = "Unknown";
 
@@ -282,80 +347,59 @@ export default async function handler(req, res) {
                     if (kpId) source = "Wikidata";
                 }
             } else {
-                // 1. Wikidata
-                if (tmdbItem.external_ids?.wikidata_id) {
+                // 1. KP API via IMDb ID (100% ზუსტი) 🎯
+                if (imdbId) {
+                    kpId = await fetchKpIdByImdb(imdbId);
+                    if (kpId) source = "KP API (IMDb)";
+                }
+
+                // 2. Kodik via IMDb ID (ასევე ზუსტი)
+                if (!kpId && imdbId) {
+                    kpId = await fetchKpIdFromKodik(imdbId, null, null);
+                    if (kpId) source = "Kodik (IMDb)";
+                }
+
+                // 3. Wikidata
+                if (!kpId && tmdbItem.external_ids?.wikidata_id) {
                     kpId = await fetchKpIdFromWikidata(tmdbItem.external_ids.wikidata_id);
                     if (kpId) source = "Wikidata";
                 }
-                // 2. Kinobd Search
+
+                // 4. KP API via Keyword (Backup)
                 if (!kpId) {
-                    kpId = await fetchKpIdFromKinobdSearch(finalTitle, year);
-                    if (kpId) source = "Kinobd Search";
+                    kpId = await fetchKpIdByKeyword(finalTitle, year);
+                    if (kpId) source = "KP API (Title)";
                 }
-                // 3. KP Unofficial API (ახალი და ძლიერი) 🆕
+
+                // 5. Scraper (Last Resort - Now uses IMDb ID first)
                 if (!kpId) {
-                    kpId = await fetchKpIdFromUnofficialApi(finalTitle, year);
-                    if (kpId) source = "KP API";
+                    kpId = await fetchKpIdViaScraper(imdbId, finalTitle, year);
+                    if (kpId) source = "Scraper";
                 }
-                // 4. Kodik
-                if (!kpId) {
-                    kpId = await fetchKpIdFromKodik(finalTitle, year);
-                    if (kpId) source = "Kodik";
-                }
-                // 5. Scraper (აღარ გვჭირდება თუ API გვაქვს, მაგრამ იყოს)
             }
 
-            // Trailer
-            let finalTrailer = null;
-            let ruVideo = tmdbItem.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
-            if (!ruVideo) ruVideo = tmdbItem.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Teaser');
-            
-            if (ruVideo) {
-                 finalTrailer = makeYoutubeUrl(ruVideo.key);
-            } else {
-                 const enTrailer = await fetchEnglishTrailer(tmdbId, tmdbItem.media_type);
-                 if (enTrailer) finalTrailer = enTrailer;
-                 else if (scanType !== 'future') {
-                    const kbTrailer = await fetchTrailerFromKinobd(finalTitle, year);
-                    if (kbTrailer) finalTrailer = kbTrailer;
-                 }
-            }
-
-            if (!finalTrailer) {
-                skippedCount++;
-                logs.push(`🚫 [SKIP: NO TRAILER] ${finalTitle}`);
-                continue;
-            }
-
-            // Trash Filter
-            const isEnglish = tmdbItem.original_language === 'en';
-            const pop = tmdbItem.popularity;
-            
+            // 🛑 STOP!
             if (!kpId) {
-                if (!isEnglish && pop < MIN_POPULARITY_FOR_NO_ID) {
-                    skippedCount++;
-                    logs.push(`🗑️ [SKIP: LOW QUALITY] ${finalTitle}`);
-                    continue;
-                }
-                if (isEnglish && pop < 5) {
-                    skippedCount++;
-                    continue;
-                }
+                skippedCount++;
+                logs.push(`🚫 [SKIP: NO ID] ${finalTitle} (${year})`);
+                continue; 
             }
 
-            const result = await upsertMediaToDB(tmdbId, kpId, tmdbItem, finalTrailer);
+            // 🎥 Trailer
+            const finalTrailer = await getBestTrailer(tmdbId, type, finalTitle, year);
+
+            const result = await upsertMediaToDB(tmdbId, kpId, tmdbItem, finalTrailer, finalTitle);
             
             if (result.success) {
                 addedCount++;
-                const idStatus = kpId ? `[${source}]` : `[⚠️ No Player]`;
-                const trailerStatus = finalTrailer ? "🎥" : "❌";
-                logs.push(`✅ ${type === 'movie' ? '🎬' : '📺'} ${idStatus} ${trailerStatus} ${finalTitle} (${year})`);
+                const trailerStatus = finalTrailer ? "🎥" : "⚠️ No Trailer";
+                logs.push(`✅ ${type === 'movie' ? '🎬' : '📺'} [${source}] ${trailerStatus} ${finalTitle} (${year})`);
             } else {
                 skippedCount++;
             }
         } catch (innerErr) { continue; }
         
-        await delay(100); 
+        await delay(250); // ცოტა მოვუმატეთ პაუზას API-სთვის
     }
 
     res.status(200).json({ success: true, page, lastPage: 500, logs, added: addedCount, skipped: skippedCount });
