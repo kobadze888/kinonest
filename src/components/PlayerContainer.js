@@ -1,12 +1,12 @@
+// src/components/PlayerContainer.js
 import React, { useState, useEffect, useRef } from 'react';
 
-// 1. KinoBD Player (თქვენი ძირითადი პლეერი)
+// 1. KinoBD Player (ძველი, საიმედო)
 const KinoBDPlayer = ({ kinopoiskId }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current || !kinopoiskId) return;
-
     containerRef.current.innerHTML = '';
 
     const playerDiv = document.createElement('div');
@@ -35,36 +35,112 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
   return <div ref={containerRef} className="w-full h-full relative bg-black" />;
 };
 
-// 2. 🆕 უსაფრთხო Iframe პლეერი (VideoCDN / Alloha)
-// ეს არ იყენებს სკრიპტს, არამედ პირდაპირ ლინკს, რაც გამორიცხავს რედირექტებს.
-const SafeIframePlayer = ({ kinopoiskId, title }) => {
-  // ვიყენებთ VideoCDN-ს როგორც ყველაზე სანდო ალტერნატივას
-  // თუ KP ID არ გვაქვს, ვეძებთ სათაურით
-  const src = kinopoiskId 
-    ? `https://videocdn.tv/v17/iframe?kp_id=${kinopoiskId}`
-    : `https://videocdn.tv/v17/iframe?title=${encodeURIComponent(title)}`;
+// 2. 🆕 FIX: Sandboxed KinoBox (CSS Lock - სქროლის სრული აკრძალვა)
+const SandboxedKinoBox = ({ kinopoiskId, imdbId, tmdbId, title }) => {
+  
+  const iframeHtml = `
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <style>
+        /* სრული რესეტი */
+        * { box-sizing: border-box; outline: none; }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;  /* მხოლოდ ხილული სიგანე */
+            height: 100vh; /* მხოლოდ ხილული სიმაღლე */
+            overflow: hidden !important; /* სქროლის აკრძალვა */
+            background-color: #000;
+            position: fixed; /* ფიქსაცია */
+            top: 0; left: 0;
+        }
+        
+        /* სქროლბარის დამალვა */
+        ::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+        /* პლეერის იძულებითი გაწელვა */
+        .kinobox_player {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100% !important;
+            height: 100% !important;
+            border: none;
+            z-index: 10;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="kinobox_player"></div>
+      <script src="https://kinobox.tv/kinobox.min.js"></script>
+      <script>
+        new Kinobox('.kinobox_player', {
+          search: {
+            kinopoisk: '${kinopoiskId || ''}',
+            imdb: '${imdbId || ''}',
+            tmdb: '${tmdbId || ''}',
+            title: '${title ? title.replace(/'/g, "\\'") : ''}'
+          },
+          menu: {
+            enable: true,
+            default: 'menu_list',
+            mobile: 'menu_button',
+            format: '{N} :: {T} ({Q})'
+          },
+          players: {},
+          params: {
+            all: { poster: '' }
+          }
+        }).init();
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
     <iframe
-      src={src}
-      className="w-full h-full absolute inset-0"
+      srcDoc={iframeHtml}
+      className="w-full h-full absolute inset-0 block border-none overflow-hidden"
+      style={{ width: '100%', height: '100%', overflow: 'hidden' }}
       frameBorder="0"
       allowFullScreen
-      // 🛡️ SANDBOX: ეს არის მთავარი დაცვა!
-      // ეს კრძალავს პლეერს თქვენი საიტის გადამისამართებისგან (allow-top-navigation-ის გარეშე)
-      sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen allow-forms"
-      title="Alternative Player"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-fullscreen"
+      title="KinoBox Player"
+      scrolling="no"
     />
   );
 };
 
+// 3. 🆕 Alloha Player (VideoCDN-ის ნაცვლად)
+const AllohaPlayer = ({ kinopoiskId }) => {
+    if (!kinopoiskId) return <div className="text-gray-500 flex justify-center items-center h-full">Нет KP ID</div>;
+
+    // Alloha-ს ოფიციალური Embed
+    const src = `https://api.linktodo.ws/embed/kp/${kinopoiskId}`;
+
+    return (
+        <iframe 
+            src={src}
+            className="w-full h-full absolute inset-0 border-none overflow-hidden"
+            frameBorder="0"
+            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen allow-forms"
+            title="Alloha"
+            scrolling="no"
+        />
+    );
+}
+
 export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title, trailer_url }) {
-  const [activeTab, setActiveTab] = useState('main');
+  const [activeTab, setActiveTab] = useState('kinobox'); 
   const [refreshKey, setRefreshKey] = useState(0);
 
   const players = [
-    { id: 'main', label: 'Плеер 1' }, // KinoBD
-    { id: 'alt', label: 'Плеер 2' },  // VideoCDN (Safe)
+    { id: 'kinobox', label: 'Мульти (KinoBox)' },
+    { id: 'alloha', label: 'Плеер 2 (Alloha)' },
+    { id: 'kinobd', label: 'Плеер 3 (KinoBD)' },
     { id: 'trailer', label: 'Трейлер' },
   ];
 
@@ -80,23 +156,26 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
   const renderPlayer = () => {
     const contentKey = `${activeTab}-${refreshKey}`;
 
-    // პლეერი 1 (KinoBD - Script)
-    if (activeTab === 'main') {
-      return <KinoBDPlayer key={contentKey} kinopoiskId={kinopoisk_id} />;
-    }
-
-    // პლეერი 2 (VideoCDN - Iframe)
-    if (activeTab === 'alt') {
+    if (activeTab === 'kinobox') {
       return (
-        <SafeIframePlayer 
-            key={contentKey} 
+        <SandboxedKinoBox 
+            key={contentKey}
             kinopoiskId={kinopoisk_id} 
+            imdbId={imdb_id} 
+            tmdbId={tmdb_id} 
             title={title} 
         />
       );
     }
 
-    // ტრეილერი
+    if (activeTab === 'alloha') {
+        return <AllohaPlayer key={contentKey} kinopoiskId={kinopoisk_id} />;
+    }
+
+    if (activeTab === 'kinobd') {
+      return <KinoBDPlayer key={contentKey} kinopoiskId={kinopoisk_id} />;
+    }
+
     if (activeTab === 'trailer') {
       if (!trailer_url) {
         return (
@@ -133,14 +212,14 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
          
          {/* Toolbar */}
          <div className="flex items-center justify-between px-4 py-3 bg-[#1a1f26] border-b border-gray-800 relative z-[50]">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto">
                 <div className="flex bg-black/40 p-1 rounded-lg border border-gray-700/50">
                     {players.map((player) => (
                     <button
                         key={player.id}
                         onClick={() => handleTabClick(player.id)}
                         className={`
-                        px-3 py-1.5 md:px-4 md:py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wide transition-all duration-200 cursor-pointer
+                        px-3 py-1.5 md:px-4 md:py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wide transition-all duration-200 cursor-pointer whitespace-nowrap
                         ${
                             activeTab === player.id
                             ? 'bg-brand-red text-white shadow-md'
@@ -168,7 +247,7 @@ export default function PlayerContainer({ kinopoisk_id, imdb_id, tmdb_id, title,
          </div>
 
          {/* კონტეინერი */}
-         <div className="player-wrapper relative w-full bg-black z-10 overflow-hidden">
+         <div className="player-wrapper relative w-full bg-black z-10 overflow-hidden" style={{ aspectRatio: '16/9' }}>
             {renderPlayer()}
          </div>
 
