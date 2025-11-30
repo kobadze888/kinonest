@@ -66,7 +66,7 @@ body.is-smart-tv {
   scrollbar-width: none;
 }
 
-/* 🚨 FIX: ვაბრუნებთ სქროლს ფილტრაციის ჩამოსაშლელი სიებისთვის TV-ზე */
+/* 🚨 FIX 1: ვაბრუნებთ სქროლს ფილტრაციის ჩამოსაშლელი სიებისთვის TV-ზე */
 body.is-smart-tv .custom-scrollbar::-webkit-scrollbar {
   display: block !important; /* ვაჩენთ სქროლს */
   width: 8px !important;
@@ -81,6 +81,12 @@ body.is-smart-tv .custom-scrollbar::-webkit-scrollbar-thumb {
   border: 2px solid #1f1f1f;
 }
 
+/* 🚨 FIX 2: ჩამოსაშლელი სიის პრიორიტეტი (Z-index) TV-ზე */
+/* ეს უზრუნველყოფს, რომ გახსნილი სია გადაეფაროს "Сбросить все" ღილაკს და სხვა ელემენტებს */
+body.is-smart-tv .absolute.top-full.z-\[1000\] {
+  z-index: 9999 !important; /* მაქსიმალური პრიორიტეტი */
+}
+
 /* 🎮 SPATIAL NAVIGATION (პულტისთვის ფოკუსი) */
 /* როცა პულტით გადადიხარ, ელემენტს უნდა ჰქონდეს მკაფიო ჩარჩო */
 body.is-smart-tv a:focus,
@@ -88,10 +94,12 @@ body.is-smart-tv button:focus,
 /* დავამატეთ div-ებიც ფილტრისთვის (თუ tabindex აქვს) */
 body.is-smart-tv .custom-scrollbar > div:focus { 
   outline-offset: 2px;
-  z-index: 100;
+  /* 🚨 FIX 3: შევამცირეთ z-index 100-დან 50-მდე, რომ მენიუს (9999) არ გადაეფაროს, მაგრამ ფონი გადაფაროს */
+  z-index: 50; 
+  position: relative; /* უსაფრთხოებისთვის */
   transform: scale(1.02) !important; /* მცირე ზრდა ფოკუსზე დასაშვებია */
   background-color: #1f2937 !important; /* ფონის გამუქება ფოკუსზე */
-  outline: 2px solid #e50914 !important; /* დავამატე აუტლაინი რომ კარგად ჩანდეს სად ხარ */
+ 
 }
 
 /* 🛠️ Kinobd Player Hack */
