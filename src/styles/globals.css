@@ -94,13 +94,16 @@ body.is-smart-tv button:focus,
 /* დავამატეთ div-ებიც ფილტრისთვის (თუ tabindex აქვს) */
 body.is-smart-tv .custom-scrollbar > div:focus { 
   outline-offset: 2px;
-  /* 🚨 FIX 3: შევამცირეთ z-index 100-დან 50-მდე, რომ მენიუს (9999) არ გადაეფაროს, მაგრამ ფონი გადაფაროს */
-  z-index: 50; 
+  
+  /* 🚨 FIX 3: შევამცირეთ z-index 50-დან 30-მდე! */
+  /* FilterBar არის z-40. იმისათვის რომ ფილტრმა გადაფაროს ეს ღილაკი, */
+  /* ღილაკის z-index უნდა იყოს 40-ზე ნაკლები. */
+  z-index: 30; 
+  
   position: relative; /* უსაფრთხოებისთვის */
   transform: scale(1.02) !important; /* მცირე ზრდა ფოკუსზე დასაშვებია */
   background-color: #1f2937 !important; /* ფონის გამუქება ფოკუსზე */
- 
-}
+ }
 
 /* 🛠️ Kinobd Player Hack */
 #kinobd {
