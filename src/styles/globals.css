@@ -57,7 +57,7 @@ body.is-smart-tv .hover\:-translate-y-1 {
   transform: none !important;
 }
 
-/* TV-ზე სქროლის დამალვა (ვიზუალურად) - ზოგადად */
+/* TV-ზე სქროლის დამალვა (ვიზუალურად) */
 body.is-smart-tv ::-webkit-scrollbar {
   display: none;
 }
@@ -66,44 +66,16 @@ body.is-smart-tv {
   scrollbar-width: none;
 }
 
-/* 🚨 FIX 1: ვაბრუნებთ სქროლს ფილტრაციის ჩამოსაშლელი სიებისთვის TV-ზე */
-body.is-smart-tv .custom-scrollbar::-webkit-scrollbar {
-  display: block !important; /* ვაჩენთ სქროლს */
-  width: 8px !important;
-}
-body.is-smart-tv .custom-scrollbar::-webkit-scrollbar-track {
-  background: #1f1f1f !important; 
-  border-radius: 0 4px 4px 0;
-}
-body.is-smart-tv .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #e50914 !important; /* წითელი ფერი რომ კარგად გამოჩნდეს */
-  border-radius: 4px;
-  border: 2px solid #1f1f1f;
-}
-
-/* 🚨 FIX 2: ჩამოსაშლელი სიის პრიორიტეტი (Z-index) TV-ზე */
-/* ეს უზრუნველყოფს, რომ გახსნილი სია გადაეფაროს "Сбросить все" ღილაკს და სხვა ელემენტებს */
-body.is-smart-tv .absolute.top-full.z-\[1000\] {
-  z-index: 9999 !important; /* მაქსიმალური პრიორიტეტი */
-}
-
 /* 🎮 SPATIAL NAVIGATION (პულტისთვის ფოკუსი) */
 /* როცა პულტით გადადიხარ, ელემენტს უნდა ჰქონდეს მკაფიო ჩარჩო */
 body.is-smart-tv a:focus,
-body.is-smart-tv button:focus,
-/* დავამატეთ div-ებიც ფილტრისთვის (თუ tabindex აქვს) */
-body.is-smart-tv .custom-scrollbar > div:focus { 
+body.is-smart-tv button:focus {
+  
   outline-offset: 2px;
-  
-  /* 🚨 FIX 3: შევამცირეთ z-index 50-დან 30-მდე! */
-  /* FilterBar არის z-40. იმისათვის რომ ფილტრმა გადაფაროს ეს ღილაკი, */
-  /* ღილაკის z-index უნდა იყოს 40-ზე ნაკლები. */
-  z-index: 30; 
-  
-  position: relative; /* უსაფრთხოებისთვის */
+  z-index: 100;
   transform: scale(1.02) !important; /* მცირე ზრდა ფოკუსზე დასაშვებია */
   background-color: #1f2937 !important; /* ფონის გამუქება ფოკუსზე */
- }
+}
 
 /* 🛠️ Kinobd Player Hack */
 #kinobd {
