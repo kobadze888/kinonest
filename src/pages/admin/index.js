@@ -21,7 +21,7 @@ export async function getServerSideProps(context) {
 
   const page = parseInt(context.query.page) || 1;
   const search = context.query.q || '';
-  
+
   // ფილტრები URL-დან
   const statusFilter = context.query.status || 'all';
   const typeFilter = context.query.type || 'all';
@@ -64,9 +64,9 @@ export async function getServerSideProps(context) {
 
     if (search) {
       if (!isNaN(search)) {
-         whereClause += ` AND (tmdb_id = $${paramIndex} OR kinopoisk_id = $${paramIndex})`;
+        whereClause += ` AND (tmdb_id = $${paramIndex} OR kinopoisk_id = $${paramIndex})`;
       } else {
-         whereClause += ` AND (title_ru ILIKE $${paramIndex} OR title_en ILIKE $${paramIndex})`;
+        whereClause += ` AND (title_ru ILIKE $${paramIndex} OR title_en ILIKE $${paramIndex})`;
       }
       params.push(search.trim());
       paramIndex++;
@@ -89,15 +89,14 @@ export async function getServerSideProps(context) {
     if (statusFilter === 'no_trailer') whereClause += ` AND trailer_url IS NULL`;
 
     // მონაცემების წამოღება
-    const queryParams = [...params, limit, offset]; 
+    const queryParams = [...params, limit, offset];
     const itemsRes = await query(`
-      SELECT tmdb_id, imdb_id, title_ru, title_en, release_year, type, kinopoisk_id, rating_imdb, is_hidden
-      FROM media
+SELECT tmdb_id, imdb_id, title_ru, title_en, release_year, type, kinopoisk_id, rating_imdb, is_hidden, search_slug      FROM media
       WHERE ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `, queryParams);
-    
+
     items = itemsRes.rows;
 
     // რაოდენობის დათვლა
@@ -141,18 +140,18 @@ export default function AdminDashboard({ items, stats, availableYears, currentPa
   return (
     <div className="bg-[#10141A] text-white min-h-screen font-sans">
       <Header />
-      
+
       <main className="max-w-[1600px] mx-auto px-4 pt-32 pb-20">
         {/* Header & Logout */}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-              <h1 className="text-3xl font-bold">ადმინ პანელი</h1>
-              <Link href="/admin/sync-dashboard" className="bg-blue-900/30 border border-blue-800 text-blue-200 px-4 py-2 rounded hover:bg-blue-900/50 transition text-sm flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                სინქრონიზაცია
-              </Link>
+            <h1 className="text-3xl font-bold">ადმინ პანელი</h1>
+            <Link href="/admin/sync-dashboard" className="bg-blue-900/30 border border-blue-800 text-blue-200 px-4 py-2 rounded hover:bg-blue-900/50 transition text-sm flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              სინქრონიზაცია
+            </Link>
           </div>
           <button onClick={() => signOut({ callbackUrl: '/' })} className="bg-red-900/30 border border-red-800 text-red-200 px-4 py-2 rounded hover:bg-red-900/50 transition text-sm">
             გასვლა
@@ -171,8 +170,8 @@ export default function AdminDashboard({ items, stats, availableYears, currentPa
         {/* 🔍 ფილტრები */}
         <div className="bg-[#151a21] p-4 rounded-xl border border-gray-800 mb-6 flex flex-col md:flex-row gap-4 items-center">
           <form onSubmit={handleSearch} className="flex gap-2 flex-grow w-full md:w-auto">
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="ძებნა (სახელი, ID)..."
@@ -184,8 +183,8 @@ export default function AdminDashboard({ items, stats, availableYears, currentPa
           </form>
 
           <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-            <select 
-              value={filters.status} 
+            <select
+              value={filters.status}
               onChange={(e) => updateFilter('status', e.target.value)}
               className="bg-black/30 border border-gray-700 text-gray-300 text-sm rounded-lg focus:ring-brand-red focus:border-brand-red block p-2.5"
             >
@@ -195,8 +194,8 @@ export default function AdminDashboard({ items, stats, availableYears, currentPa
               <option value="hidden">დამალული</option>
             </select>
 
-            <select 
-              value={filters.type} 
+            <select
+              value={filters.type}
               onChange={(e) => updateFilter('type', e.target.value)}
               className="bg-black/30 border border-gray-700 text-gray-300 text-sm rounded-lg focus:ring-brand-red focus:border-brand-red block p-2.5"
             >
@@ -206,8 +205,8 @@ export default function AdminDashboard({ items, stats, availableYears, currentPa
             </select>
 
             {/* 🆕 დინამიური წლების ფილტრი */}
-            <select 
-              value={filters.year} 
+            <select
+              value={filters.year}
               onChange={(e) => updateFilter('year', e.target.value)}
               className="bg-black/30 border border-gray-700 text-gray-300 text-sm rounded-lg focus:ring-brand-red focus:border-brand-red block p-2.5"
             >
@@ -248,7 +247,16 @@ export default function AdminDashboard({ items, stats, availableYears, currentPa
                     <td className="px-6 py-4">
                       {item.is_hidden && <span className="bg-red-900/50 text-red-200 text-[10px] px-2 py-1 rounded uppercase font-bold">HIDDEN</span>}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                      {/* Ссылка на публичную страницу */}
+                      <Link
+                        href={`/${item.type === 'movie' ? 'movie' : 'tv'}/${item.tmdb_id}-${item.search_slug}-smotret-onlain-besplatno`}
+                        target="_blank"
+                        className="bg-green-900/30 hover:bg-green-900/50 text-green-200 px-3 py-1.5 rounded transition text-xs border border-green-700"
+                      >
+                       საიტზე ნახვა
+                      </Link>
+                      {/* Ссылка на редактирование */}
                       <Link href={`/admin/edit/${item.tmdb_id}`} className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded transition text-xs border border-gray-600">
                         რედაკტირება
                       </Link>

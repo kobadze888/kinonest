@@ -11,11 +11,16 @@ import TrailerModal from '@/components/TrailerModal';
 import PlayerContainer from '@/components/PlayerContainer';
 import { useWatchlist } from '@/lib/useWatchlist';
 import SeoHead from '@/components/SeoHead';
+import { getSession } from 'next-auth/react'; // 🆕 დაემატა ადმინის შემოწმებისთვის
 
 export async function getServerSideProps(context) {
   const { slug } = context.params;
   const tmdbId = slug.split('-')[0];
   if (!tmdbId) return { notFound: true };
+
+  // 🆕 ადმინის შემოწმება
+  const session = await getSession(context);
+  const isAdmin = !!session;
 
   let movie = null;
   let kinopoisk_id = null;
@@ -102,7 +107,8 @@ export async function getServerSideProps(context) {
       movie: JSON.parse(JSON.stringify(movie)),
       kinopoisk_id,
       actors,
-      recommendations
+      recommendations,
+      isAdmin, // 🆕 გადავცემთ isAdmin სტატუსს
     },
   };
 }
@@ -110,10 +116,17 @@ export async function getServerSideProps(context) {
 // Icons
 const PlayIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 inline-block mr-2" viewBox="0 0 20 20" fill="currentColor"> <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /> </svg>);
 const StarIcon = () => (<svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.959a1 1 0 00.95.69h4.168c.969 0 1.371 1.24.588 1.81l-3.373 2.449a1 1 0 00-.364 1.118l1.287 3.959c.3.921-.755 1.688-1.54 1.118l-3.373-2.449a1 1 0 00-1.175 0l-3.373 2.449c-.784.57-1.839-.197-1.54-1.118l1.287-3.959a1 1 0 00-.364-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.168a1 1 0 00.95-.69L9.049 2.927z"></path> </svg>);
-const HeartIcon = ({ isFilled }) => (<svg className="w-5 h-5 md:w-6 md:h-6" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg>);
+const HeartIcon = ({ isFilled }) => (<svg className="w-5 h-5 md:w-6 md:w-6" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg>);
 const FilmIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>);
 
-export default function MoviePage({ movie, kinopoisk_id, actors, recommendations }) {
+// 🆕 ახალი, "უფრო ნორმალური" აიქონი რედაქტირებისთვის (Pencil Square)
+const EditIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 17.173a2.88 2.88 0 01-1.59 1.137c-1.285.345-2.288.665-2.288.665s-.64-.997-.985-2.282a2.88 2.88 0 011.137-1.59l11.458-11.46z" />
+  </svg>
+);
+
+export default function MoviePage({ movie, kinopoisk_id, actors, recommendations, isAdmin }) {
   const { toggleItem, isInWatchlist } = useWatchlist();
   const isFavorite = isInWatchlist(movie.tmdb_id);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -168,7 +181,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
 
   return (
     <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
-      {/* 🚀 SEO Head */}
       <SeoHead 
         title={title} 
         description={movie.overview} 
@@ -178,7 +190,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
         rating={movie.rating_tmdb}
       />
       
-      {/* 🚀 JSON-LD Schema ინექცია */}
       <Head>
         <script
           type="application/ld+json"
@@ -216,6 +227,19 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
         <div className="flex gap-4">
           <div className="w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border border-gray-800 relative aspect-[2/3]">
             <Image src={posterPath} alt={title} fill className="object-cover" />
+            
+            {/* 🆕 ღილაკი პოსტერზე (მობილური) */}
+            {isAdmin && (
+                <Link 
+                  href={`/admin/edit/${movie.tmdb_id}`} 
+                  target="_blank" 
+                  className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white hover:bg-brand-red transition-colors duration-200 shadow-md border border-white/10"
+                  title="Редактировать фильм"
+                >
+                  <EditIcon />
+                </Link>
+            )}
+            
           </div>
           <div className="flex-grow flex flex-col justify-center gap-3">
             <div className="flex items-center gap-2">
@@ -351,6 +375,19 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
             <div className="col-span-4 h-full">
               <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-800/50 w-full h-full min-h-[500px]">
                 <Image src={posterPath} alt={title} fill className="object-cover" priority />
+                
+                {/* 🆕 ღილაკი პოსტერზე (დესკტოპი) */}
+                {isAdmin && (
+                  <Link 
+                    href={`/admin/edit/${movie.tmdb_id}`} 
+                    target="_blank" 
+                    className="absolute top-4 right-4 z-20 flex items-center justify-center p-2.5 rounded-full bg-red-800/80 text-white hover:bg-brand-red transition-colors duration-200 shadow-xl border border-white/20"
+                    title="Редактировать фильм"
+                  >
+                    <EditIcon />
+                  </Link>
+                )}
+                
               </div>
             </div>
           </div>
