@@ -1,4 +1,3 @@
-// src/components/MediaCard.js
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; 
@@ -34,43 +33,32 @@ export default function MediaCard({ item }) {
   const title = item.title_ru || item.title_en; 
   const year = item.release_year || 'N/A';
   const type = item.type === 'movie' ? 'Фильм' : 'Сериал';
-  
   const showRating = item.rating_imdb > 0 ? item.rating_imdb : null;
   
   const posterPath = item.poster_path 
     ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
     : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
 
-  const titleSlug = slugify(title);
-  const seoSuffix = 'smotret-onlain-besplatno';
-  const linkHref = `/${item.type}/${item.tmdb_id}-${titleSlug}-${seoSuffix}`;
-
+  const linkHref = `/${item.type}/${item.tmdb_id}-${slugify(title)}-smotret-onlain-besplatno`;
   const isFavorite = isInWatchlist(item.tmdb_id);
 
   return (
     <div className="block w-full group relative"> 
-      {/* 💡 FIX: დაემატა style={{ willChange: 'transform' ... }} ციმციმის მოსაგვარებლად */}
       <div 
         className="media-card rounded-lg overflow-hidden shadow-xl bg-gray-800 transition-all duration-300 ease-out hover:shadow-brand-red/10 hover:-translate-y-1"
-        style={{ 
-            willChange: 'transform', 
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-            transformStyle: 'preserve-3d'
-        }}
+        style={{ backfaceVisibility: 'hidden', transformStyle: 'preserve-3d' }}
       >
-        
-        {/* 💡 CLS/Aspect Ratio Fix: min-height fallback და aspect-ratio თანამედროვე CSS */}
         <div className="relative w-full bg-gray-800" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
           <Link href={linkHref} className="block absolute inset-0 z-10">
              <Image 
                 src={posterPath} 
                 alt={title} 
-                width={500}     
-                height={750}    
+                fill 
                 style={{ objectFit: 'cover' }} 
                 className="w-full h-full transition-opacity duration-300"
-                sizes="(max-width: 768px) 30vw, (max-width: 1200px) 20vw, 15vw"
+                // 🚀 FIX: ეს წყვეტს კონსოლის შეცდომას.
+                // ვეუბნებით ბრაუზერს: მობილურზე სურათი არის ეკრანის ნახევარი (50vw), დესკტოპზე მეხუთედი (20vw).
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                 priority={false}
                 loading="lazy"
               />
@@ -79,45 +67,20 @@ export default function MediaCard({ item }) {
               </div>
           </Link>
           
-          {showRating && (
-            <div className="absolute top-2 left-2 z-20 pointer-events-none">
-              <ImdbBadge rating={showRating} />
-            </div>
-          )}
-          
-          <div className="absolute top-2 right-2 z-20 pointer-events-none">
-            <div className="bg-brand-red rounded-md px-2 py-1 text-xs font-bold text-white shadow-md uppercase tracking-wider">
-              {type}
-            </div>
-          </div>
-          
-          <div className="absolute bottom-2 left-2 z-20 pointer-events-none">
-            <div className="bg-black/70 backdrop-blur-sm rounded-md px-2 py-1 text-xs font-bold text-white border border-white/10">
-              {year}
-            </div>
-          </div>
+          {showRating && <div className="absolute top-2 left-2 z-20 pointer-events-none"><ImdbBadge rating={showRating} /></div>}
+          <div className="absolute top-2 right-2 z-20 pointer-events-none"><div className="bg-brand-red rounded-md px-2 py-1 text-xs font-bold text-white shadow-md uppercase tracking-wider">{type}</div></div>
+          <div className="absolute bottom-2 left-2 z-20 pointer-events-none"><div className="bg-black/70 backdrop-blur-sm rounded-md px-2 py-1 text-xs font-bold text-white border border-white/10">{year}</div></div>
 
-          <button 
-            onClick={(e) => { 
-               e.preventDefault(); 
-               e.stopPropagation(); 
-               toggleItem(item.tmdb_id); 
-            }} 
-            className="absolute bottom-2 right-2 z-30 p-2 rounded-full hover:scale-110 transition-transform active:scale-95 focus:outline-none"
-            title={isFavorite ? "Удалить из избранного" : "Добавить в избранное"}
-          >
+          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleItem(item.tmdb_id); }} className="absolute bottom-2 right-2 z-30 p-2 rounded-full hover:scale-110 transition-transform active:scale-95 focus:outline-none">
             <div className="bg-black/60 backdrop-blur-sm rounded-full p-1.5 flex items-center justify-center hover:bg-white/20 transition-colors border border-white/10">
                <HeartIcon isFilled={isFavorite} />
             </div>
           </button>
-
         </div>
-        
         <Link href={linkHref} className="block p-3 bg-gray-800 relative z-20">
           <h3 className="font-semibold text-white truncate hover:text-brand-red transition-colors text-sm md:text-base">{title}</h3>
         </Link>
-
       </div>
     </div>
   );
-};
+}
