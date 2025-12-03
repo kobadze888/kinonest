@@ -83,16 +83,23 @@ export async function getServerSideProps(context) {
       actors = actorsRes.rows;
 
       // 3. ვიღებთ რეკომენდაციებს (ოპტიმიზირებული SQL)
-      // ჟანრების მიხედვით ძებნა უკვე დაჩქარებულია GIN ინდექსით
       if (movie.genres_names && movie.genres_names.length > 0) {
+          // 💡 რეკომენდაცია: შეწონილი სორტირება (რეიტინგი + პოპულარობა + ჟანრის დამთხვევა)
           const recRes = await query(`
             SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
-            FROM media
+            FROM media m
             WHERE type = 'movie'
               AND tmdb_id != $1
-              AND genres_names && $2::text[] -- იყენებს GIN ინდექსს
-              AND release_year >= $3 - 5 -- მხოლოდ ახლო წლების ფილმები
-            ORDER BY popularity DESC -- პოპულარობის ინდექსი
+              AND m.genres_names && $2::text[] 
+              AND m.release_year >= $3 - 5 
+            ORDER BY
+                (m.rating_imdb * 0.4) +   /* 40% წონა IMDb რეიტინგზე */
+                (m.popularity * 0.001) +  /* მცირე წონა პოპულარობაზე */
+                (
+                    SELECT COUNT(g) FROM unnest(m.genres_names) g 
+                    WHERE g = ANY($2::text[])
+                ) DESC,                   /* ჟანრის დამთხვევის ქულა */
+                m.release_year DESC
             LIMIT 10
         `, [tmdbId, movie.genres_names, movie.release_year || 2020]);
         recommendations = recRes.rows;

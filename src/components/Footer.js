@@ -36,6 +36,8 @@ export default function Footer() {
           <div className="col-span-1">
             <h3 className="text-white font-bold mb-4 uppercase text-xs tracking-wider">Разделы</h3>
             <ul className="space-y-2 text-sm text-gray-400">
+              {/* 🎯 ცვლილება: დაემატა "Свежие поступления" ბმული */}
+              <li><Link href="/discover?sort=year_desc&type=movie" className="hover:text-brand-red transition">Свежие поступления</Link></li>
               <li><Link href="/movies" className="hover:text-brand-red transition">Фильмы</Link></li>
               <li><Link href="/tv-shows" className="hover:text-brand-red transition">Сериалы</Link></li>
               <li><Link href="/kids" className="hover:text-brand-red transition">Детям</Link></li>

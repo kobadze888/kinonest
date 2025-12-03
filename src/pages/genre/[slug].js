@@ -45,7 +45,22 @@ export async function getServerSideProps(context) {
       FROM media, unnest(genres_names) as genre
       WHERE genre ILIKE $1
       GROUP BY tmdb_id
-      ORDER BY rating_tmdb DESC
+      ORDER BY 
+        /* 1. 💡 პრიორიტეტი: სრული მონაცემები (Kinopoisk ID, Poster, Title RU) */
+        CASE 
+          WHEN title_ru ~ '[а-яА-ЯёЁ]' 
+               AND poster_path IS NOT NULL 
+               AND kinopoisk_id IS NOT NULL 
+          THEN 0 
+          ELSE 1 
+        END ASC,
+        /* 2. წელი */
+        release_year DESC NULLS LAST, 
+        /* 3. IMDb რეიტინგი */
+        rating_imdb DESC NULLS LAST, 
+        /* 4. შექმნის თარიღი */
+        created_at DESC,             
+        tmdb_id DESC
       LIMIT $2 OFFSET $3
     `;
     

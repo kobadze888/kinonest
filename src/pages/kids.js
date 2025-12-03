@@ -41,7 +41,8 @@ export async function getServerSideProps({ query: urlQuery }) {
           ELSE 1 
         END ASC,
         release_year DESC NULLS LAST, 
-        rating_tmdb DESC,
+        rating_imdb DESC NULLS LAST,  /* 💡 რეკომენდაცია: IMDb პრიორიტეტი */
+        created_at DESC,              /* 💡 რეკომენდაცია: სიახლე */
         tmdb_id DESC
       LIMIT $1 OFFSET $2
     `;

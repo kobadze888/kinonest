@@ -6,7 +6,7 @@ import HeroSlider from '../components/HeroSlider';
 import MediaCarousel from '../components/MediaCarousel';
 import Footer from '../components/Footer'; 
 import TrailerModal from '../components/TrailerModal';
-import SeoHead from '@/components/SeoHead'; // 🚀 SEO დამატებულია
+import SeoHead from '@/components/SeoHead';
 
 export async function getServerSideProps() {
   const currentYear = new Date().getFullYear(); 
@@ -18,17 +18,19 @@ export async function getServerSideProps() {
     created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
   `;
 
+  // 💡 მაღალი ხარისხის კონტენტის ფილტრი
   const strictCondition = `
     backdrop_path IS NOT NULL 
     AND poster_path IS NOT NULL
     AND title_ru IS NOT NULL AND title_ru != 'No Title'
     AND title_ru ~ '[а-яА-ЯёЁ]'
-    AND kinopoisk_id IS NOT NULL
+    AND kinopoisk_id IS NOT NULL /* აუცილებელი პირობა პლეერისთვის */
     AND rating_imdb > 0
     AND release_year IS NOT NULL AND release_year > 0
   `;
 
   try {
+    // 1. HERO SECTION (პოპულარული + შემთხვევითი)
     const heroQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -36,12 +38,13 @@ export async function getServerSideProps() {
         AND release_year = ${currentYear}
         AND rating_imdb > 6.0
         AND (
-          'США' = ANY(countries) OR 'Великобритания' = ANY(countries)
+          'США' = ANY(countries) OR 'Велиკбритания' = ANY(countries)
         )
-      ORDER BY rating_imdb DESC, popularity DESC 
+      ORDER BY RANDOM() 
       LIMIT 10
     `);
 
+    // "В кинотеатрах" - მიმდინარე წლის პოპულარული
     const nowPlayingQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
@@ -51,43 +54,48 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
+    // 2. "Свежие поступления" (ფილმები) - 🎯 ცვლილება: მხოლოდ created_at DESC (წელი და რეიტინგი იგნორირებულია)
     const newMoviesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
-        AND ${strictCondition}
-        AND release_year >= ${currentYear - 1}
-      ORDER BY created_at DESC 
+        AND ${strictCondition} 
+      ORDER BY created_at DESC, RANDOM() /* 💡 მთავარი სორტირება: ბაზაში დამატების სიახლე */
       LIMIT 15
     `);
 
+    // 3. "Новые сериалы" - შეზღუდვა ბოლო 2 წელზე
     const newSeriesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv' 
-        AND ${strictCondition}
-      ORDER BY release_year DESC, created_at DESC 
+        AND ${strictCondition} 
+        AND release_year >= ${currentYear - 2} 
+      ORDER BY created_at DESC, RANDOM() 
       LIMIT 15
     `);
 
+    // 4. "Ужасы (Последние)" - შეზღუდვა მიმდინარე წელზე
     const horrorQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
         AND genres_names && ARRAY['ужасы', 'Horror']
         AND ${strictCondition}
-        AND release_year >= ${currentYear - 3}
-      ORDER BY release_year DESC, rating_imdb DESC
+        AND release_year >= ${currentYear} 
+      ORDER BY created_at DESC, RANDOM()
       LIMIT 15
     `);
 
+    // 5. "Комедии (Последние)" - შეზღუდვა მიმდინარე წელზე
     const comedyQuery = query(`
       SELECT ${columns} FROM media
-      WHERE type = 'movie' 
+      WHERE type = 'movie'
         AND genres_names && ARRAY['комедия', 'Comedy']
         AND ${strictCondition}
-        AND release_year >= ${currentYear - 3}
-      ORDER BY release_year DESC, rating_imdb DESC
+        AND release_year >= ${currentYear} 
+      ORDER BY created_at DESC, RANDOM()
       LIMIT 15
     `);
 
+    // 6. "Популярные актеры" - შემთხვევითი
     const actorsQuery = query(`
       SELECT * FROM (
         SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity 
@@ -97,7 +105,7 @@ export async function getServerSideProps() {
         WHERE a.profile_path IS NOT NULL
           AND m.type = 'movie'
           AND m.rating_imdb > 7.0
-          AND ('США' = ANY(m.countries) OR 'Великобритания' = ANY(m.countries))
+          AND ('США' = ANY(m.countries) OR 'Велиკбритания' = ANY(m.countries))
         ORDER BY a.id, a.popularity DESC 
         LIMIT 100
       ) as top_actors
@@ -212,7 +220,7 @@ export default function Home({
           />
 
           <MediaCarousel 
-            title="Свежие поступления" 
+            title="Свежие поступления"
             items={newMovies}
             swiperKey="new-movies"
             cardType="movie" 
@@ -222,7 +230,7 @@ export default function Home({
           />
 
           <MediaCarousel 
-            title="Новые сериалы"
+            title="Свежие поступления Сериалы"
             items={newSeries}
             swiperKey="new-series"
             cardType="movie"
@@ -232,7 +240,7 @@ export default function Home({
           />
 
           <MediaCarousel 
-            title="Ужасы (Новинки)"
+            title="Свежие поступления Ужасы"
             items={horrorMovies}
             swiperKey="horror-movies"
             cardType="movie"
@@ -242,7 +250,7 @@ export default function Home({
           />
 
           <MediaCarousel 
-            title="Комедии (Новинки)"
+            title="Свежие поступления Комедия"
             items={comedyMovies}
             swiperKey="comedy-movies"
             cardType="movie"

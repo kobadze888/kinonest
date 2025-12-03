@@ -32,7 +32,8 @@ export default async function handler(req, res) {
           ELSE 1 
         END ASC,
         release_year DESC NULLS LAST, 
-        rating_tmdb DESC,
+        rating_imdb DESC NULLS LAST,  /* 💡 IMDb პრიორიტეტი */
+        created_at DESC,              /* 💡 სიახლე */
         tmdb_id DESC
       LIMIT $2 OFFSET $3
     `;

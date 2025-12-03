@@ -93,14 +93,21 @@ export async function getServerSideProps(context) {
 
       if (tvShow.genres_names && tvShow.genres_names.length > 0) {
         try {
-          // Optimization: use && for array overlap
+          // 💡 რეკომენდაცია: შეწონილი სორტირება (რეიტინგი + პოპულარობა + ჟანრის დამთხვევა)
           const recRes = await query(`
                 SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
-                FROM media
+                FROM media m
                 WHERE type = 'tv'
                   AND tmdb_id != $1
-                  AND genres_names && $2::text[]
-                ORDER BY popularity DESC
+                  AND m.genres_names && $2::text[]
+                ORDER BY
+                    (m.rating_imdb * 0.4) +   /* 40% წონა IMDb რეიტინგზე */
+                    (m.popularity * 0.001) +  /* მცირე წონა პოპულარობაზე */
+                    (
+                        SELECT COUNT(g) FROM unnest(m.genres_names) g 
+                        WHERE g = ANY($2::text[])
+                    ) DESC,                   /* ჟანრის დამთხვევის ქულა */
+                    m.release_year DESC
                 LIMIT 10
             `, [tmdbId, tvShow.genres_names]);
           recommendations = recRes.rows;

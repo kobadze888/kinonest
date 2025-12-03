@@ -37,7 +37,8 @@ export async function getServerSideProps() {
           ELSE 1 
         END ASC,
         release_year DESC NULLS LAST, 
-        rating_tmdb DESC,
+        rating_imdb DESC NULLS LAST,  /* 💡 რეკომენდაცია: IMDb პრიორიტეტი */
+        created_at DESC,              /* 💡 რეკომენდაცია: სიახლე */
         tmdb_id DESC
       LIMIT $1 OFFSET $2
     `, [limit, offset]);
@@ -73,6 +74,7 @@ export default function TvShowsPage({ initialShows, genres, countries }) {
     const nextPage = page + 1;
     
     try {
+      // API call uses the new comprehensive sorting as well
       const res = await fetch(`/api/media?type=tv&page=${nextPage}`);
       if (res.ok) {
         const newShows = await res.json();

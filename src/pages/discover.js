@@ -44,11 +44,22 @@ export async function getServerSideProps({ query: urlQuery }) {
 
   const priorityCase = `CASE WHEN title_ru ~ '[а-яА-ЯёЁ]' AND poster_path IS NOT NULL AND kinopoisk_id IS NOT NULL THEN 0 ELSE 1 END ASC`;
   let orderBy = '';
+  
+  // 💡 ცვლილება: თუ არჩეულია ნაგულისხმევი სორტირება (year_desc) ფილმებზე, პრიორიტეტი მივანიჭოთ created_at-ს
+  const isDefaultMovieSort = type === 'movie' && sort === 'year_desc';
+
   switch (sort) {
       case 'rating_asc': orderBy = `${priorityCase}, rating_imdb ASC NULLS LAST, rating_tmdb ASC`; break;
       case 'rating_desc': orderBy = `${priorityCase}, rating_imdb DESC NULLS LAST, rating_tmdb DESC`; break;
-      case 'year_asc': orderBy = `${priorityCase}, release_year ASC NULLS LAST, rating_tmdb DESC`; break;
-      case 'year_desc': default: orderBy = `${priorityCase}, release_year DESC NULLS LAST, rating_tmdb DESC`; break;
+      case 'year_asc': orderBy = `${priorityCase}, release_year ASC NULLS LAST, rating_imdb DESC`; break;
+      // 🎯 ნაგულისხმევი დალაგება - ფილმებისთვის ვიყენებთ created_at-ს
+      case 'year_desc': default: 
+        if (isDefaultMovieSort) {
+             orderBy = `${priorityCase}, created_at DESC, release_year DESC NULLS LAST, rating_imdb DESC`;
+        } else {
+             orderBy = `${priorityCase}, release_year DESC NULLS LAST, rating_imdb DESC, created_at DESC`;
+        }
+        break;
   }
   orderBy += `, tmdb_id DESC`;
 

@@ -33,12 +33,23 @@ export async function getServerSideProps({ query: urlQuery }) {
       SELECT ${columns} FROM media 
       WHERE type = 'movie' AND rating_tmdb > 0
       ORDER BY 
+        /* 1. 💡 პრიორიტეტი: სრული მონაცემები (Kinopoisk ID, Poster, Title RU) */
+        CASE 
+          WHEN title_ru ~ '[а-яА-ЯёЁ]' 
+               AND poster_path IS NOT NULL 
+               AND kinopoisk_id IS NOT NULL 
+          THEN 0 
+          ELSE 1 
+        END ASC,
+        /* 2. ქვეყნის პრიორიტეტი (დასავლური) */
         CASE 
           WHEN ('США' = ANY(countries) OR 'Великобритания' = ANY(countries)) 
           THEN 0 
           ELSE 1 
         END ASC,
-        rating_imdb DESC, 
+        /* 3. IMDb რეიტინგი */
+        rating_imdb DESC NULLS LAST, 
+        /* 4. წელი */
         release_year DESC NULLS LAST, 
         tmdb_id DESC
       LIMIT $1 OFFSET $2
