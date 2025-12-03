@@ -14,6 +14,12 @@ import { getSession } from 'next-auth/react';
 
 const TrailerModal = dynamic(() => import('@/components/TrailerModal'), { ssr: false });
 
+// 🚀 PERFORMANCE FIX
+  context.res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=3600, stale-while-revalidate=86400'
+  );
+
 // 🚀 FIX: Skeleton ზუსტად იმეორებს პლეერის კონტეინერის ზომას და სტრუქტურას.
 // ეს თავიდან აგვაცილებს "გაწელვას" და ციმციმს.
 const PlayerContainer = dynamic(() => import('@/components/PlayerContainer'), { 
