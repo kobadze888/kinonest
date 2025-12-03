@@ -138,8 +138,8 @@ const FlixCDNPlayer = ({ kinopoiskId, imdbId }) => {
           }
       });
       
-      // 2. ვქმნით Promise-ს მინიმალური 5 წამიანი დაყოვნებისთვის (5000ms)
-      const minDelayPromise = new Promise(resolve => setTimeout(resolve, 5000));
+      // 2. ვქმნით Promise-ს მინიმალური 5 წამიანი დაყოვნებისთვის (6000ms)
+      const minDelayPromise = new Promise(resolve => setTimeout(resolve, 6000));
       
       try {
           // 3. ველოდებით ორივე Promise-ის დასრულებას
