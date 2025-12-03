@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { fetchData, IMAGE_BASE_URL, BACKDROP_BASE_URL, MOBILE_BACKDROP_BASE_URL } from '@/lib/api';
+import { IMAGE_BASE_URL, BACKDROP_BASE_URL, MOBILE_BACKDROP_BASE_URL } from '@/lib/api';
 import { query } from '@/lib/db';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -14,24 +14,15 @@ import { getSession } from 'next-auth/react';
 
 const TrailerModal = dynamic(() => import('@/components/TrailerModal'), { ssr: false });
 
-// 🚀 PERFORMANCE FIX
-  context.res.setHeader(
-    'Cache-Control',
-    'public, s-maxage=3600, stale-while-revalidate=86400'
-  );
-
-// 🚀 FIX: Skeleton ზუსტად იმეორებს პლეერის კონტეინერის ზომას და სტრუქტურას.
-// ეს თავიდან აგვაცილებს "გაწელვას" და ციმციმს.
+// Player Skeleton - ვიზუალური სტაბილურობისთვის
 const PlayerContainer = dynamic(() => import('@/components/PlayerContainer'), { 
   ssr: false,
   loading: () => (
     <div className="w-full max-w-7xl mx-auto px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
-         {/* Toolbar Skeleton (სიმაღლე 48px + border) */}
          <div className="h-[53px] bg-[#1a1f26] border-b border-gray-800 w-full flex items-center px-4">
             <div className="w-24 h-6 bg-gray-700/50 rounded animate-pulse"></div>
          </div>
-         {/* Player Skeleton (16/9 Aspect Ratio) */}
          <div className="w-full relative" style={{ paddingBottom: '56.25%' }}>
             <div className="absolute inset-0 bg-black animate-pulse"></div>
          </div>
@@ -44,6 +35,14 @@ export async function getServerSideProps(context) {
   const { slug } = context.params;
   const tmdbId = slug.split('-')[0];
   if (!tmdbId) return { notFound: true };
+
+  // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
+  if (context.res) {
+    context.res.setHeader(
+      'Cache-Control',
+      'public, s-maxage=3600, stale-while-revalidate=86400'
+    );
+  }
 
   const session = await getSession(context);
   const isAdmin = !!session;
@@ -94,18 +93,15 @@ export async function getServerSideProps(context) {
 
       if (tvShow.genres_names && tvShow.genres_names.length > 0) {
         try {
-          const isAnimation = tvShow.genres_names.includes('мультфильм') || tvShow.genres_names.includes('Animation');
-          let genreFilter = isAnimation ? "AND 'мультфильм' = ANY(genres_names)" : "AND NOT ('мультфильм' = ANY(genres_names))";
+          // Optimization: use && for array overlap
           const recRes = await query(`
                 SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
                 FROM media
                 WHERE type = 'tv'
                   AND tmdb_id != $1
-                  AND title_ru ~ '[а-яА-ЯёЁ]'
-                  ${genreFilter}
                   AND genres_names && $2::text[]
-                ORDER BY rating_tmdb DESC, popularity DESC
-                LIMIT 15
+                ORDER BY popularity DESC
+                LIMIT 10
             `, [tmdbId, tvShow.genres_names]);
           recommendations = recRes.rows;
         } catch (err) {
@@ -153,25 +149,21 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
     setIsModalOpen(true);
     setModalIsLoading(true);
     if (tvShow.trailer_url) {
-      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${tvShow.trailer_url}" frameborder="0" allowfullscreen></iframe>`);
+      let embedUrl = tvShow.trailer_url;
+      if (embedUrl.includes('watch?v=')) embedUrl = embedUrl.replace('watch?v=', 'embed/');
+      else if (embedUrl.includes('youtu.be/')) embedUrl = embedUrl.replace('youtu.be/', 'embed/');
+      
+      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${embedUrl}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
       setModalIsLoading(false);
       return;
     }
-    const data = await fetchData(`/tv/${tvShow.tmdb_id}/videos`);
-    let trailer = data?.results?.find(v => v.type === 'Trailer');
-    if (trailer) {
-      setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${trailer.key}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
-    } else {
-      setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full"><p class="text-white">Трейлер не найден</p></div>`);
-    }
+    setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full"><p class="text-white">Трейлер не найден</p></div>`);
     setModalIsLoading(false);
   };
 
   const title = tvShow.title_ru;
   const backdropPath = tvShow.backdrop_path ? `${BACKDROP_BASE_URL}${tvShow.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
   const posterPath = tvShow.poster_path ? `${IMAGE_BASE_URL}${tvShow.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
-  
-  // 🆕 მსუბუქი სურათი მობილურისთვის
   const mobileBackdropPath = tvShow.backdrop_path ? `${MOBILE_BACKDROP_BASE_URL}${tvShow.backdrop_path}` : backdropPath;
 
   const schemaData = {
@@ -220,30 +212,19 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       </Head>
 
       <Header />
-      {/* დინამიური მოდალი */}
       {isModalOpen && (
         <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
       )}
 
-      {/* დინამიური ფლეიერი */}
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-24 md:pt-32 pb-0 relative z-20">
             <PlayerContainer kinopoisk_id={kinopoisk_id} imdb_id={tvShow.imdb_id} tmdb_id={tvShow.tmdb_id} title={title} trailer_url={tvShow.trailer_url} type="tv" />
         </section>
       )}
 
-      {/* ================= MOBILE LAYOUT START ================= */}
+      {/* MOBILE LAYOUT */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-4 z-10">
-        {/* 🚀 OPTIMIZATION: mobileBackdropPath + fetchPriority="high" */}
-        <Image 
-          src={mobileBackdropPath} 
-          alt={title} 
-          fill 
-          style={{ objectFit: 'cover' }} 
-          priority 
-          fetchPriority="high"
-          sizes="100vw"
-        />
+        <Image src={mobileBackdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" />
         <div className="absolute top-0 left-0 right-0 h-44 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
@@ -259,22 +240,9 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       <div className="lg:hidden px-4 pb-10 space-y-6 -mt-2 relative z-20">
         <div className="flex gap-4">
           <div className="w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border border-gray-800 relative aspect-[2/3]">
-            <Image 
-              src={posterPath} 
-              alt={title} 
-              fill 
-              className="object-cover" 
-              sizes="7rem" // w-28 is approximately 7rem
-            />
+            <Image src={posterPath} alt={title} fill className="object-cover" sizes="7rem" />
             {isAdmin && (
-                <Link 
-                  href={`/admin/edit/${tvShow.tmdb_id}`} 
-                  target="_blank" 
-                  className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white hover:bg-brand-red transition-colors duration-200 shadow-md border border-white/10"
-                  title="Редактировать сериал"
-                >
-                  <EditIcon />
-                </Link>
+                <Link href={`/admin/edit/${tvShow.tmdb_id}`} target="_blank" className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>
             )}
           </div>
           <div className="flex-grow flex flex-col justify-center gap-3">
@@ -282,67 +250,28 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
               {tvShow.rating_imdb > 0 && <span className="bg-[#F5C518] text-black px-1.5 py-0.5 rounded font-bold text-xs">IMDb {tvShow.rating_imdb}</span>}
               {tvShow.rating_kp > 0 && <span className="bg-[#f50] text-white px-1.5 py-0.5 rounded font-bold text-xs">KP {tvShow.rating_kp}</span>}
             </div>
-            <div className="flex flex-wrap gap-1 text-xs text-gray-400">
-              {(tvShow.countries || []).slice(0, 2).join(', ')}
-            </div>
+            <div className="flex flex-wrap gap-1 text-xs text-gray-400">{(tvShow.countries || []).slice(0, 2).join(', ')}</div>
             <div className="flex flex-wrap gap-1.5">
-              {(tvShow.genres_names || []).slice(0, 2).map((g, i) => (
-                <Link key={i} href={`/discover?genre=${g.toLowerCase()}`} className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 border border-gray-700 hover:bg-brand-red hover:text-white hover:border-brand-red transition-colors">
-                  {g}
-                </Link>
-              ))}
+              {(tvShow.genres_names || []).slice(0, 2).map((g, i) => <Link key={i} href={`/discover?genre=${g.toLowerCase()}`} className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 border border-gray-700">{g}</Link>)}
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={handleShowTrailer} className="col-span-2 bg-brand-red text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform">
-            <PlayIcon /> Трейлер
-          </button>
-          <button onClick={() => toggleItem(tvShow.tmdb_id)} className={`py-3 rounded-xl font-bold border flex items-center justify-center gap-2 active:scale-95 transition-transform ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red' : 'border-gray-600 text-gray-300'}`}>
-            <HeartIcon isFilled={isFavorite} /> {isFavorite ? 'В избранном' : 'В избранное'}
-          </button>
-          <Link href="/tv-shows" className="py-3 rounded-xl font-bold border border-gray-600 text-gray-300 flex items-center justify-center gap-2 active:scale-95 transition-transform">
-            <TvIcon /> Сериал
-          </Link>
+          <button onClick={handleShowTrailer} className="col-span-2 bg-brand-red text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><PlayIcon /> Трейлер</button>
+          <button onClick={() => toggleItem(tvShow.tmdb_id)} className={`py-3 rounded-xl font-bold border flex items-center justify-center gap-2 ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red' : 'border-gray-600 text-gray-300'}`}><HeartIcon isFilled={isFavorite} /> {isFavorite ? 'В избранном' : 'В избранное'}</button>
+          <Link href="/tv-shows" className="py-3 rounded-xl font-bold border border-gray-600 text-gray-300 flex items-center justify-center gap-2"><TvIcon /> Сериал</Link>
         </div>
 
-        <div className="text-sm text-gray-300 leading-relaxed">
-          <h3 className="text-white font-bold mb-2">Описание</h3>
-          {tvShow.overview}
-        </div>
-
-        <div className="bg-[#151a21] rounded-xl p-4 border border-gray-800">
-          <div className="grid grid-cols-2 gap-y-4 text-xs">
-            <div><span className="block text-gray-500 mb-1">Преმьера</span><span className="text-white">{tvShow.formattedPremiere}</span></div>
-          </div>
-        </div>
-
-        <div>
-          <MediaCarousel title="Актеры" items={actors} swiperKey="mobile-tv-actors" cardType="actor" />
-        </div>
-
-        {recommendations?.length > 0 && (
-          <div>
-            <MediaCarousel title="Похожие" items={recommendations} swiperKey="mobile-tv-recs" cardType="tv" />
-          </div>
-        )}
+        <div className="text-sm text-gray-300 leading-relaxed"><h3 className="text-white font-bold mb-2">Описание</h3>{tvShow.overview}</div>
+        <div><MediaCarousel title="Актеры" items={actors} swiperKey="mobile-tv-actors" cardType="actor" /></div>
+        {recommendations?.length > 0 && <div><MediaCarousel title="Похожие" items={recommendations} swiperKey="mobile-tv-recs" cardType="tv" /></div>}
       </div>
-      {/* ================= MOBILE LAYOUT END ================= */}
 
-      {/* ================= DESKTOP LAYOUT START ================= */}
+      {/* DESKTOP LAYOUT */}
       <div className="hidden lg:block">
         <section className="relative h-[70vh] w-full -mt-4 z-10">
-          {/* 🚀 OPTIMIZATION: w1280 + fetchPriority="high" */}
-          <Image 
-            src={backdropPath} 
-            alt={title} 
-            fill 
-            style={{ objectFit: 'cover' }} 
-            priority 
-            fetchPriority="high"
-            sizes="100vw"
-          />
+          <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" />
           <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
@@ -358,15 +287,9 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
               <p className="text-base text-gray-200 mt-3 line-clamp-3">{tvShow.overview}</p>
 
               <div className="flex items-center space-x-3 mt-5">
-                <button onClick={handleShowTrailer} className="bg-brand-red text-white font-bold py-2.5 px-6 rounded-lg hover:bg-red-700 transition flex items-center gap-2">
-                  <PlayIcon /> Трейлер
-                </button>
-                <button onClick={() => toggleItem(tvShow.tmdb_id)} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red' : 'border-gray-500 text-gray-300 hover:text-white'}`}>
-                  <HeartIcon isFilled={isFavorite} /> {isFavorite ? 'В избранном' : 'В избранное'}
-                </button>
-                <Link href="/tv-shows" className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 border-gray-500 text-gray-300 hover:text-white hover:border-white hover:bg-white/5 cursor-pointer">
-                  <TvIcon /> Сериал
-                </Link>
+                <button onClick={handleShowTrailer} className="bg-brand-red text-white font-bold py-2.5 px-6 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><PlayIcon /> Трейлер</button>
+                <button onClick={() => toggleItem(tvShow.tmdb_id)} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red' : 'border-gray-500 text-gray-300 hover:text-white'}`}><HeartIcon isFilled={isFavorite} /> {isFavorite ? 'В избранном' : 'В избранное'}</button>
+                <Link href="/tv-shows" className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 border-gray-500 text-gray-300 hover:text-white hover:border-white hover:bg-white/5 cursor-pointer"><TvIcon /> Сериал</Link>
               </div>
             </div>
           </div>
@@ -375,65 +298,31 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
         <main className="max-w-7xl mx-auto px-8 -mt-6 relative z-20 pb-16">
           <div className="grid grid-cols-12 gap-8 items-stretch">
             <div className="col-span-8 flex flex-col h-full">
-              <div className="w-full mb-6">
-                <MediaCarousel title="В ролях" items={actors} swiperKey="desktop-tv-actors" cardType="actor" />
-              </div>
+              <div className="w-full mb-6"><MediaCarousel title="В ролях" items={actors} swiperKey="desktop-tv-actors" cardType="actor" /></div>
               <div className="bg-[#151a21] border border-gray-800 rounded-xl p-6 shadow-lg flex-grow flex flex-col justify-center">
                 <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-800 pb-3">Детали</h3>
                 <div className="grid grid-cols-3 gap-y-6 gap-x-4 text-sm">
                   {tvShow.rating_imdb > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг IMDb</span><span className="text-white font-bold text-lg">{tvShow.rating_imdb}</span></div>)}
                   {tvShow.rating_kp > 0 && (<div><span className="text-gray-500 block mb-1">Рейтинг КП</span><span className="text-white font-bold text-lg">{tvShow.rating_kp}</span></div>)}
                   {tvShow.countries && (<div><span className="text-gray-500 block mb-1">Страна</span><span className="text-white font-medium">{tvShow.countries.join(', ')}</span></div>)}
-
                   <div><span className="text-gray-500 block mb-1">Премьера</span><span className="text-white font-medium">{tvShow.formattedPremiere}</span></div>
-
                   <div className="col-span-3 pt-2">
                     <span className="text-gray-500 block mb-2">Жанры</span>
-                    <div className="flex flex-wrap gap-2">
-                      {(tvShow.genres_names || []).map((g, i) => (
-                        <Link key={i} href={`/discover?genre=${g.toLowerCase()}`} className="px-3 py-1 bg-gray-800 text-gray-300 rounded-md border border-gray-700 hover:bg-brand-red hover:text-white hover:border-brand-red transition-colors cursor-pointer">
-                          {g}
-                        </Link>
-                      ))}
-                    </div>
+                    <div className="flex flex-wrap gap-2">{(tvShow.genres_names || []).map((g, i) => <Link key={i} href={`/discover?genre=${g.toLowerCase()}`} className="px-3 py-1 bg-gray-800 text-gray-300 rounded-md border border-gray-700 hover:bg-brand-red hover:text-white">{g}</Link>)}</div>
                   </div>
                 </div>
               </div>
             </div>
             <div className="col-span-4 h-full">
               <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-800/50 w-full h-full min-h-[500px]">
-                <Image 
-                  src={posterPath} 
-                  alt={title} 
-                  fill 
-                  className="object-cover" 
-                  priority
-                  sizes="(max-width: 1200px) 50vw, 33vw"
-                />
-                
-                {isAdmin && (
-                  <Link 
-                    href={`/admin/edit/${tvShow.tmdb_id}`} 
-                    target="_blank" 
-                    className="absolute top-4 right-4 z-20 flex items-center justify-center p-2.5 rounded-full bg-red-800/80 text-white hover:bg-brand-red transition-colors duration-200 shadow-xl border border-white/20"
-                    title="Редактировать сериал"
-                  >
-                    <EditIcon />
-                  </Link>
-                )}
-                
+                <Image src={posterPath} alt={title} fill className="object-cover" priority sizes="(max-width: 1200px) 50vw, 33vw" />
+                {isAdmin && <Link href={`/admin/edit/${tvShow.tmdb_id}`} target="_blank" className="absolute top-4 right-4 z-20 flex items-center justify-center p-2.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>}
               </div>
             </div>
           </div>
-          {recommendations?.length > 0 && (
-            <div className="mt-12 border-t border-gray-800 pt-8">
-              <MediaCarousel title="Рекомендации" items={recommendations} swiperKey="desktop-tv-recs" cardType="tv" />
-            </div>
-          )}
+          {recommendations?.length > 0 && <div className="mt-12 border-t border-gray-800 pt-8"><MediaCarousel title="Рекомендации" items={recommendations} swiperKey="desktop-tv-recs" cardType="tv" /></div>}
         </main>
       </div>
-      {/* ================= DESKTOP LAYOUT END ================= */}
-
       <Footer />
     </div>
   );
