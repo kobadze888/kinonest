@@ -142,7 +142,22 @@ const FlixCDNPlayer = ({ kinopoiskId, imdbId }) => {
     return () => { isMounted = false; };
   }, [kinopoiskId, imdbId]);
 
-  if (loading) return <div className="absolute inset-0 flex items-center justify-center bg-black text-gray-400"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-red"></div></div>;
+  if (loading) return (
+    // 💡 განახლებული ვიზუალური პრეფლოადერი
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-center text-gray-400 p-8">
+      
+      {/* უფრო დიდი სპინერი */}
+      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-brand-red mb-4"></div>
+      
+      {/* ინფორმაციული სათაური */}
+      <h3 className="text-xl font-bold text-white mb-2">Загружаем «Плеер 2»...</h3>
+      
+      {/* ინსტრუქცია და ლოდინის დრო */}
+      <p className="text-sm text-gray-400">
+        Плееру может потребоваться 3-5 секунд для загрузки. Пожалуйста, подождите.
+      </p>
+    </div>
+  );
   
   if (error || !iframeUrl) {
     /* 💡 განახლებული შეტყობინება */
