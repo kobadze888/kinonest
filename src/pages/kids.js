@@ -31,7 +31,7 @@ export async function getServerSideProps({ query: urlQuery }) {
   try {
     const sql = `
       SELECT ${columns} FROM media 
-      WHERE genres_names && ARRAY['мультфильм', 'семейный']
+      WHERE genres_names && ARRAY['мультфильм']
       ORDER BY 
         CASE 
           WHEN title_ru ~ '[а-яА-ЯёЁ]' 
@@ -49,7 +49,7 @@ export async function getServerSideProps({ query: urlQuery }) {
     const itemsRes = await query(sql, [limit, offset]);
     items = itemsRes.rows;
 
-    const countRes = await query(`SELECT COUNT(*) FROM media WHERE genres_names && ARRAY['мультфильм', 'семейный']`);
+    const countRes = await query(`SELECT COUNT(*) FROM media WHERE genres_names && ARRAY['мультфильм']`);
     total = parseInt(countRes.rows[0].count);
   } catch (e) {
     console.error("Kids Page Error:", e.message);

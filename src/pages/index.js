@@ -230,7 +230,7 @@ export default function Home({
           />
 
           <MediaCarousel 
-            title="Свежие поступления Сериалы"
+            title="Сериалы"
             items={newSeries}
             swiperKey="new-series"
             cardType="movie"
@@ -240,7 +240,7 @@ export default function Home({
           />
 
           <MediaCarousel 
-            title="Свежие поступления Ужасы"
+            title="Ужасы"
             items={horrorMovies}
             swiperKey="horror-movies"
             cardType="movie"
@@ -250,7 +250,7 @@ export default function Home({
           />
 
           <MediaCarousel 
-            title="Свежие поступления Комедия"
+            title="Комедия"
             items={comedyMovies}
             swiperKey="comedy-movies"
             cardType="movie"
