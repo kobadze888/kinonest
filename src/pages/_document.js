@@ -5,7 +5,7 @@ export default function Document() {
     <Html lang="ru">
       <Head>
         {/* Favicon - SVG (თანამედროვე ბრაუზერებისთვის) */}
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         
         {/* Favicon - აი აქ ვამატებთ */}
         <link rel="icon" href="/favicon.png" sizes="any" />
