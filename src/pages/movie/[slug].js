@@ -36,16 +36,17 @@ export async function getServerSideProps(context) {
   const tmdbId = slug.split('-')[0];
   if (!tmdbId) return { notFound: true };
 
-  // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
-  // s-maxage=3600 (1 საათი ინახება CDN-ზე)
-  // stale-while-revalidate=86400 (1 დღე აჩვენებს ძველ ვერსიას, სანამ ფონში ახლდება)
-  context.res.setHeader(
-    'Cache-Control',
-    'public, s-maxage=3600, stale-while-revalidate=86400'
-  );
-
   const session = await getSession(context);
   const isAdmin = !!session;
+
+  // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
+  // 🛑 უსაფრთხოების განახლება: თუ ადმინი შესულია, არ ვქეშირებთ (Cache-Control: private)
+  if (context.res) {
+    context.res.setHeader(
+      'Cache-Control',
+      isAdmin ? 'private, no-cache, no-store, must-revalidate' : 'public, s-maxage=3600, stale-while-revalidate=86400'
+    );
+  }
 
   let movie = null;
   let kinopoisk_id = null;

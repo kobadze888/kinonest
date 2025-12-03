@@ -36,16 +36,17 @@ export async function getServerSideProps(context) {
   const tmdbId = slug.split('-')[0];
   if (!tmdbId) return { notFound: true };
 
+  const session = await getSession(context);
+  const isAdmin = !!session;
+
   // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
+  // 🛑 უსაფრთხოების განახლება: თუ ადმინი შესულია, არ ვქეშირებთ (Cache-Control: private)
   if (context.res) {
     context.res.setHeader(
       'Cache-Control',
-      'public, s-maxage=3600, stale-while-revalidate=86400'
+      isAdmin ? 'private, no-cache, no-store, must-revalidate' : 'public, s-maxage=3600, stale-while-revalidate=86400'
     );
   }
-
-  const session = await getSession(context);
-  const isAdmin = !!session;
 
   let tvShow = null;
   let kinopoisk_id = null;
@@ -231,7 +232,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
 
       {/* MOBILE LAYOUT */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-4 z-10">
-        <Image src={mobileBackdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" />
+        <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" />
         <div className="absolute top-0 left-0 right-0 h-44 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
