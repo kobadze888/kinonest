@@ -25,7 +25,7 @@ const KinoBDPlayer = ({ kinopoiskId }) => {
     script.async = true;
     document.body.appendChild(script);
     return () => {
-      if (containerRef.current) containerRef.current.innerHTML = '';
+      if (containerRef.current) containerRef.innerHTML = '';
       const s = document.getElementById(scriptId);
       if (s) s.remove();
     };
@@ -116,25 +116,45 @@ const FlixCDNPlayer = ({ kinopoiskId, imdbId }) => {
           if (isMounted) { setError(true); setLoading(false); }
           return;
       }
+      
+      // 1. ვქმნით Promise-ს API მოთხოვნისთვის
+      const apiCallPromise = new Promise(async (resolve, reject) => {
+          try {
+              const queryParams = new URLSearchParams();
+              if (kinopoiskId) queryParams.append('kp_id', kinopoiskId);
+              if (imdbId) queryParams.append('imdb_id', imdbId);
 
+              // აქ უკვე მიმართავს ჩვენს დაქეშილ API-ს
+              const res = await fetch(`/api/get-flixcdn-link?${queryParams.toString()}`);
+              
+              if (res.ok) {
+                  const data = await res.json();
+                  resolve({ success: true, link: data.link });
+              } else {
+                  reject(new Error("Not found"));
+              }
+          } catch (e) { 
+              reject(e); 
+          }
+      });
+      
+      // 2. ვქმნით Promise-ს მინიმალური 5 წამიანი დაყოვნებისთვის (5000ms)
+      const minDelayPromise = new Promise(resolve => setTimeout(resolve, 5000));
+      
       try {
-        const queryParams = new URLSearchParams();
-        if (kinopoiskId) queryParams.append('kp_id', kinopoiskId);
-        if (imdbId) queryParams.append('imdb_id', imdbId);
-
-        // აქ უკვე მიმართავს ჩვენს დაქეშილ API-ს
-        const res = await fetch(`/api/get-flixcdn-link?${queryParams.toString()}`);
-        
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted) setIframeUrl(data.link);
-        } else {
+          // 3. ველოდებით ორივე Promise-ის დასრულებას
+          const [apiResult] = await Promise.all([apiCallPromise, minDelayPromise]);
+          
+          if (isMounted && apiResult.success) {
+              setIframeUrl(apiResult.link);
+              setError(false);
+          } else {
+              if (isMounted) setError(true);
+          }
+      } catch (e) {
           if (isMounted) setError(true);
-        }
-      } catch (e) { 
-        if (isMounted) setError(true); 
       } finally { 
-        if (isMounted) setLoading(false); 
+          if (isMounted) setLoading(false); 
       }
     }
 
@@ -143,7 +163,7 @@ const FlixCDNPlayer = ({ kinopoiskId, imdbId }) => {
   }, [kinopoiskId, imdbId]);
 
   if (loading) return (
-    // 💡 განახლებული ვიზუალური პრეფლოადერი
+    /* 💡 განახლებული ვიზუალური პრეფლოადერი (5 წამი მინიმალური ლოდინით) */
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-center text-gray-400 p-8">
       
       {/* უფრო დიდი სპინერი */}
