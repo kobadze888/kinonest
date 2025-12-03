@@ -1,34 +1,46 @@
 // src/pages/api/get-kodik-link.js
+
+const cache = new Map();
+const CACHE_TTL = 3600 * 1000; // 1 საათი
+
 export default async function handler(req, res) {
   const { kp_id } = req.query;
-  const token = '3dfb9a9b93cf6b9dbe6de7644bc4b3da'; // თქვენი Kodik API Key
+  const token = '3dfb9a9b93cf6b9dbe6de7644bc4b3da'; 
 
-  if (!kp_id) {
-    return res.status(400).json({ error: 'No Kinopoisk ID provided' });
+  if (!kp_id) return res.status(400).json({ error: 'No KP ID' });
+
+  const cacheKey = `kodik_${kp_id}`;
+
+  // 1. ქეშის შემოწმება
+  if (cache.has(cacheKey)) {
+    const { data, timestamp } = cache.get(cacheKey);
+    if (Date.now() - timestamp < CACHE_TTL) {
+      return res.status(200).json(data);
+    }
   }
 
   try {
-    // ვეძებთ ყველა ტიპის მასალას (ფილმი/სერიალი/ანიმე) KP ID-ით
     const url = `https://kodikapi.com/search?token=${token}&kinopoisk_id=${kp_id}&with_material_data=true`;
-
     const response = await fetch(url);
-    if (!response.ok) return res.status(404).json({ error: 'Kodik API Error' });
+    if (!response.ok) throw new Error('API Error');
 
-    const data = await response.json();
+    const apiData = await response.json();
 
-    if (data.results && data.results.length > 0) {
-      // ვიღებთ პირველივე შედეგის ლინკს
-      let link = data.results[0].link;
-      
-      // ვასწორებთ პროტოკოლს (თუ http-ით მოვიდა)
+    if (apiData.results && apiData.results.length > 0) {
+      let link = apiData.results[0].link;
       if (link.startsWith('//')) link = 'https:' + link;
       
-      return res.status(200).json({ link });
+      const successData = { link };
+      
+      // 2. დამახსოვრება
+      cache.set(cacheKey, { data: successData, timestamp: Date.now() });
+      if (cache.size > 10000) cache.clear();
+
+      return res.status(200).json(successData);
     } else {
-      return res.status(404).json({ error: 'Not found in Kodik' });
+      return res.status(404).json({ error: 'Not found' });
     }
   } catch (error) {
-    console.error("Kodik API Error:", error);
     return res.status(500).json({ error: error.message });
   }
 }
