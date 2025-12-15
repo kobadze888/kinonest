@@ -40,7 +40,6 @@ export async function getServerSideProps(context) {
   const isAdmin = !!session;
 
   // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
-  // 🛑 უსაფრთხოების განახლება: თუ ადმინი შესულია, არ ვქეშირებთ (Cache-Control: private)
   if (context.res) {
     context.res.setHeader(
       'Cache-Control',
@@ -85,7 +84,6 @@ export async function getServerSideProps(context) {
 
       // 3. ვიღებთ რეკომენდაციებს (ოპტიმიზირებული SQL)
       if (movie.genres_names && movie.genres_names.length > 0) {
-          // 💡 რეკომენდაცია: შეწონილი სორტირება (რეიტინგი + პოპულარობა + ჟანრის დამთხვევა)
           const recRes = await query(`
             SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
             FROM media m
@@ -158,7 +156,8 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const formattedPremiere = movie.premiere_world ? new Date(movie.premiere_world).toLocaleDateString('ru-RU') : '-';
 
   return (
-    <div className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
+    // 🔥 KEY დაემატა: ეს აიძულებს React-ს, ახალ ფილმზე გადასვლისას გვერდი თავიდან დახატოს
+    <div key={movie.tmdb_id} className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <SeoHead title={title} description={movie.overview} image={posterPath} type="video.movie" releaseYear={releaseYear} rating={movie.rating_tmdb} />
       <Header />
       {isModalOpen && <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />}
@@ -171,7 +170,17 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
 
       {/* MOBILE LAYOUT */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-2 z-10">
-        <Image src={mobileBackdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" />
+        <Image 
+            src={mobileBackdropPath} 
+            alt={title} 
+            fill 
+            style={{ objectFit: 'cover' }} 
+            priority 
+            fetchPriority="high" 
+            sizes="100vw"
+            // 🔥 სისწრაფისთვის (unoptimized)
+            unoptimized={true} 
+        />
         <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
@@ -187,7 +196,16 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       <div className="lg:hidden px-4 pb-10 space-y-6 -mt-2 relative z-20">
         <div className="flex gap-4">
           <div className="w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border border-gray-800 relative aspect-[2/3]">
-            <Image src={posterPath} alt={title} fill className="object-cover" sizes="7rem" priority />
+            <Image 
+                src={posterPath} 
+                alt={title} 
+                fill 
+                className="object-cover" 
+                sizes="7rem" 
+                priority 
+                // 🔥 სისწრაფისთვის
+                unoptimized={true}
+            />
             {isAdmin && <Link href={`/admin/edit/${movie.tmdb_id}`} target="_blank" className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>}
           </div>
           <div className="flex-grow flex flex-col justify-center gap-3">
@@ -214,7 +232,17 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       {/* DESKTOP LAYOUT */}
       <div className="hidden lg:block">
         <section className="relative h-[70vh] w-full -mt-2 z-10">
-          <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" />
+          <Image 
+            src={backdropPath} 
+            alt={title} 
+            fill 
+            style={{ objectFit: 'cover' }} 
+            priority 
+            fetchPriority="high" 
+            sizes="100vw" 
+            // 🔥 სისწრაფისთვის
+            unoptimized={true}
+          />
           <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
@@ -257,7 +285,16 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
             </div>
             <div className="col-span-4 h-full">
               <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-800/50 w-full h-full min-h-[500px]">
-                <Image src={posterPath} alt={title} fill className="object-cover" priority sizes="(max-width: 1200px) 50vw, 33vw" />
+                <Image 
+                    src={posterPath} 
+                    alt={title} 
+                    fill 
+                    className="object-cover" 
+                    priority 
+                    sizes="(max-width: 1200px) 50vw, 33vw"
+                    // 🔥 სისწრაფისთვის
+                    unoptimized={true} 
+                />
                 {isAdmin && <Link href={`/admin/edit/${movie.tmdb_id}`} target="_blank" className="absolute top-4 right-4 z-20 flex items-center justify-center p-2.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>}
               </div>
             </div>
