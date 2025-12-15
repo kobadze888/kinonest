@@ -15,17 +15,17 @@ import { getSession } from 'next-auth/react';
 const TrailerModal = dynamic(() => import('@/components/TrailerModal'), { ssr: false });
 
 // Player Skeleton - ვიზუალური სტაბილურობისთვის
-const PlayerContainer = dynamic(() => import('@/components/PlayerContainer'), { 
+const PlayerContainer = dynamic(() => import('@/components/PlayerContainer'), {
   ssr: false,
   loading: () => (
     <div className="w-full max-w-7xl mx-auto px-0 sm:px-6 lg:px-8 relative z-10">
       <div className="bg-[#151a21] border-y md:border border-gray-800 md:rounded-xl overflow-hidden shadow-2xl flex flex-col">
-         <div className="h-[53px] bg-[#1a1f26] border-b border-gray-800 w-full flex items-center px-4">
-            <div className="w-24 h-6 bg-gray-700/50 rounded animate-pulse"></div>
-         </div>
-         <div className="w-full relative" style={{ paddingBottom: '56.25%' }}>
-            <div className="absolute inset-0 bg-black animate-pulse"></div>
-         </div>
+        <div className="h-[53px] bg-[#1a1f26] border-b border-gray-800 w-full flex items-center px-4">
+          <div className="w-24 h-6 bg-gray-700/50 rounded animate-pulse"></div>
+        </div>
+        <div className="w-full relative" style={{ paddingBottom: '56.25%' }}>
+          <div className="absolute inset-0 bg-black animate-pulse"></div>
+        </div>
       </div>
     </div>
   )
@@ -37,7 +37,7 @@ export async function getServerSideProps(context) {
   if (!tmdbId) return { notFound: true };
 
   const session = await getSession(context);
-  const isAdmin = !!session;
+  const isAdmin = session?.user?.role === 'admin';
 
   // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
   if (context.res) {
@@ -127,7 +127,7 @@ export async function getServerSideProps(context) {
       kinopoisk_id,
       actors,
       recommendations,
-      isAdmin, 
+      isAdmin,
     },
   };
 }
@@ -158,7 +158,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       let embedUrl = tvShow.trailer_url;
       if (embedUrl.includes('watch?v=')) embedUrl = embedUrl.replace('watch?v=', 'embed/');
       else if (embedUrl.includes('youtu.be/')) embedUrl = embedUrl.replace('youtu.be/', 'embed/');
-      
+
       setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${embedUrl}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
       setModalIsLoading(false);
       return;
@@ -202,11 +202,11 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
   return (
     // 🔥 KEY დაემატა: ახალ სერიალზე გადასვლისას გვერდი ძველს შლის და ახალს ხატავს
     <div key={tvShow.tmdb_id} className="bg-[#10141A] text-white font-sans">
-      <SeoHead 
-        title={title} 
-        description={tvShow.overview} 
-        image={posterPath} 
-        type="video.tv_show" 
+      <SeoHead
+        title={title}
+        description={tvShow.overview}
+        image={posterPath}
+        type="video.tv_show"
         releaseYear={tvShow.release_year}
         rating={tvShow.rating_tmdb}
       />
@@ -225,22 +225,22 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
 
       {kinopoisk_id && (
         <section className="bg-[#10141A] pt-24 md:pt-32 pb-0 relative z-20">
-            <PlayerContainer kinopoisk_id={kinopoisk_id} imdb_id={tvShow.imdb_id} tmdb_id={tvShow.tmdb_id} title={title} trailer_url={tvShow.trailer_url} type="tv" />
+          <PlayerContainer kinopoisk_id={kinopoisk_id} imdb_id={tvShow.imdb_id} tmdb_id={tvShow.tmdb_id} title={title} trailer_url={tvShow.trailer_url} type="tv" />
         </section>
       )}
 
       {/* MOBILE LAYOUT */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-4 z-10">
-        <Image 
-            src={backdropPath} 
-            alt={title} 
-            fill 
-            style={{ objectFit: 'cover' }} 
-            priority 
-            fetchPriority="high" 
-            sizes="100vw"
-            // 🔥 სისწრაფისთვის
-            unoptimized={true} 
+        <Image
+          src={backdropPath}
+          alt={title}
+          fill
+          style={{ objectFit: 'cover' }}
+          priority
+          fetchPriority="high"
+          sizes="100vw"
+          // 🔥 სისწრაფისთვის
+          unoptimized={true}
         />
         <div className="absolute top-0 left-0 right-0 h-44 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
@@ -257,17 +257,17 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       <div className="lg:hidden px-4 pb-10 space-y-6 -mt-2 relative z-20">
         <div className="flex gap-4">
           <div className="w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border border-gray-800 relative aspect-[2/3]">
-            <Image 
-                src={posterPath} 
-                alt={title} 
-                fill 
-                className="object-cover" 
-                sizes="7rem"
-                // 🔥 სისწრაფისთვის
-                unoptimized={true} 
+            <Image
+              src={posterPath}
+              alt={title}
+              fill
+              className="object-cover"
+              sizes="7rem"
+              // 🔥 სისწრაფისთვის
+              unoptimized={true}
             />
             {isAdmin && (
-                <Link href={`/admin/edit/${tvShow.tmdb_id}`} target="_blank" className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>
+              <Link href={`/admin/edit/${tvShow.tmdb_id}`} target="_blank" className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>
             )}
           </div>
           <div className="flex-grow flex flex-col justify-center gap-3">
@@ -296,16 +296,16 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       {/* DESKTOP LAYOUT */}
       <div className="hidden lg:block">
         <section className="relative h-[70vh] w-full -mt-4 z-10">
-          <Image 
-            src={backdropPath} 
-            alt={title} 
-            fill 
-            style={{ objectFit: 'cover' }} 
-            priority 
-            fetchPriority="high" 
+          <Image
+            src={backdropPath}
+            alt={title}
+            fill
+            style={{ objectFit: 'cover' }}
+            priority
+            fetchPriority="high"
             sizes="100vw"
             // 🔥 სისწრაფისთვის
-            unoptimized={true} 
+            unoptimized={true}
           />
           <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
@@ -350,15 +350,15 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
             </div>
             <div className="col-span-4 h-full">
               <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-800/50 w-full h-full min-h-[500px]">
-                <Image 
-                    src={posterPath} 
-                    alt={title} 
-                    fill 
-                    className="object-cover" 
-                    priority 
-                    sizes="(max-width: 1200px) 50vw, 33vw"
-                    // 🔥 სისწრაფისთვის
-                    unoptimized={true} 
+                <Image
+                  src={posterPath}
+                  alt={title}
+                  fill
+                  className="object-cover"
+                  priority
+                  sizes="(max-width: 1200px) 50vw, 33vw"
+                  // 🔥 სისწრაფისთვის
+                  unoptimized={true}
                 />
                 {isAdmin && <Link href={`/admin/edit/${tvShow.tmdb_id}`} target="_blank" className="absolute top-4 right-4 z-20 flex items-center justify-center p-2.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>}
               </div>
