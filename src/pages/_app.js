@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import Script from 'next/script'; // <--- ეს დავამატე
 import '../styles/globals.css';
 
 import 'swiper/css';
@@ -34,12 +35,11 @@ const GlobalStyles = () => (
 
     /* --- HERO SLIDER STYLES (ADAPTIVE) --- */
     .hero-slider {
-      height: 60vh; /* მობილურზე კომპაქტური */
+      height: 60vh;
       min-height: 400px;
       position: relative;
     }
 
-    /* დესკტოპზე და დიდ ეკრანებზე */
     @media (min-width: 768px) {
       .hero-slider {
         height: 85vh;
@@ -62,7 +62,7 @@ const GlobalStyles = () => (
 
     .hero-slider .swiper-pagination {
       position: absolute !important;
-      bottom: 20px !important; /* მობილურზე ცოტა დაბლა */
+      bottom: 20px !important;
       left: 0 !important;
       right: 0 !important;
       width: 100% !important;
@@ -82,7 +82,7 @@ const GlobalStyles = () => (
 
     .swiper-pagination-bullet {
       display: block !important;
-      width: 6px !important; /* მობილურზე პატარა */
+      width: 6px !important;
       height: 6px !important;
       background: rgba(255, 255, 255, 0.4) !important;
       opacity: 1 !important;
@@ -103,7 +103,7 @@ const GlobalStyles = () => (
 
     .swiper-pagination-bullet-active {
       background: #e50914 !important;
-      width: 20px !important; /* მობილურზე */
+      width: 20px !important;
       border-radius: 4px !important;
     }
     
@@ -127,7 +127,7 @@ const GlobalStyles = () => (
     }
 
     .nav-btn-custom {
-      width: 32px; /* მობილურზე პატარა ღილაკები */
+      width: 32px;
       height: 32px;
       display: flex;
       align-items: center;
@@ -217,7 +217,7 @@ const GlobalStyles = () => (
     }
 
     .swiper:not(.swiper-initialized) .swiper-slide {
-      margin-right: 16px; /* მობილურზე ნაკლები დაშორება */
+      margin-right: 16px;
       flex-shrink: 0;     
       display: block;     
     }
@@ -261,6 +261,40 @@ function MyApp({ Component, pageProps }) {
         <title>KinoNest - Полный кинопортал</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </Head>
+
+      {/* --- GOOGLE ANALYTICS START --- */}
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS}`}
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){window.dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS}');
+        `}
+      </Script>
+      {/* --- GOOGLE ANALYTICS END --- */}
+
+      {/* --- YANDEX METRICA START --- */}
+      <Script id="yandex-metrika" strategy="afterInteractive">
+        {`
+           (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+           m[i].l=1*new Date();
+           for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+           k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+           (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+           ym(${process.env.NEXT_PUBLIC_YANDEX_METRICA}, "init", {
+                clickmap:true,
+                trackLinks:true,
+                accurateTrackBounce:true,
+                webvisor:true
+           });
+        `}
+      </Script>
+      {/* --- YANDEX METRICA END --- */}
       
       <GlobalStyles />
       <Component {...pageProps} />
