@@ -1,4 +1,3 @@
-// src/components/ActorCard.js
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; 
@@ -6,9 +5,10 @@ import { IMAGE_BASE_URL } from '../lib/api';
 import { slugify } from '../lib/utils';
 
 export default function ActorCard({ actor }) {
+  // ვიყენებთ w200-ს, რომ მსუბუქი იყოს
   const profilePath = actor.profile_path 
-    ? `${IMAGE_BASE_URL}${actor.profile_path}` 
-    : 'https://placehold.co/500x500/1f2937/6b7280?text=No+Photo';
+    ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` 
+    : 'https://placehold.co/200x200/1f2937/6b7280?text=No+Photo';
     
   const actorSlug = slugify(actor.name);
   const linkHref = `/actor/${actor.id}-${actorSlug}`;
@@ -24,10 +24,11 @@ export default function ActorCard({ actor }) {
             src={profilePath} 
             alt={actor.name} 
             fill
-            sizes="(max-width: 768px) 128px, 160px"
             style={{ objectFit: 'cover' }}
             className="transform group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
+            // ⚠️ სწრაფი ჩატვირთვისთვის:
+            unoptimized={true}
           />
         </div>
       </div>

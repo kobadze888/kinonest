@@ -31,7 +31,8 @@ export default function HeroSlider({ movies }) {
       >
         {movies.map((movie, index) => {
           const title = movie.title_ru;
-          const backdropPath = movie.backdrop_path ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
+          // ვიყენებთ ორიგინალ ზომას უკეთესი ხარისხისთვის
+          const backdropPath = movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
           const linkHref = `/${movie.type}/${movie.tmdb_id}-${slugify(title)}-smotret-onlain-besplatno`;
 
           return (
@@ -43,9 +44,9 @@ export default function HeroSlider({ movies }) {
                 style={{ objectFit: 'cover' }}
                 priority={index === 0}
                 className="opacity-100"
-                // 🚀 FIX: ჰერო სლაიდერი ყოველთვის მთელ ეკრანზეა
                 sizes="100vw"
-                // 🚀 LCP: პირველი სლაიდი იტვირთება პრიორიტეტულად
+                // ⚠️ სწრაფი ჩატვირთვისთვის:
+                unoptimized={true}
                 fetchPriority={index === 0 ? "high" : "auto"}
               />
               <div className="slider-gradient absolute inset-0 z-10"></div>
