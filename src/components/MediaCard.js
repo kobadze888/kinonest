@@ -37,6 +37,7 @@ export default function MediaCard({ item }) {
   
   const showRating = item.rating_imdb > 0 ? item.rating_imdb : null;
   
+  // ვიყენებთ w500 ზომას პირდაპირ TMDB-დან
   const posterPath = item.poster_path 
     ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
     : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
@@ -49,7 +50,6 @@ export default function MediaCard({ item }) {
 
   return (
     <div className="block w-full group relative"> 
-      {/* 💡 FIX: დაემატა style={{ willChange: 'transform' ... }} ციმციმის მოსაგვარებლად */}
       <div 
         className="media-card rounded-lg overflow-hidden shadow-xl bg-gray-800 transition-all duration-300 ease-out hover:shadow-brand-red/10 hover:-translate-y-1"
         style={{ 
@@ -60,7 +60,6 @@ export default function MediaCard({ item }) {
         }}
       >
         
-        {/* 💡 CLS/Aspect Ratio Fix: min-height fallback და aspect-ratio თანამედროვე CSS */}
         <div className="relative w-full bg-gray-800" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
           <Link href={linkHref} className="block absolute inset-0 z-10">
              <Image 
@@ -70,7 +69,8 @@ export default function MediaCard({ item }) {
                 height={750}    
                 style={{ objectFit: 'cover' }} 
                 className="w-full h-full transition-opacity duration-300"
-                sizes="(max-width: 768px) 30vw, (max-width: 1200px) 20vw, 15vw"
+                // ⚠️ მნიშვნელოვანი ცვლილება RAM-ის დასაზოგად:
+                unoptimized={true} 
                 priority={false}
                 loading="lazy"
               />
