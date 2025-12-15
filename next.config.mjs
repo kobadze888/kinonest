@@ -11,7 +11,7 @@ const nextConfig = {
   images: {
     deviceSizes: [320, 420, 640, 768, 1024, 1280, 1536],
     imageSizes: [16, 32, 48, 64, 96],
-    formats: ['image/avif', 'image/webp'],
+    formats: ['image/webp'], // AVIF ამოღებულია CPU-ს დასაზოგად
     minimumCacheTTL: 31536000, // 1 წელი
     remotePatterns: [
       { protocol: 'https', hostname: 'image.tmdb.org', pathname: '/t/p/**' },
