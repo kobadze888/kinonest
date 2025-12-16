@@ -53,7 +53,7 @@ export async function getServerSideProps(context) {
   try {
     const movieRes = await query(`
       SELECT 
-        tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
+        tmdb_id, id, kinopoisk_id, type, title_ru, title_en, overview,
         poster_path, backdrop_path, release_year, rating_tmdb,
         genres_ids, genres_names,
         to_char(created_at, 'YYYY-MM-DD') as created_at, 
@@ -69,11 +69,13 @@ export async function getServerSideProps(context) {
       movie = movieRes.rows[0];
       kinopoisk_id = movie.kinopoisk_id;
 
+      // 💡 JOIN-ის გასწორება: ma.media_id = m.id
       const actorsRes = await query(`
         SELECT a.id, a.name, a.profile_path, ma.character
         FROM actors a
         JOIN media_actors ma ON a.id = ma.actor_id
-        WHERE ma.media_id = $1
+        JOIN media m ON ma.media_id = m.id
+        WHERE m.tmdb_id = $1
         ORDER BY ma."order" ASC
         LIMIT 12
       `, [tmdbId]);
@@ -130,12 +132,8 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   const [modalIsLoading, setModalIsLoading] = useState(false);
 
-  // --- 🔥 SCHEMAS FIX START 🔥 ---
-  // 1. გარდაქმნა რიცხვად: Number(...) უზრუნველყოფს, რომ string არ დარჩეს
   const ratingValue = Number(movie.rating_tmdb || movie.rating_imdb || movie.rating_kp || 0);
-  
   const ratingCount = movie.rating_imdb_count || movie.rating_kp_count || 50;
-  
   const hasValidRating = ratingValue > 0;
 
   const schemaData = {
@@ -149,7 +147,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
     ...(hasValidRating && {
       "aggregateRating": {
         "@type": "AggregateRating",
-        // აქ უკვე ratingValue არის რიცხვი, ამიტომ .toFixed(1) იმუშავებს
         "ratingValue": ratingValue.toFixed(1),
         "bestRating": "10",
         "worstRating": "1",
@@ -168,7 +165,6 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       "priceCurrency": "RUB"
     }
   };
-  // --- 🔥 SCHEMAS FIX END 🔥 ---
 
   const handleShowTrailerModal = () => {
     setIsModalOpen(true);
@@ -291,7 +287,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
                   {movie.countries && (<div><span className="text-gray-500 block mb-1">Страна</span><span className="text-white font-medium">{movie.countries.join(', ')}</span></div>)}
                   <div><span className="text-gray-500 block mb-1">Премьера</span><span className="text-white font-medium">{formattedPremiere}</span></div>
                   <div className="col-span-3 pt-2">
-                    <span className="text-gray-500 block mb-2">Жанры</span>
+                    <span className="text-gray-500 block mb-2">Жანры</span>
                     <div className="flex flex-wrap gap-2">{(movie.genres_names || []).map((g, i) => <Link key={i} href={`/discover?genre=${g.toLowerCase()}`} className="px-3 py-1 bg-gray-800 text-gray-300 rounded-md border border-gray-700 hover:bg-brand-red hover:text-white">{g}</Link>)}</div>
                   </div>
                 </div>

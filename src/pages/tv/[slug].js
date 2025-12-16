@@ -52,7 +52,7 @@ export async function getServerSideProps(context) {
 
   try {
     const columns = `
-      tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
+      tmdb_id, id, kinopoisk_id, type, title_ru, title_en, overview,
       poster_path, backdrop_path, release_year, rating_tmdb,
       genres_ids, genres_names,
       created_at::TEXT, 
@@ -76,11 +76,13 @@ export async function getServerSideProps(context) {
         : '-';
 
       try {
+        // 💡 JOIN-ის გასწორება: ma.media_id = m.id
         const actorsRes = await query(`
           SELECT a.id, a.name, a.profile_path, ma.character
           FROM actors a
           JOIN media_actors ma ON a.id = ma.actor_id
-          WHERE ma.media_id = $1
+          JOIN media m ON ma.media_id = m.id
+          WHERE m.tmdb_id = $1
           ORDER BY ma."order" ASC
           LIMIT 20
         `, [tmdbId]);
@@ -165,12 +167,8 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
   const posterPath = tvShow.poster_path ? `${IMAGE_BASE_URL}${tvShow.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
   const mobileBackdropPath = tvShow.backdrop_path ? `${MOBILE_BACKDROP_BASE_URL}${tvShow.backdrop_path}` : backdropPath;
 
-  // --- 🔥 SCHEMAS FIX START 🔥 ---
-  // 1. გარდაქმნა რიცხვად: Number(...)
   const ratingValue = Number(tvShow.rating_tmdb || tvShow.rating_imdb || tvShow.rating_kp || 0);
-  
   const ratingCount = tvShow.rating_imdb_count > 0 ? tvShow.rating_imdb_count : 50;
-  
   const hasValidRating = ratingValue > 0;
 
   const schemaData = {
@@ -184,7 +182,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
     ...(hasValidRating && {
       "aggregateRating": {
         "@type": "AggregateRating",
-        // აქაც ratingValue არის რიცხვი, ამიტომ .toFixed(1) იმუშავებს
         "ratingValue": ratingValue.toFixed(1),
         "bestRating": "10",
         "worstRating": "1",
@@ -203,7 +200,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       "priceCurrency": "RUB"
     }
   };
-  // --- 🔥 SCHEMAS FIX END 🔥 ---
 
   return (
     <div key={tvShow.tmdb_id} className="bg-[#10141A] text-white font-sans">
@@ -319,7 +315,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
                   {tvShow.countries && (<div><span className="text-gray-500 block mb-1">Страна</span><span className="text-white font-medium">{tvShow.countries.join(', ')}</span></div>)}
                   <div><span className="text-gray-500 block mb-1">Премьера</span><span className="text-white font-medium">{tvShow.formattedPremiere}</span></div>
                   <div className="col-span-3 pt-2">
-                    <span className="text-gray-500 block mb-2">Жанры</span>
+                    <span className="text-gray-500 block mb-2">Жანры</span>
                     <div className="flex flex-wrap gap-2">{(tvShow.genres_names || []).map((g, i) => <Link key={i} href={`/discover?genre=${g.toLowerCase()}`} className="px-3 py-1 bg-gray-800 text-gray-300 rounded-md border border-gray-700 hover:bg-brand-red hover:text-white">{g}</Link>)}</div>
                   </div>
                 </div>
@@ -332,7 +328,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
               </div>
             </div>
           </div>
-          {recommendations?.length > 0 && <div className="mt-12 border-t border-gray-800 pt-8"><MediaCarousel title="Рекомендации" items={recommendations} swiperKey="desktop-tv-recs" cardType="tv" /></div>}
+          {recommendations?.length > 0 && <div className="mt-12 border-t border-gray-800 pt-8"><MediaCarousel title="Похожие" items={recommendations} swiperKey="desktop-tv-recs" cardType="tv" /></div>}
         </main>
       </div>
       <Footer />
