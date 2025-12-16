@@ -1,8 +1,8 @@
 /** @type {import('next-sitemap').IConfig} */
-module.exports = {
+export default {
   siteUrl: 'https://kinonest.tv',
   generateRobotsTxt: true,
-  sitemapSize: 7000, // 70,000 ფილმს დაყოფს 10 მოსახერხებელ ფაილად
+  sitemapSize: 7000,
   exclude: ['/admin', '/auth/*', '/watchlist'],
   robotsTxtOptions: {
     additionalSitemaps: [
