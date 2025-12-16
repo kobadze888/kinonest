@@ -81,7 +81,7 @@ export default function Header() {
           <div className="flex justify-between items-center h-16">
 
             <div className="flex-shrink-0 flex items-center gap-2">
-              {/* ✅ LOGO: prefetch={false} */}
+              {/* ✅ შესწორება: დაემატა prefetch={false} */}
               <Link href="/" prefetch={false} className="group flex items-center gap-2 cursor-pointer">
                 <div className="w-8 h-8 bg-brand-red rounded-lg flex items-center justify-center shadow-lg shadow-red-600/30 transform group-hover:rotate-12 transition-transform duration-300">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
@@ -96,7 +96,7 @@ export default function Header() {
 
             <nav className="hidden lg:flex items-center space-x-1 xl:space-x-4">
               {navLinks.map((link) => (
-                // ✅ MENU: prefetch={false}
+                // ✅ შესწორება: დაემატა prefetch={false}
                 <Link key={link.href} href={link.href} prefetch={false} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group ${router.pathname === link.href ? 'bg-white/10 text-white' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}>
                   <span className={`${router.pathname === link.href ? 'text-brand-red' : 'text-gray-400 group-hover:text-brand-red transition-colors'}`}>
                     {link.icon}
@@ -107,7 +107,7 @@ export default function Header() {
             </nav>
 
             <div className="flex items-center gap-3">
-              {/* ✅ WATCHLIST: prefetch={false} */}
+              {/* ✅ შესწორება: დაემატა prefetch={false} */}
               <Link href="/watchlist" prefetch={false} className="relative group hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5 hover:border-white/20">
                 <div className={`transition-colors ${hasItems ? 'text-brand-red' : 'text-gray-400 group-hover:text-white'}`}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill={hasItems ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -162,7 +162,7 @@ export default function Header() {
         <div className={`lg:hidden bg-[#10141A] border-b border-gray-800 overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-4 pt-2 pb-4 space-y-1">
             {navLinks.map((link) => (
-              // ✅ MOBILE MENU: prefetch={false}
+              // ✅ შესწორება: დაემატა prefetch={false}
               <Link
                 key={link.href}
                 href={link.href}

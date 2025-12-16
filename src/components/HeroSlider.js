@@ -56,7 +56,7 @@ export default function HeroSlider({ movies }) {
                     </div>
                     <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight drop-shadow-lg">{title}</h2>
                     <div className="flex gap-4">
-                        {/* ✅ HERO LINK: prefetch={false} */}
+                        {/* ✅ შესწორება: დაემატა prefetch={false} */}
                         <Link href={linkHref} prefetch={false} className="bg-brand-red hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-transform transform hover:scale-105 flex items-center gap-3 text-lg shadow-lg shadow-red-900/50 inline-flex">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
                             Смотреть фильм

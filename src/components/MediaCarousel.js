@@ -39,7 +39,7 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
             <div className="w-1.5 h-7 bg-brand-red rounded-full shadow-[0_0_12px_rgba(229,9,20,0.6)]"></div>
             {title && (
                 link ? (
-                    // ✅ TITLE LINK: prefetch={false}
+                    // ✅ შესწორება: დაემატა prefetch={false}
                     <Link href={link} prefetch={false} className="group flex items-center gap-2 cursor-pointer">
                         <h2 className="text-xl md:text-2xl font-bold text-white group-hover:text-brand-red transition-colors">
                             {title}

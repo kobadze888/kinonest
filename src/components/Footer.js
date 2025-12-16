@@ -20,7 +20,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
           
           <div className="col-span-2 md:col-span-1">
-            {/* ✅ LOGO: prefetch={false} */}
+            {/* ✅ შესწორება: prefetch={false} */}
             <Link href="/" prefetch={false} className="inline-block mb-4 hover:opacity-80 transition-opacity">
                <span className="text-2xl font-black text-white tracking-wider">
                  Kino<span className="text-brand-red">Nest</span>
@@ -34,7 +34,7 @@ export default function Footer() {
           <div className="col-span-1">
             <h3 className="text-white font-bold mb-4 uppercase text-xs tracking-wider">Разделы</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              {/* ✅ LINKS: prefetch={false} */}
+              {/* ✅ შესწორება: prefetch={false} ყველა ლინკზე */}
               <li><Link href="/discover?sort=year_desc&type=movie" prefetch={false} className="hover:text-brand-red transition">Свежие поступления</Link></li>
               <li><Link href="/movies" prefetch={false} className="hover:text-brand-red transition">Фильмы</Link></li>
               <li><Link href="/tv-shows" prefetch={false} className="hover:text-brand-red transition">Сериалы</Link></li>
@@ -48,7 +48,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               {genres.map(g => (
                 <li key={g.slug}>
-                  {/* ✅ GENRE LINKS: prefetch={false} */}
+                  {/* ✅ შესწორება: prefetch={false} */}
                   <Link href={`/genre/${g.slug}`} prefetch={false} className="hover:text-brand-red transition">
                     {g.name}
                   </Link>

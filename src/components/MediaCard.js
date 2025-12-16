@@ -57,7 +57,6 @@ export default function MediaCard({ item }) {
             transformStyle: 'preserve-3d'
         }}
       >
-        
         <div className="relative w-full bg-gray-800" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
           {/* ✅ შესწორება: დაემატა prefetch={false} */}
           <Link href={linkHref} prefetch={false} className="block absolute inset-0 z-10">
@@ -108,14 +107,12 @@ export default function MediaCard({ item }) {
                <HeartIcon isFilled={isFavorite} />
             </div>
           </button>
-
         </div>
         
         {/* ✅ შესწორება: აქაც დაემატა prefetch={false} */}
         <Link href={linkHref} prefetch={false} className="block p-3 bg-gray-800 relative z-20">
           <h3 className="font-semibold text-white truncate hover:text-brand-red transition-colors text-sm md:text-base">{title}</h3>
         </Link>
-
       </div>
     </div>
   );
