@@ -1,4 +1,3 @@
-// src/components/Header.js
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -9,15 +8,14 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [placeholder, setPlaceholder] = useState('');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // მობილური მენიუსთვის
-  const [isSearchFocused, setIsSearchFocused] = useState(false); // ძებნის ფოკუსისთვის
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
+  const [isSearchFocused, setIsSearchFocused] = useState(false); 
   const router = useRouter();
   const searchInputRef = useRef(null);
 
   const { watchlist } = useWatchlist();
   const hasItems = watchlist.length > 0;
 
-  // საბეჭდი ეფექტი ძებნის ველში
   useEffect(() => {
     const phrases = ["Поиск фильма...", "Матрица", "Криминальное чтиво", "shrek", "Зеленая миля", "boec"];
     let phraseIndex = 0;
@@ -38,7 +36,6 @@ export default function Header() {
     return () => clearTimeout(timeoutId);
   }, []);
 
-  // სქროლის ეფექტი
   useEffect(() => {
     const handleScroll = () => { setIsScrolled(window.scrollY > 50); };
     window.addEventListener('scroll', handleScroll);
@@ -49,23 +46,21 @@ export default function Header() {
     const trimmedQuery = searchQuery.trim();
     if (trimmedQuery) {
       router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
-      setIsSearchFocused(false); // ძებნის შემდეგ ფოკუსის მოხსნა
+      setIsSearchFocused(false); 
       if (searchInputRef.current) searchInputRef.current.blur();
     }
   };
 
   const handleSearchKey = (e) => { if (e.key === 'Enter') { handleSearchSubmit(); } };
 
-  // URL-დან ძებნის ველის განახლება
   useEffect(() => {
     if (router.isReady && !router.pathname.startsWith('/search')) { setSearchQuery(''); }
     else if (router.isReady && router.query.q) { setSearchQuery(router.query.q); }
-    setIsMobileMenuOpen(false); // გვერდის შეცვლისას მენიუს დახურვა
+    setIsMobileMenuOpen(false); 
   }, [router.isReady, router.pathname, router.query.q]);
 
   const jsonLd = { "@context": "https://schema.org", "@type": "WebSite", "url": "https://kinonest.vercel.app/", "potentialAction": { "@type": "SearchAction", "target": { "@type": "EntryPoint", "urlTemplate": "https://kinonest.vercel.app/search?q={search_term_string}" }, "query-input": "required name=search_term_string" } };
 
-  // მენიუს ელემენტები აიქონებით
   const navLinks = [
     { href: "/", label: "Главная", icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
     { href: "/movies", label: "Фильмы", icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg> },
@@ -85,10 +80,9 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
 
-            {/* ლოგო */}
             <div className="flex-shrink-0 flex items-center gap-2">
-              <Link href="/" className="group flex items-center gap-2 cursor-pointer">
-                {/* აიქონი ლოგოსთან */}
+              {/* ✅ LOGO: prefetch={false} */}
+              <Link href="/" prefetch={false} className="group flex items-center gap-2 cursor-pointer">
                 <div className="w-8 h-8 bg-brand-red rounded-lg flex items-center justify-center shadow-lg shadow-red-600/30 transform group-hover:rotate-12 transition-transform duration-300">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
@@ -100,10 +94,10 @@ export default function Header() {
               </Link>
             </div>
 
-            {/* დესკტოპ ნავიგაცია */}
             <nav className="hidden lg:flex items-center space-x-1 xl:space-x-4">
               {navLinks.map((link) => (
-                <Link key={link.href} href={link.href} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group ${router.pathname === link.href ? 'bg-white/10 text-white' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}>
+                // ✅ MENU: prefetch={false}
+                <Link key={link.href} href={link.href} prefetch={false} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group ${router.pathname === link.href ? 'bg-white/10 text-white' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}>
                   <span className={`${router.pathname === link.href ? 'text-brand-red' : 'text-gray-400 group-hover:text-brand-red transition-colors'}`}>
                     {link.icon}
                   </span>
@@ -112,11 +106,9 @@ export default function Header() {
               ))}
             </nav>
 
-            {/* მარჯვენა მხარე: Watchlist, Search, Mobile Menu */}
             <div className="flex items-center gap-3">
-
-              {/* Watchlist Link (Desktop) */}
-              <Link href="/watchlist" className="relative group hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5 hover:border-white/20">
+              {/* ✅ WATCHLIST: prefetch={false} */}
+              <Link href="/watchlist" prefetch={false} className="relative group hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5 hover:border-white/20">
                 <div className={`transition-colors ${hasItems ? 'text-brand-red' : 'text-gray-400 group-hover:text-white'}`}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill={hasItems ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -129,7 +121,6 @@ export default function Header() {
                 </div>
               </Link>
 
-              {/* Search Bar (Animated) */}
               <div className={`relative group flex items-center transition-all duration-300 ${isSearchFocused ? 'w-full md:w-72' : 'w-40 md:w-56'}`}>
                 <div className={`absolute left-0 inset-y-0 pl-3 flex items-center pointer-events-none transition-colors ${isSearchFocused ? 'text-brand-red' : 'text-gray-400'}`}>
                   <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -145,12 +136,10 @@ export default function Header() {
                   onKeyPress={handleSearchKey}
                   onFocus={() => setIsSearchFocused(true)}
                   onBlur={() => setIsSearchFocused(false)}
-                  // 💡 შესწორება: text-base (მობილურზე 16px) და md:text-sm (კომპიუტერზე 14px)
                   className={`bg-white/5 border border-white/10 hover:border-white/20 text-white text-base md:text-sm rounded-full block w-full pl-10 p-2.5 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red focus:bg-[#1a1f26] transition-all shadow-inner`}
                 />
               </div>
 
-              {/* Mobile Menu Button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
@@ -170,13 +159,14 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile Menu Dropdown */}
         <div className={`lg:hidden bg-[#10141A] border-b border-gray-800 overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-4 pt-2 pb-4 space-y-1">
             {navLinks.map((link) => (
+              // ✅ MOBILE MENU: prefetch={false}
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={false}
                 className={`flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-colors ${router.pathname === link.href ? 'bg-brand-red text-white' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}
               >
                 <span className={`${router.pathname === link.href ? 'text-white' : 'text-gray-500'}`}>
@@ -187,6 +177,7 @@ export default function Header() {
             ))}
             <Link
               href="/watchlist"
+              prefetch={false}
               className={`flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-colors ${router.pathname === '/watchlist' ? 'bg-brand-red text-white' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}
             >
               <span className={`${router.pathname === '/watchlist' ? 'text-white' : 'text-gray-500'}`}>
