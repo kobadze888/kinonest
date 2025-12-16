@@ -32,7 +32,7 @@ export default function HeroSlider({ movies }) {
         {movies.map((movie, index) => {
           const title = movie.title_ru;
           // ვიყენებთ ორიგინალ ზომას უკეთესი ხარისხისთვის
-          const backdropPath = movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
+          const backdropPath = movie.backdrop_path ? `https://image.tmdb.org/t/p/w500${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
           const linkHref = `/${movie.type}/${movie.tmdb_id}-${slugify(title)}-smotret-onlain-besplatno`;
 
           return (
