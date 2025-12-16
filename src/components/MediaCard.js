@@ -58,7 +58,7 @@ export default function MediaCard({ item }) {
         }}
       >
         <div className="relative w-full bg-gray-800" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
-          {/* ✅ შესწორება: დაემატა prefetch={false} */}
+          {/* ✅ prefetch={false} - ეს არის მთავარი შესწორება */}
           <Link href={linkHref} prefetch={false} className="block absolute inset-0 z-10">
              <Image 
                 src={posterPath} 
@@ -109,7 +109,7 @@ export default function MediaCard({ item }) {
           </button>
         </div>
         
-        {/* ✅ შესწორება: აქაც დაემატა prefetch={false} */}
+        {/* ✅ აქაც prefetch={false} */}
         <Link href={linkHref} prefetch={false} className="block p-3 bg-gray-800 relative z-20">
           <h3 className="font-semibold text-white truncate hover:text-brand-red transition-colors text-sm md:text-base">{title}</h3>
         </Link>

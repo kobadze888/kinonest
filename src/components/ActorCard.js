@@ -12,7 +12,7 @@ export default function ActorCard({ actor }) {
   const linkHref = `/actor/${actor.id}-${actorSlug}`;
 
   return (
-    // ✅ შესწორება: დაემატა prefetch={false}
+    // ✅ prefetch={false}
     <Link 
       href={linkHref} 
       prefetch={false}
