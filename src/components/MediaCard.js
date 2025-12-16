@@ -1,4 +1,3 @@
-// src/components/MediaCard.js
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; 
@@ -37,7 +36,6 @@ export default function MediaCard({ item }) {
   
   const showRating = item.rating_imdb > 0 ? item.rating_imdb : null;
   
-  // ვიყენებთ w500 ზომას პირდაპირ TMDB-დან
   const posterPath = item.poster_path 
     ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
     : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
@@ -61,7 +59,8 @@ export default function MediaCard({ item }) {
       >
         
         <div className="relative w-full bg-gray-800" style={{ aspectRatio: '2 / 3', minHeight: '250px' }}>
-          <Link href={linkHref} className="block absolute inset-0 z-10">
+          {/* ✅ შესწორება: დაემატა prefetch={false} */}
+          <Link href={linkHref} prefetch={false} className="block absolute inset-0 z-10">
              <Image 
                 src={posterPath} 
                 alt={title} 
@@ -69,8 +68,7 @@ export default function MediaCard({ item }) {
                 height={750}    
                 style={{ objectFit: 'cover' }} 
                 className="w-full h-full transition-opacity duration-300"
-                // ⚠️ მნიშვნელოვანი ცვლილება RAM-ის დასაზოგად:
-                unoptimized={true} 
+                sizes="(max-width: 768px) 30vw, (max-width: 1200px) 20vw, 15vw"
                 priority={false}
                 loading="lazy"
               />
@@ -113,7 +111,8 @@ export default function MediaCard({ item }) {
 
         </div>
         
-        <Link href={linkHref} className="block p-3 bg-gray-800 relative z-20">
+        {/* ✅ შესწორება: აქაც დაემატა prefetch={false} */}
+        <Link href={linkHref} prefetch={false} className="block p-3 bg-gray-800 relative z-20">
           <h3 className="font-semibold text-white truncate hover:text-brand-red transition-colors text-sm md:text-base">{title}</h3>
         </Link>
 
