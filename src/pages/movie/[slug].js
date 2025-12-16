@@ -14,7 +14,6 @@ import { getSession } from 'next-auth/react';
 
 const TrailerModal = dynamic(() => import('@/components/TrailerModal'), { ssr: false });
 
-// Player Skeleton - ვიზუალური სტაბილურობისთვის
 const PlayerContainer = dynamic(() => import('@/components/PlayerContainer'), {
   ssr: false,
   loading: () => (
@@ -39,7 +38,6 @@ export async function getServerSideProps(context) {
   const session = await getSession(context);
   const isAdmin = session?.user?.role === 'admin';
 
-  // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
   if (context.res) {
     context.res.setHeader(
       'Cache-Control',
@@ -53,7 +51,6 @@ export async function getServerSideProps(context) {
   let recommendations = [];
 
   try {
-    // 1. ვიღებთ ფილმის დეტალებს
     const movieRes = await query(`
       SELECT 
         tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
@@ -61,6 +58,7 @@ export async function getServerSideProps(context) {
         genres_ids, genres_names,
         to_char(created_at, 'YYYY-MM-DD') as created_at, 
         trailer_url, runtime, budget, countries, rating_kp, rating_imdb,
+        rating_kp_count, rating_imdb_count,
         imdb_id, age_restriction, slogan, 
         to_char(premiere_world, 'YYYY-MM-DD') as premiere_world
       FROM media 
@@ -71,7 +69,6 @@ export async function getServerSideProps(context) {
       movie = movieRes.rows[0];
       kinopoisk_id = movie.kinopoisk_id;
 
-      // 2. ვიღებთ მსახიობებს (ლიმიტი 12, სისწრაფისთვის)
       const actorsRes = await query(`
         SELECT a.id, a.name, a.profile_path, ma.character
         FROM actors a
@@ -82,7 +79,6 @@ export async function getServerSideProps(context) {
       `, [tmdbId]);
       actors = actorsRes.rows;
 
-      // 3. ვიღებთ რეკომენდაციებს (ოპტიმიზირებული SQL)
       if (movie.genres_names && movie.genres_names.length > 0) {
         const recRes = await query(`
             SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
@@ -92,12 +88,12 @@ export async function getServerSideProps(context) {
               AND m.genres_names && $2::text[] 
               AND m.release_year >= $3 - 5 
             ORDER BY
-                (m.rating_imdb * 0.4) +   /* 40% წონა IMDb რეიტინგზე */
-                (m.popularity * 0.001) +  /* მცირე წონა პოპულარობაზე */
+                (m.rating_imdb * 0.4) + 
+                (m.popularity * 0.001) + 
                 (
                     SELECT COUNT(g) FROM unnest(m.genres_names) g 
                     WHERE g = ANY($2::text[])
-                ) DESC,                   /* ჟანრის დამთხვევის ქულა */
+                ) DESC,
                 m.release_year DESC
             LIMIT 10
         `, [tmdbId, movie.genres_names, movie.release_year || 2020]);
@@ -134,6 +130,46 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const [modalVideoHtml, setModalVideoHtml] = useState('');
   const [modalIsLoading, setModalIsLoading] = useState(false);
 
+  // --- 🔥 SCHEMAS FIX START 🔥 ---
+  // 1. გარდაქმნა რიცხვად: Number(...) უზრუნველყოფს, რომ string არ დარჩეს
+  const ratingValue = Number(movie.rating_tmdb || movie.rating_imdb || movie.rating_kp || 0);
+  
+  const ratingCount = movie.rating_imdb_count || movie.rating_kp_count || 50;
+  
+  const hasValidRating = ratingValue > 0;
+
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "Movie",
+    "name": movie.title_ru,
+    "alternativeHeadline": movie.title_en,
+    "image": movie.poster_path ? `${IMAGE_BASE_URL}${movie.poster_path}` : "",
+    "description": movie.overview,
+    "datePublished": movie.premiere_world || `${movie.release_year}-01-01`,
+    ...(hasValidRating && {
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        // აქ უკვე ratingValue არის რიცხვი, ამიტომ .toFixed(1) იმუშავებს
+        "ratingValue": ratingValue.toFixed(1),
+        "bestRating": "10",
+        "worstRating": "1",
+        "ratingCount": ratingCount
+      }
+    }),
+    "actor": actors.slice(0, 5).map(actor => ({
+      "@type": "Person",
+      "name": actor.name
+    })),
+    "genre": movie.genres_names,
+    "offers": {
+      "@type": "Offer",
+      "availability": "https://schema.org/InStock",
+      "price": "0",
+      "priceCurrency": "RUB"
+    }
+  };
+  // --- 🔥 SCHEMAS FIX END 🔥 ---
+
   const handleShowTrailerModal = () => {
     setIsModalOpen(true);
     setModalIsLoading(true);
@@ -156,9 +192,16 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
   const formattedPremiere = movie.premiere_world ? new Date(movie.premiere_world).toLocaleDateString('ru-RU') : '-';
 
   return (
-    // 🔥 KEY დაემატა: ეს აიძულებს React-ს, ახალ ფილმზე გადასვლისას გვერდი თავიდან დახატოს
     <div key={movie.tmdb_id} className="bg-[#10141A] text-white font-sans min-h-screen flex flex-col">
       <SeoHead title={title} description={movie.overview} image={posterPath} type="video.movie" releaseYear={releaseYear} rating={movie.rating_tmdb} />
+      
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </Head>
+
       <Header />
       {isModalOpen && <TrailerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />}
 
@@ -170,17 +213,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
 
       {/* MOBILE LAYOUT */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-2 z-10">
-        <Image
-          src={mobileBackdropPath}
-          alt={title}
-          fill
-          style={{ objectFit: 'cover' }}
-          priority
-          fetchPriority="high"
-          sizes="100vw"
-          // 🔥 სისწრაფისთვის (unoptimized)
-          unoptimized={true}
-        />
+        <Image src={mobileBackdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" unoptimized={true} />
         <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
@@ -196,16 +229,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       <div className="lg:hidden px-4 pb-10 space-y-6 -mt-2 relative z-20">
         <div className="flex gap-4">
           <div className="w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border border-gray-800 relative aspect-[2/3]">
-            <Image
-              src={posterPath}
-              alt={title}
-              fill
-              className="object-cover"
-              sizes="7rem"
-              priority
-              // 🔥 სისწრაფისთვის
-              unoptimized={true}
-            />
+            <Image src={posterPath} alt={title} fill className="object-cover" sizes="7rem" priority unoptimized={true} />
             {isAdmin && <Link href={`/admin/edit/${movie.tmdb_id}`} target="_blank" className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>}
           </div>
           <div className="flex-grow flex flex-col justify-center gap-3">
@@ -232,17 +256,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
       {/* DESKTOP LAYOUT */}
       <div className="hidden lg:block">
         <section className="relative h-[70vh] w-full -mt-2 z-10">
-          <Image
-            src={backdropPath}
-            alt={title}
-            fill
-            style={{ objectFit: 'cover' }}
-            priority
-            fetchPriority="high"
-            sizes="100vw"
-            // 🔥 სისწრაფისთვის
-            unoptimized={true}
-          />
+          <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" unoptimized={true} />
           <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
@@ -285,16 +299,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
             </div>
             <div className="col-span-4 h-full">
               <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-800/50 w-full h-full min-h-[500px]">
-                <Image
-                  src={posterPath}
-                  alt={title}
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="(max-width: 1200px) 50vw, 33vw"
-                  // 🔥 სისწრაფისთვის
-                  unoptimized={true}
-                />
+                <Image src={posterPath} alt={title} fill className="object-cover" priority sizes="(max-width: 1200px) 50vw, 33vw" unoptimized={true} />
                 {isAdmin && <Link href={`/admin/edit/${movie.tmdb_id}`} target="_blank" className="absolute top-4 right-4 z-20 flex items-center justify-center p-2.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>}
               </div>
             </div>

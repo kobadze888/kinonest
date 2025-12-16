@@ -14,7 +14,6 @@ import { getSession } from 'next-auth/react';
 
 const TrailerModal = dynamic(() => import('@/components/TrailerModal'), { ssr: false });
 
-// Player Skeleton - ვიზუალური სტაბილურობისთვის
 const PlayerContainer = dynamic(() => import('@/components/PlayerContainer'), {
   ssr: false,
   loading: () => (
@@ -39,7 +38,6 @@ export async function getServerSideProps(context) {
   const session = await getSession(context);
   const isAdmin = session?.user?.role === 'admin';
 
-  // 🚀 PERFORMANCE FIX: ქეშირება (სერვერის დატვირთვა მცირდება 99%-ით)
   if (context.res) {
     context.res.setHeader(
       'Cache-Control',
@@ -100,12 +98,12 @@ export async function getServerSideProps(context) {
                   AND tmdb_id != $1
                   AND m.genres_names && $2::text[]
                 ORDER BY
-                    (m.rating_imdb * 0.4) +   /* 40% წონა IMDb რეიტინგზე */
-                    (m.popularity * 0.001) +  /* მცირე წონა პოპულარობაზე */
+                    (m.rating_imdb * 0.4) + 
+                    (m.popularity * 0.001) + 
                     (
                         SELECT COUNT(g) FROM unnest(m.genres_names) g 
                         WHERE g = ANY($2::text[])
-                    ) DESC,                   /* ჟანრის დამთხვევის ქულა */
+                    ) DESC,
                     m.release_year DESC
                 LIMIT 10
             `, [tmdbId, tvShow.genres_names]);
@@ -136,11 +134,7 @@ const PlayIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w
 const StarIcon = () => (<svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"> <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.071 3.292c.1.307.393.518.706.518h3.462c.969 0 1.371 1.24.588 1.81l-2.822 2.058c-.29.212-.416.579-.317.925l1.071 3.292c.3.921-.755 1.688-1.54 1.118l-2.822-2.058c-.29-.212-.693-.212-.983 0l-2.822 2.058c-.785.57-1.84-.197-1.54-1.118l1.071-3.292c.099-.346-.026-.713-.317-.925l-2.822-2.058c-.783-.57-.38-1.81.588-1.81h3.462c.313 0 .606-.211.706-.518l1.071-3.292z"></path> </svg>);
 const HeartIcon = ({ isFilled }) => (<svg className="w-5 h-5 md:w-6 md:w-6" xmlns="http://www.w3.org/2000/svg" fill={isFilled ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /> </svg>);
 const TvIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"> <path strokeLinecap="round" strokeLinejoin="round" d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125z" /> </svg>);
-const EditIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 17.173a2.88 2.88 0 01-1.59 1.137c-1.285.345-2.288.665-2.288.665s-.64-.997-.985-2.282a2.88 2.88 0 011.137-1.59l11.458-11.46z" />
-  </svg>
-);
+const EditIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 17.173a2.88 2.88 0 01-1.59 1.137c-1.285.345-2.288.665-2.288.665s-.64-.997-.985-2.282a2.88 2.88 0 011.137-1.59l11.458-11.46z" /></svg>);
 
 export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, isAdmin }) {
   if (!tvShow) return <div>Сериал не найден.</div>;
@@ -158,7 +152,6 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       let embedUrl = tvShow.trailer_url;
       if (embedUrl.includes('watch?v=')) embedUrl = embedUrl.replace('watch?v=', 'embed/');
       else if (embedUrl.includes('youtu.be/')) embedUrl = embedUrl.replace('youtu.be/', 'embed/');
-
       setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${embedUrl}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
       setModalIsLoading(false);
       return;
@@ -172,6 +165,14 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
   const posterPath = tvShow.poster_path ? `${IMAGE_BASE_URL}${tvShow.poster_path}` : 'https://placehold.co/500x750/1f2937/6b7280?text=No+Image';
   const mobileBackdropPath = tvShow.backdrop_path ? `${MOBILE_BACKDROP_BASE_URL}${tvShow.backdrop_path}` : backdropPath;
 
+  // --- 🔥 SCHEMAS FIX START 🔥 ---
+  // 1. გარდაქმნა რიცხვად: Number(...)
+  const ratingValue = Number(tvShow.rating_tmdb || tvShow.rating_imdb || tvShow.rating_kp || 0);
+  
+  const ratingCount = tvShow.rating_imdb_count > 0 ? tvShow.rating_imdb_count : 50;
+  
+  const hasValidRating = ratingValue > 0;
+
   const schemaData = {
     "@context": "https://schema.org",
     "@type": "TVSeries",
@@ -180,12 +181,16 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
     "image": posterPath,
     "description": tvShow.overview,
     "startDate": tvShow.premiere_world || `${tvShow.release_year}-01-01`,
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": tvShow.rating_tmdb || tvShow.rating_kp || 0,
-      "bestRating": "10",
-      "ratingCount": tvShow.rating_imdb_count > 0 ? tvShow.rating_imdb_count : 50
-    },
+    ...(hasValidRating && {
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        // აქაც ratingValue არის რიცხვი, ამიტომ .toFixed(1) იმუშავებს
+        "ratingValue": ratingValue.toFixed(1),
+        "bestRating": "10",
+        "worstRating": "1",
+        "ratingCount": ratingCount
+      }
+    }),
     "actor": actors.slice(0, 5).map(actor => ({
       "@type": "Person",
       "name": actor.name
@@ -198,9 +203,9 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       "priceCurrency": "RUB"
     }
   };
+  // --- 🔥 SCHEMAS FIX END 🔥 ---
 
   return (
-    // 🔥 KEY დაემატა: ახალ სერიალზე გადასვლისას გვერდი ძველს შლის და ახალს ხატავს
     <div key={tvShow.tmdb_id} className="bg-[#10141A] text-white font-sans">
       <SeoHead
         title={title}
@@ -231,17 +236,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
 
       {/* MOBILE LAYOUT */}
       <section className="relative h-[45vh] w-full lg:hidden -mt-4 z-10">
-        <Image
-          src={backdropPath}
-          alt={title}
-          fill
-          style={{ objectFit: 'cover' }}
-          priority
-          fetchPriority="high"
-          sizes="100vw"
-          // 🔥 სისწრაფისთვის
-          unoptimized={true}
-        />
+        <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" unoptimized={true} />
         <div className="absolute top-0 left-0 right-0 h-44 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-transparent to-transparent"></div>
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-[#10141A] to-transparent pt-12">
@@ -257,15 +252,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       <div className="lg:hidden px-4 pb-10 space-y-6 -mt-2 relative z-20">
         <div className="flex gap-4">
           <div className="w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border border-gray-800 relative aspect-[2/3]">
-            <Image
-              src={posterPath}
-              alt={title}
-              fill
-              className="object-cover"
-              sizes="7rem"
-              // 🔥 სისწრაფისთვის
-              unoptimized={true}
-            />
+            <Image src={posterPath} alt={title} fill className="object-cover" sizes="7rem" unoptimized={true} />
             {isAdmin && (
               <Link href={`/admin/edit/${tvShow.tmdb_id}`} target="_blank" className="absolute top-2 right-2 z-20 flex items-center justify-center p-1.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>
             )}
@@ -296,17 +283,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
       {/* DESKTOP LAYOUT */}
       <div className="hidden lg:block">
         <section className="relative h-[70vh] w-full -mt-4 z-10">
-          <Image
-            src={backdropPath}
-            alt={title}
-            fill
-            style={{ objectFit: 'cover' }}
-            priority
-            fetchPriority="high"
-            sizes="100vw"
-            // 🔥 სისწრაფისთვის
-            unoptimized={true}
-          />
+          <Image src={backdropPath} alt={title} fill style={{ objectFit: 'cover' }} priority fetchPriority="high" sizes="100vw" unoptimized={true} />
           <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#10141A] to-transparent z-20"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-[#10141A] via-[#10141A]/60 to-transparent"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#10141A] via-[#10141A]/20 to-transparent"></div>
@@ -350,16 +327,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
             </div>
             <div className="col-span-4 h-full">
               <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-800/50 w-full h-full min-h-[500px]">
-                <Image
-                  src={posterPath}
-                  alt={title}
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="(max-width: 1200px) 50vw, 33vw"
-                  // 🔥 სისწრაფისთვის
-                  unoptimized={true}
-                />
+                <Image src={posterPath} alt={title} fill className="object-cover" priority sizes="(max-width: 1200px) 50vw, 33vw" unoptimized={true} />
                 {isAdmin && <Link href={`/admin/edit/${tvShow.tmdb_id}`} target="_blank" className="absolute top-4 right-4 z-20 flex items-center justify-center p-2.5 rounded-full bg-red-800/80 text-white"><EditIcon /></Link>}
               </div>
             </div>
