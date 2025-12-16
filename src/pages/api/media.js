@@ -1,48 +1,31 @@
 // src/pages/api/media.js
+import redis from '@/lib/redis';
 import { query } from '@/lib/db';
 
 export default async function handler(req, res) {
-  const { type, page = 1 } = req.query;
-  
-  const limit = 30;
-  const offset = (page - 1) * limit;
-
-  if (!type || (type !== 'movie' && type !== 'tv')) {
-    return res.status(400).json({ error: 'Invalid type parameter' });
-  }
+  const cacheKey = 'home_media_list';
 
   try {
-    const columns = `
-      tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
-      poster_path, backdrop_path, release_year, rating_tmdb,
-      genres_ids, genres_names,
-      created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
-    `;
+    // 1. ვცდილობთ ქეშიდან წაკითხვას
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
+    }
 
-    // 💡 განახლებული სორტირება პრიორიტეტებით და დუბლიკატების დაცვით
-    const sql = `
-      SELECT ${columns} FROM media 
-      WHERE type = $1
-      ORDER BY 
-        CASE 
-          WHEN title_ru ~ '[а-яА-ЯёЁ]' 
-               AND poster_path IS NOT NULL 
-               AND kinopoisk_id IS NOT NULL 
-          THEN 0 
-          ELSE 1 
-        END ASC,
-        release_year DESC NULLS LAST, 
-        rating_imdb DESC NULLS LAST,  /* 💡 IMDb პრიორიტეტი */
-        created_at DESC,              /* 💡 სიახლე */
-        tmdb_id DESC
-      LIMIT $2 OFFSET $3
-    `;
-
-    const { rows } = await query(sql, [type, limit, offset]);
+    // 2. თუ ქეშში არაა, მივდივართ ბაზაში
+    const result = await query('SELECT * FROM media ORDER BY created_at DESC LIMIT 50');
     
-    res.status(200).json(rows);
+    // 3. ვინახავთ ქეშში 15 წუთით
+    try {
+      await redis.setex(cacheKey, 900, JSON.stringify(result.rows));
+    } catch (e) {
+      console.error("Redis error:", e.message);
+    }
+
+    res.status(200).json(result.rows);
   } catch (error) {
-    console.error("API Media Error:", error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    // შეცდომის შემთხვევაში ბაზა მაინც იმუშავებს
+    const result = await query('SELECT * FROM media ORDER BY created_at DESC LIMIT 50');
+    res.status(200).json(result.rows);
   }
 }
