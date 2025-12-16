@@ -7,7 +7,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "postbuild": "next-sitemap",
     "lint": "eslint",
     "sync-smart": "node scripts/sync-smart.js"
   },
