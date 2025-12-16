@@ -1,3 +1,4 @@
+// src/components/MediaCarousel.js
 import React from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation } from 'swiper/modules';
@@ -23,6 +24,7 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
     return null;
   }
   
+  // 💡 ზომები გავზარდეთ, რომ არ იყოს მიჭყლეტილი
   const slideWidthClass = cardType === 'actor' ? '!w-36 md:!w-40' : '!w-44 md:!w-52';
   
   const showSkeletons = isLoading;
@@ -34,13 +36,13 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
   return (
     <section className="w-full relative group/section mb-8">
       
+      {/* Header */}
       <div className="flex items-center justify-between mb-5 px-1">
         <div className="flex items-center gap-3">
             <div className="w-1.5 h-7 bg-brand-red rounded-full shadow-[0_0_12px_rgba(229,9,20,0.6)]"></div>
             {title && (
                 link ? (
-                    // ✅ prefetch={false}
-                    <Link href={link} prefetch={false} className="group flex items-center gap-2 cursor-pointer">
+                    <Link href={link} className="group flex items-center gap-2 cursor-pointer">
                         <h2 className="text-xl md:text-2xl font-bold text-white group-hover:text-brand-red transition-colors">
                             {title}
                         </h2>
@@ -54,6 +56,7 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
             )}
         </div>
 
+        {/* ნავიგაცია */}
         <div className="flex items-center gap-2">
             <button className={`${prevClass} nav-btn-custom w-9 h-9 disabled:opacity-30 disabled:cursor-not-allowed`}>
                 <ArrowLeft />
@@ -64,16 +67,17 @@ export default function MediaCarousel({ title, items, cardType, swiperKey, onSho
         </div>
       </div>
 
+      {/* Carousel */}
       <div className="w-full">
         <Swiper
           modules={[Navigation]}
           slidesPerView="auto" 
-          spaceBetween={24} 
+          spaceBetween={24} // 💡 დაშორება გაიზარდა 24-მდე (იყო 16)
           navigation={{
             nextEl: `.${nextClass}`,
             prevEl: `.${prevClass}`,
           }}
-          className="!pb-6" 
+          className="!pb-6" // padding ქვემოთ ჩრდილებისთვის
         >
           {showSkeletons 
             ? skeletonItems.map((_, index) => (

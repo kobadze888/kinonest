@@ -17,11 +17,12 @@ export default function Footer() {
   return (
     <footer className="mt-20 border-t border-gray-800 bg-[#0d1116] pt-12 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* 💡 შესწორება: grid-cols-2 მობილურზე, grid-cols-4 კომპიუტერზე */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
           
+          {/* სვეტი 1: ლოგო და აღწერა - მობილურზე იკავებს მთელ სიგანეს (col-span-2) */}
           <div className="col-span-2 md:col-span-1">
-            {/* ✅ prefetch={false} */}
-            <Link href="/" prefetch={false} className="inline-block mb-4 hover:opacity-80 transition-opacity">
+            <Link href="/" className="inline-block mb-4 hover:opacity-80 transition-opacity">
                <span className="text-2xl font-black text-white tracking-wider">
                  Kino<span className="text-brand-red">Nest</span>
                </span>
@@ -31,25 +32,26 @@ export default function Footer() {
             </p>
           </div>
 
+          {/* სვეტი 2: ნავიგაცია */}
           <div className="col-span-1">
             <h3 className="text-white font-bold mb-4 uppercase text-xs tracking-wider">Разделы</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              {/* ✅ prefetch={false} */}
-              <li><Link href="/discover?sort=year_desc&type=movie" prefetch={false} className="hover:text-brand-red transition">Свежие поступления</Link></li>
-              <li><Link href="/movies" prefetch={false} className="hover:text-brand-red transition">Фильмы</Link></li>
-              <li><Link href="/tv-shows" prefetch={false} className="hover:text-brand-red transition">Сериалы</Link></li>
-              <li><Link href="/kids" prefetch={false} className="hover:text-brand-red transition">Детям</Link></li>
-              <li><Link href="/top" prefetch={false} className="hover:text-brand-red transition">Топ 100</Link></li>
+              {/* 🎯 ცვლილება: დაემატა "Свежие поступления" ბმული */}
+              <li><Link href="/discover?sort=year_desc&type=movie" className="hover:text-brand-red transition">Свежие поступления</Link></li>
+              <li><Link href="/movies" className="hover:text-brand-red transition">Фильмы</Link></li>
+              <li><Link href="/tv-shows" className="hover:text-brand-red transition">Сериалы</Link></li>
+              <li><Link href="/kids" className="hover:text-brand-red transition">Детям</Link></li>
+              <li><Link href="/top" className="hover:text-brand-red transition">Топ 100</Link></li>
             </ul>
           </div>
 
+          {/* სვეტი 3: ჟანრები */}
           <div className="col-span-1">
             <h3 className="text-white font-bold mb-4 uppercase text-xs tracking-wider">Жанры</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               {genres.map(g => (
                 <li key={g.slug}>
-                  {/* ✅ prefetch={false} */}
-                  <Link href={`/genre/${g.slug}`} prefetch={false} className="hover:text-brand-red transition">
+                  <Link href={`/genre/${g.slug}`} className="hover:text-brand-red transition">
                     {g.name}
                   </Link>
                 </li>
@@ -57,6 +59,7 @@ export default function Footer() {
             </ul>
           </div>
 
+          {/* სვეტი 4: ინფო - მობილურზე იკავებს მთელ სიგანეს ბალანსისთვის, ან შეგვიძლია დავტოვოთ 1 სვეტად */}
           <div className="col-span-2 md:col-span-1 mt-4 md:mt-0">
             <h3 className="text-white font-bold mb-4 uppercase text-xs tracking-wider">Инфо</h3>
             <ul className="space-y-2 text-sm text-gray-400">

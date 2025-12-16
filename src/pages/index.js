@@ -8,8 +8,7 @@ import Footer from '../components/Footer';
 import TrailerModal from '../components/TrailerModal';
 import SeoHead from '@/components/SeoHead';
 
-// ✅ ვიყენებთ getStaticProps-ს, რომ სერვერი არ გადაიტვირთოს და საიტი იყოს სწრაფი
-export async function getStaticProps() {
+export async function getServerSideProps() {
   const currentYear = new Date().getFullYear(); 
   
   const columns = `
@@ -19,66 +18,130 @@ export async function getStaticProps() {
     created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
   `;
 
+  // 💡 მაღალი ხარისხის კონტენტის ფილტრი
   const strictCondition = `
     backdrop_path IS NOT NULL 
     AND poster_path IS NOT NULL
     AND title_ru IS NOT NULL AND title_ru != 'No Title'
     AND title_ru ~ '[а-яА-ЯёЁ]'
-    AND kinopoisk_id IS NOT NULL 
+    AND kinopoisk_id IS NOT NULL /* აუცილებელი პირობა პლეერისთვის */
     AND rating_imdb > 0
     AND release_year IS NOT NULL AND release_year > 0
   `;
 
   try {
-    const fetchData = async (sql) => {
-       try { return await query(sql); } catch (e) { return { rows: [] }; }
-    };
+    // 1. HERO SECTION (პოპულარული + შემთხვევითი)
+    const heroQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'movie' 
+        AND ${strictCondition}
+        AND release_year = ${currentYear}
+        AND rating_imdb > 6.0
+        AND (
+          'США' = ANY(countries) OR 'Велиკбритания' = ANY(countries)
+        )
+      ORDER BY RANDOM() 
+      LIMIT 10
+    `);
 
-    // მონაცემების წამოღება
+    // "В кинотеатрах" - მიმდინარე წლის პოპულარული
+    const nowPlayingQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'movie' 
+        AND ${strictCondition}
+        AND release_year = ${currentYear}
+      ORDER BY popularity DESC, rating_imdb DESC
+      LIMIT 15
+    `);
+
+    // 2. "Свежие поступления" (ფილმები) - 🎯 ცვლილება: მხოლოდ created_at DESC (წელი და რეიტინგი იგნორირებულია)
+    const newMoviesQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'movie' 
+        AND ${strictCondition} 
+      ORDER BY created_at DESC, RANDOM() /* 💡 მთავარი სორტირება: ბაზაში დამატების სიახლე */
+      LIMIT 15
+    `);
+
+    // 3. "Новые сериалы" - შეზღუდვა ბოლო 2 წელზე
+    const newSeriesQuery = query(`
+      SELECT ${columns} FROM media 
+      WHERE type = 'tv' 
+        AND ${strictCondition} 
+        AND release_year >= ${currentYear - 2} 
+      ORDER BY created_at DESC, RANDOM() 
+      LIMIT 15
+    `);
+
+    // 4. "Ужасы (Последние)" - შეზღუდვა მიმდინარე წელზე
+    const horrorQuery = query(`
+      SELECT ${columns} FROM media
+      WHERE type = 'movie' 
+        AND genres_names && ARRAY['ужасы', 'Horror']
+        AND ${strictCondition}
+        AND release_year >= ${currentYear} 
+      ORDER BY created_at DESC, RANDOM()
+      LIMIT 15
+    `);
+
+    // 5. "Комедии (Последние)" - შეზღუდვა მიმდინარე წელზე
+    const comedyQuery = query(`
+      SELECT ${columns} FROM media
+      WHERE type = 'movie'
+        AND genres_names && ARRAY['комедия', 'Comedy']
+        AND ${strictCondition}
+        AND release_year >= ${currentYear} 
+      ORDER BY created_at DESC, RANDOM()
+      LIMIT 15
+    `);
+
+    // 6. "Популярные актеры" - შემთხვევითი
+    const actorsQuery = query(`
+      SELECT * FROM (
+        SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity 
+        FROM actors a
+        JOIN media_actors ma ON a.id = ma.actor_id
+        JOIN media m ON ma.media_id = m.tmdb_id
+        WHERE a.profile_path IS NOT NULL
+          AND m.type = 'movie'
+          AND m.rating_imdb > 7.0
+          AND ('США' = ANY(m.countries) OR 'Велиკбритания' = ANY(m.countries))
+        ORDER BY a.id, a.popularity DESC 
+        LIMIT 100
+      ) as top_actors
+      ORDER BY RANDOM() 
+      LIMIT 15
+    `);
+
     const [heroRes, nowPlayingRes, newMoviesRes, newSeriesRes, horrorRes, comedyRes, actorsRes] = await Promise.all([
-      fetchData(`SELECT ${columns} FROM media WHERE type = 'movie' AND ${strictCondition} AND release_year = ${currentYear} AND rating_imdb > 6.0 ORDER BY RANDOM() LIMIT 10`),
-      fetchData(`SELECT ${columns} FROM media WHERE type = 'movie' AND ${strictCondition} AND release_year = ${currentYear} ORDER BY popularity DESC, rating_imdb DESC LIMIT 15`),
-      fetchData(`SELECT ${columns} FROM media WHERE type = 'movie' AND ${strictCondition} ORDER BY created_at DESC LIMIT 15`),
-      fetchData(`SELECT ${columns} FROM media WHERE type = 'tv' AND ${strictCondition} AND release_year >= ${currentYear - 2} ORDER BY created_at DESC LIMIT 15`),
-      fetchData(`SELECT ${columns} FROM media WHERE type = 'movie' AND genres_names && ARRAY['ужасы', 'Horror'] AND ${strictCondition} AND release_year >= ${currentYear - 3} ORDER BY created_at DESC LIMIT 15`),
-      fetchData(`SELECT ${columns} FROM media WHERE type = 'movie' AND genres_names && ARRAY['комедия', 'Comedy'] AND ${strictCondition} AND release_year >= ${currentYear - 3} ORDER BY created_at DESC LIMIT 15`),
-      fetchData(`SELECT * FROM (SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity FROM actors a JOIN media_actors ma ON a.id = ma.actor_id JOIN media m ON ma.media_id = m.tmdb_id WHERE a.profile_path IS NOT NULL AND m.type = 'movie' AND m.rating_imdb > 6.0 ORDER BY a.id, a.popularity DESC LIMIT 100) as top_actors ORDER BY RANDOM() LIMIT 15`)
+      heroQuery, nowPlayingQuery, newMoviesQuery, newSeriesQuery, horrorQuery, comedyQuery, actorsQuery
     ]);
 
     return {
       props: {
-        heroMovies: heroRes.rows || [],
-        nowPlaying: nowPlayingRes.rows || [],
-        newMovies: newMoviesRes.rows || [],
-        newSeries: newSeriesRes.rows || [],
-        horrorMovies: horrorRes.rows || [],
-        comedyMovies: comedyRes.rows || [],
-        popularActors: actorsRes.rows || [],
+        heroMovies: heroRes.rows,
+        nowPlaying: nowPlayingRes.rows,
+        newMovies: newMoviesRes.rows,
+        newSeries: newSeriesRes.rows,
+        horrorMovies: horrorRes.rows,
+        comedyMovies: comedyRes.rows,
+        popularActors: actorsRes.rows,
         currentYear
       },
-      revalidate: 600, // ✅ განახლდება 10 წუთში ერთხელ
     };
   } catch (error) {
-    console.error("Build Error:", error);
-    return { 
-      props: { heroMovies: [], nowPlaying: [], newMovies: [], newSeries: [], horrorMovies: [], comedyMovies: [], popularActors: [], currentYear }, 
-      revalidate: 60 
-    };
+    console.error("Home Page SSR Error:", error.message);
+    return { props: { heroMovies: [], nowPlaying: [], newMovies: [], newSeries: [], horrorMovies: [], comedyMovies: [], popularActors: [], currentYear } };
   }
 }
 
-export default function Home(props) {
-  // მონაცემების ინიციალიზაცია
-  const { 
-    heroMovies = [], nowPlaying = [], newMovies = [], 
-    newSeries = [], horrorMovies = [], comedyMovies = [], 
-    popularActors = [], currentYear = 2025 
-  } = props;
-
+export default function Home({ 
+  heroMovies, nowPlaying, newMovies, newSeries, 
+  horrorMovies, comedyMovies, popularActors, currentYear 
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Loading ინდიკატორი გვერდის შეცვლისას
   useEffect(() => {
     const start = (url) => { if (url === '/') setLoading(true); };
     const end = () => setLoading(false);
@@ -92,17 +155,18 @@ export default function Home(props) {
     };
   }, [router]);
 
-  // ტრეილერის მოდელი
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalVideoHtml, setModalVideoHtml] = useState('');
-
+  
   const handleShowTrailer = useCallback(async (movie) => {
     setIsModalOpen(true);
     setModalIsLoading(true);
     
     if (movie.kinopoisk_id) {
-        setModalVideoHtml(`<div id="yohoho" data-kinopoisk="${movie.kinopoisk_id}" data-player="videocdn,kodik,collaps" style="width:100%; height:100%;"></div>`);
+        setModalVideoHtml(`
+          <div id="yohoho" data-kinopoisk="${movie.kinopoisk_id}" data-player="videocdn,kodik,collaps" style="width:100%; height:100%;"></div>
+        `);
         const oldScript = document.getElementById('yohoho-script');
         if (oldScript) oldScript.remove();
         const script = document.createElement('script');
@@ -131,78 +195,81 @@ export default function Home(props) {
 
   return (
     <div className="bg-[#10141A] text-white font-sans">
+      {/* 🚀 SEO Head: მთავარი გვერდის ოპტიმიზაცია */}
       <SeoHead 
         title={`Фильмы и сериалы онлайн бесплатно`} 
-        description={`KinoNest - новинки ${currentYear} года.`}
+        description={`KinoNest - ваш онлайн кинотеатр. Смотрите новинки ${currentYear} года, популярные сериалы и классику мирового кино абсолютно бесплатно и без регистрации в высоком качестве HD.`}
       />
 
       <Header />
       <TrailerModal isOpen={isModalOpen} onClose={closeModal} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
 
-      {heroMovies.length > 0 && <HeroSlider movies={heroMovies} />}
+      <>
+        <HeroSlider movies={heroMovies} /> 
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20 pb-16">
-        
-        <MediaCarousel 
-          title={`В кинотеатрах (${currentYear})`}
-          items={nowPlaying}
-          swiperKey="now-playing"
-          cardType="movie"
-          isLoading={loading}
-          link={`/discover?year=${currentYear}&sort=rating_desc`} 
-          onShowTrailer={handleShowTrailer}
-        />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20 pb-16" id="main-container">
+          
+          <MediaCarousel 
+            title={`В кинотеатрах (${currentYear})`}
+            items={nowPlaying}
+            swiperKey="now-playing"
+            cardType="movie"
+            isLoading={loading}
+            link={`/discover?year=${currentYear}&sort=rating_desc`} 
+            onShowTrailer={handleShowTrailer}
+          />
 
-        <MediaCarousel 
-          title="Свежие поступления"
-          items={newMovies}
-          swiperKey="new-movies"
-          cardType="movie" 
-          isLoading={loading}
-          link="/discover?sort=year_desc&type=movie"
-          onShowTrailer={handleShowTrailer}
-        />
+          <MediaCarousel 
+            title="Свежие поступления"
+            items={newMovies}
+            swiperKey="new-movies"
+            cardType="movie" 
+            isLoading={loading}
+            link="/discover?sort=year_desc&type=movie" 
+            onShowTrailer={handleShowTrailer}
+          />
 
-        <MediaCarousel 
-          title="Новые сериалы"
-          items={newSeries}
-          swiperKey="new-series"
-          cardType="movie"
-          isLoading={loading}
-          link="/discover?sort=year_desc&type=tv"
-          onShowTrailer={handleShowTrailer}
-        />
+          <MediaCarousel 
+            title="Сериалы"
+            items={newSeries}
+            swiperKey="new-series"
+            cardType="movie"
+            isLoading={loading}
+            link="/discover?sort=year_desc&type=tv" 
+            onShowTrailer={handleShowTrailer}
+          />
 
-        <MediaCarousel 
-          title="Ужасы"
-          items={horrorMovies}
-          swiperKey="horror"
-          cardType="movie"
-          isLoading={loading}
-          link="/discover?genre=ужасы&sort=year_desc"
-          onShowTrailer={handleShowTrailer}
-        />
+          <MediaCarousel 
+            title="Ужасы"
+            items={horrorMovies}
+            swiperKey="horror-movies"
+            cardType="movie"
+            isLoading={loading}
+            link="/discover?genre=ужасы&sort=year_desc" 
+            onShowTrailer={handleShowTrailer}
+          />
 
-        <MediaCarousel 
-          title="Комедии"
-          items={comedyMovies}
-          swiperKey="comedy"
-          cardType="movie"
-          isLoading={loading}
-          link="/discover?genre=комедия&sort=year_desc"
-          onShowTrailer={handleShowTrailer}
-        />
+          <MediaCarousel 
+            title="Комедия"
+            items={comedyMovies}
+            swiperKey="comedy-movies"
+            cardType="movie"
+            isLoading={loading}
+            link="/discover?genre=комедия&sort=year_desc" 
+            onShowTrailer={handleShowTrailer}
+          />
 
-        <MediaCarousel 
-          title="Популярные актеры"
-          items={popularActors}
-          swiperKey="actors"
-          cardType="actor" 
-          isLoading={loading}
-          link="/actors" 
-        />
+          <MediaCarousel 
+            title="Популярные актеры"
+            items={popularActors}
+            swiperKey="popular-actors"
+            cardType="actor" 
+            isLoading={loading}
+            link="/actors" 
+          />
 
-      </main>
+        </main>
+      </>
       <Footer />
     </div>
   );

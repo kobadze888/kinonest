@@ -31,7 +31,8 @@ export default function HeroSlider({ movies }) {
       >
         {movies.map((movie, index) => {
           const title = movie.title_ru;
-          const backdropPath = movie.backdrop_path ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
+          // ვიყენებთ ორიგინალ ზომას უკეთესი ხარისხისთვის
+          const backdropPath = movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
           const linkHref = `/${movie.type}/${movie.tmdb_id}-${slugify(title)}-smotret-onlain-besplatno`;
 
           return (
@@ -44,6 +45,8 @@ export default function HeroSlider({ movies }) {
                 priority={index === 0}
                 className="opacity-100"
                 sizes="100vw"
+                // ⚠️ სწრაფი ჩატვირთვისთვის:
+                unoptimized={true}
                 fetchPriority={index === 0 ? "high" : "auto"}
               />
               <div className="slider-gradient absolute inset-0 z-10"></div>
@@ -56,8 +59,7 @@ export default function HeroSlider({ movies }) {
                     </div>
                     <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight drop-shadow-lg">{title}</h2>
                     <div className="flex gap-4">
-                        {/* ✅ prefetch={false} */}
-                        <Link href={linkHref} prefetch={false} className="bg-brand-red hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-transform transform hover:scale-105 flex items-center gap-3 text-lg shadow-lg shadow-red-900/50 inline-flex">
+                        <Link href={linkHref} className="bg-brand-red hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-transform transform hover:scale-105 flex items-center gap-3 text-lg shadow-lg shadow-red-900/50 inline-flex">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
                             Смотреть фильм
                         </Link>
