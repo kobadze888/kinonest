@@ -295,7 +295,7 @@ export default function TVPage({ tvShow, kinopoisk_id, actors, recommendations, 
                 <div className="flex items-center"><StarIcon /><span className="ml-1 font-bold">{tvShow.rating_tmdb}</span></div>
                 {tvShow.runtime && <span>~ {tvShow.runtime} мин.</span>}
               </div>
-              <p className="text-base text-gray-200 mt-3 line-clamp-3">{tvShow.overview}</p>
+              <p className="text-base text-gray-200 mt-3 line-clamp-7">{tvShow.overview}</p>
 
               <div className="flex items-center space-x-3 mt-5">
                 <button onClick={handleShowTrailer} className="bg-brand-red text-white font-bold py-2.5 px-6 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><PlayIcon /> Трейлер</button>
