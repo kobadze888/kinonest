@@ -80,23 +80,17 @@ export async function getServerSideProps(context) {
       actors = actorsRes.rows;
 
       if (movie.genres_names && movie.genres_names.length > 0) {
-        const recRes = await query(`
-            SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type
-            FROM media m
-            WHERE type = 'movie'
-              AND tmdb_id != $1
-              AND m.genres_names && $2::text[] 
-              AND m.release_year >= $3 - 5 
-            ORDER BY
-                (m.rating_imdb * 0.4) + 
-                (m.popularity * 0.001) + 
-                (
-                    SELECT COUNT(g) FROM unnest(m.genres_names) g 
-                    WHERE g = ANY($2::text[])
-                ) DESC,
-                m.release_year DESC
-            LIMIT 10
-        `, [tmdbId, movie.genres_names, movie.release_year || 2020]);
+     const recRes = await query(`
+    SELECT tmdb_id, title_ru, poster_path, rating_tmdb, release_year, type, search_slug
+    FROM media m
+    WHERE type = 'movie'
+      AND tmdb_id != $1
+      AND m.genres_names && $2::text[] 
+      AND m.release_year >= 2015 -- მხოლოდ ახალი ფილმები
+      AND m.poster_path IS NOT NULL
+    ORDER BY RANDOM() -- შემთხვევითი შერჩევა
+    LIMIT 12
+`, [tmdbId, movie.genres_names]);
         recommendations = recRes.rows;
       }
     }
