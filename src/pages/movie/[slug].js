@@ -86,9 +86,13 @@ export async function getServerSideProps(context) {
     WHERE type = 'movie'
       AND tmdb_id != $1
       AND m.genres_names && $2::text[] 
-      AND m.release_year >= 2015 -- მხოლოდ ახალი ფილმები
+      AND m.release_year >= 2015
       AND m.poster_path IS NOT NULL
-    ORDER BY RANDOM() -- შემთხვევითი შერჩევა
+      /* აუცილებელი რუსული სათაური */
+      AND m.title_ru IS NOT NULL 
+      AND m.title_ru != '' 
+      AND m.title_ru ~ '[а-яА-ЯёЁ]' 
+    ORDER BY RANDOM() 
     LIMIT 12
 `, [tmdbId, movie.genres_names]);
         recommendations = recRes.rows;
