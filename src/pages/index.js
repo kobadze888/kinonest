@@ -51,10 +51,12 @@ export async function getServerSideProps() {
       LIMIT 15
     `);
 
-    // 3. "Свежие поступления" (მხოლოდ ბოლო დამატებულები ბაზაში)
+   // 3. "Свежие поступления"
     const newMoviesQuery = query(`
       SELECT ${columns} FROM media 
-      WHERE ${strictCondition} 
+      WHERE poster_path IS NOT NULL 
+        AND title_ru IS NOT NULL 
+        AND title_ru != ''
       ORDER BY created_at DESC
       LIMIT 15
     `);
