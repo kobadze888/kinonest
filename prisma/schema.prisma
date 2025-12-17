@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Actor {
+  id            Int          @id
+  name          String
+  original_name String?
+  profile_path  String?
+  popularity    Decimal?     @db.Decimal(10, 3)
+  media_actors  MediaActor[]
+
+  @@map("actors")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model Media {
+  tmdb_id           Int          @id
+  kinopoisk_id      Int?
+  type              String       @db.VarChar(10)
+  title_ru          String
+  title_en          String?
+  overview          String?
+  poster_path       String?      @db.VarChar(255)
+  backdrop_path     String?      @db.VarChar(255)
+  release_year      Int?
+  rating_tmdb       Decimal?     @db.Decimal(3, 1)
+  genres_ids        Int[]
+  genres_names      String[]
+  created_at        DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?    @default(now()) @db.Timestamptz(6)
+  trailer_url       String?
+  runtime           Int?
+  budget            BigInt?
+  countries         String[]
+  rating_kp         Decimal?     @db.Decimal(4, 1)
+  rating_imdb       Decimal?     @db.Decimal(4, 1)
+  kinobd_item_id    Int?
+  imdb_id           String?
+  rating_kp_count   Int?
+  rating_imdb_count Int?
+  age_restriction   String?
+  slogan            String?
+  premiere_ru       DateTime?    @db.Date
+  premiere_world    DateTime?    @db.Date
+  popularity        BigInt?
+  search_slug       String?
+  is_hidden         Boolean?     @default(false)
+  media_actors      MediaActor[]
+
+  @@index([genres_names], map: "idx_media_genres_gin", type: Gin)
+  @@index([genres_names], map: "idx_media_genres_names", type: Gin)
+  @@index([popularity(sort: Desc)], map: "idx_media_popularity")
+  @@index([rating_imdb(sort: Desc)], map: "idx_media_rating")
+  @@index([rating_imdb(sort: Desc)], map: "idx_media_rating_imdb")
+  @@index([rating_tmdb(sort: Desc)], map: "idx_media_rating_tmdb")
+  @@index([release_year], map: "idx_media_release_year")
+  @@index([search_slug], map: "idx_media_search_slug")
+  @@index([search_slug(ops: raw("gin_trgm_ops"))], map: "idx_media_search_slug_trgm", type: Gin)
+  @@index([title_ru(ops: raw("gin_trgm_ops"))], map: "idx_media_title_ru_trgm", type: Gin)
+  @@index([tmdb_id], map: "idx_media_tmdb_id")
+  @@index([type], map: "idx_media_type")
+  @@map("media")
+}
+
+model MediaActor {
+  media_id  Int
+  actor_id  Int
+  character String?
+  order     Int?
+  actor     Actor   @relation(fields: [actor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  media     Media   @relation(fields: [media_id], references: [tmdb_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([media_id, actor_id])
+  @@index([actor_id], map: "idx_media_actors_actor_id")
+  @@index([media_id], map: "idx_media_actors_media_id")
+  @@map("media_actors")
+}
+
+model SyncSettings {
+  key        String    @id
+  value      String?
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@map("sync_settings")
+}

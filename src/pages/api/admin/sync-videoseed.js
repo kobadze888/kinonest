@@ -1,5 +1,5 @@
 // src/pages/api/admin/sync-videoseed.js
-// 🚀 V9.0: "Ideal Sync" - Save even if Trailer Missing + Strict KP/Title + Auto-Resume
+// 🚀 V10.2: Cron Ready - Always starts at Page 1 for updates + Limit Control
 
 import { query } from '@/lib/db';
 import { getServerSession } from "next-auth/next";
@@ -13,7 +13,7 @@ const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // 🛑 ფილტრები
-const MIN_VOTES_TMDB = 2;    
+const MIN_VOTES_TMDB = 2;     
 const ITEMS_PER_PAGE = 50; 
 
 // 🕵️ Scraper User Agents
@@ -204,114 +204,140 @@ async function upsertMedia(vsItem, tmdbItem, finalType, finalTrailer, finalTitle
     }
 }
 
+// 🚀 მთავარი Handler
 export default async function handler(req, res) {
+    const { secret, limit } = req.query; 
+    
+    // 1. ავტორიზაცია
     const session = await getServerSession(req, res, authOptions);
-    if (!session) return res.status(401).json({ error: 'Unauthorized' });
+    const isCronAuthorized = secret === process.env.CRON_SECRET;
+    
+    if (!session && !isCronAuthorized) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    if (req.method === 'GET') {
+    // 2. GET: ბოლო გვერდის დაბრუნება (ადმინკისთვის)
+    if (req.method === 'GET' && !isCronAuthorized) {
         const lastPage = await getLastPage();
         return res.status(200).json({ page: lastPage });
     }
 
-    if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
+    // 3. სინქრონიზაცია
+    if (req.method === 'POST' || (req.method === 'GET' && isCronAuthorized)) {
+        
+        // 🛑 გვერდის განსაზღვრა
+        // თუ ადმინკიდან მოდის POST და აქვს 'page', ვიყენებთ მას.
+        // სხვა შემთხვევაში (Cron ან ცარიელი POST) - ვიწყებთ 1-დან!
+        let page = (req.body && req.body.page) ? req.body.page : 1;
 
-    const page = req.body.page || 1;
-    sessionLogs = [];
-    let addedCount = 0;
-    let skippedCount = 0;
+        // 🛑 ლიმიტის განსაზღვრა
+        const maxLimit = limit ? parseInt(limit) : ITEMS_PER_PAGE;
 
-    try {
-        const type = page % 2 !== 0 ? 'movie' : 'serial'; 
-        const vsPage = Math.ceil(page / 2);
-        const fromVal = (vsPage - 1) * ITEMS_PER_PAGE + 1;
+        sessionLogs = [];
+        let addedCount = 0;
+        let skippedCount = 0;
 
-        log(`🧩 Videoseed ${type.toUpperCase()} - გვერდი ${vsPage} (Offset: ${fromVal})`, 'net');
-
-        const items = await fetchVideoseedList(type, vsPage);
-
-        if (items.length === 0) {
-            log(`⚠️ გვერდი ცარიელია.`, 'warn');
-        }
-
-        for (const vsItem of items) {
-            const vsName = vsItem.name || 'უსახელო';
+        try {
+            const type = page % 2 !== 0 ? 'movie' : 'serial'; 
+            const vsPage = Math.ceil(page / 2);
             
-            // 🛑 ფილტრი 1: KP ID
-            const hasKpId = (vsItem.id_kp && vsItem.id_kp !== "0" && vsItem.id_kp !== 0);
-            if (!hasKpId) { skippedCount++; continue; }
+            log(`🧩 Videoseed ${type.toUpperCase()} - გვერდი ${vsPage}`, 'net');
 
-            // TMDB ID ძებნა
-            let tmdbId = vsItem.id_tmdb ? parseInt(vsItem.id_tmdb) : null;
-            let tmdbItem = null;
-            let finalType = type === 'serial' ? 'tv' : 'movie';
+            const items = await fetchVideoseedList(type, vsPage);
 
-            if (!tmdbId || tmdbId === 0) {
-                const foundKp = await findTmdbId(vsItem.id_kp, 'kinopoisk_id');
-                if (foundKp) { tmdbId = foundKp.id; finalType = foundKp.media_type; }
-                else if (vsItem.id_imdb) {
-                    const foundImdb = await findTmdbId(vsItem.id_imdb, 'imdb_id');
-                    if (foundImdb) { tmdbId = foundImdb.id; finalType = foundImdb.media_type; }
+            if (items.length === 0) {
+                log(`⚠️ გვერდი ცარიელია.`, 'warn');
+            }
+
+            for (const vsItem of items) {
+                // ლიმიტის შემოწმება
+                if (addedCount >= maxLimit) {
+                    log(`🛑 ლიმიტი (${maxLimit}) ამოიწურა.`, 'skip');
+                    break;
+                }
+
+                const vsName = vsItem.name || 'უსახელო';
+                
+                // KP ID შემოწმება
+                const hasKpId = (vsItem.id_kp && vsItem.id_kp !== "0" && vsItem.id_kp !== 0);
+                if (!hasKpId) { skippedCount++; continue; }
+
+                // TMDB ID ძებნა
+                let tmdbId = vsItem.id_tmdb ? parseInt(vsItem.id_tmdb) : null;
+                let tmdbItem = null;
+                let finalType = type === 'serial' ? 'tv' : 'movie';
+
+                if (!tmdbId || tmdbId === 0) {
+                    const foundKp = await findTmdbId(vsItem.id_kp, 'kinopoisk_id');
+                    if (foundKp) { tmdbId = foundKp.id; finalType = foundKp.media_type; }
+                    else if (vsItem.id_imdb) {
+                        const foundImdb = await findTmdbId(vsItem.id_imdb, 'imdb_id');
+                        if (foundImdb) { tmdbId = foundImdb.id; finalType = foundImdb.media_type; }
+                    }
+                }
+
+                if (!tmdbId) { skippedCount++; continue; }
+
+                // ბაზაში არსებობის შემოწმება
+                const exists = await query('SELECT 1 FROM media WHERE tmdb_id = $1', [tmdbId]);
+                if (exists.rows.length > 0) {
+                    skippedCount++;
+                    log(`⏭️ Skip: უკვე ბაზაშია (${vsName})`, 'skip');
+                    continue; 
+                }
+
+                tmdbItem = await fetchTmdbDetails(tmdbId, finalType);
+                if (!tmdbItem) { log(`❌ TMDB ვერ მოიძებნა: ${vsName}`, 'error'); continue; }
+
+                if ((tmdbItem.vote_count || 0) < MIN_VOTES_TMDB) {
+                    skippedCount++;
+                    log(`🗑️ დაბალი ხმები: ${vsName}`, 'warn');
+                    continue;
+                }
+
+                let finalTitleRu = tmdbItem.title || tmdbItem.name;
+                if (!/[а-яА-ЯёЁ]/.test(finalTitleRu) && /[а-яА-ЯёЁ]/.test(vsItem.name)) finalTitleRu = vsItem.name;
+                
+                if (!/[а-яА-ЯёЁ]/.test(finalTitleRu)) {
+                    skippedCount++;
+                    log(`🚫 Skip: არ აქვს რუსული სათაური (${vsName})`, 'skip');
+                    continue;
+                }
+
+                const year = tmdbItem.release_date?.split('-')[0] || vsItem.year;
+                let trailerUrl = null;
+                let trailer = tmdbItem.videos?.results?.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+                
+                if (trailer) trailerUrl = makeYoutubeUrl(trailer.key);
+                else trailerUrl = await fetchEnglishTrailer(tmdbId, finalType);
+                
+                if (!trailerUrl) {
+                    trailerUrl = await fetchTrailerViaSearch(finalTitleRu, year);
+                    await delay(1000);
+                }
+
+                if (!trailerUrl) {
+                    trailerUrl = null; 
+                }
+
+                const success = await upsertMedia(vsItem, tmdbItem, finalType, trailerUrl, finalTitleRu);
+                if (success) {
+                    const trailerIcon = trailerUrl ? '🎥' : '🔇';
+                    log(`✅ დაემატა: ${trailerIcon} ${finalTitleRu} (${year})`, 'success');
+                    addedCount++;
                 }
             }
 
-            if (!tmdbId) { skippedCount++; continue; }
-
-            const exists = await query('SELECT 1 FROM media WHERE tmdb_id = $1', [tmdbId]);
-            if (exists.rows.length > 0) {
-                skippedCount++;
-                log(`⏭️ Skip: უკვე ბაზაშია (${vsName})`, 'skip');
-                continue; 
-            }
-
-            tmdbItem = await fetchTmdbDetails(tmdbId, finalType);
-            if (!tmdbItem) { log(`❌ TMDB ვერ მოიძებნა: ${vsName}`, 'error'); continue; }
-
-            if ((tmdbItem.vote_count || 0) < MIN_VOTES_TMDB) {
-                skippedCount++;
-                log(`🗑️ დაბალი ხმები: ${vsName}`, 'warn');
-                continue;
-            }
-
-            let finalTitleRu = tmdbItem.title || tmdbItem.name;
-            if (!/[а-яА-ЯёЁ]/.test(finalTitleRu) && /[а-яА-ЯёЁ]/.test(vsItem.name)) finalTitleRu = vsItem.name;
+            // ინახავს პროგრესს (სურვილისამებრ, თუ ადმინკაში გინდა გამოჩნდეს სად გაჩერდა ბოლოს)
+            await saveCurrentPage(page);
             
-            if (!/[а-яА-ЯёЁ]/.test(finalTitleRu)) {
-                skippedCount++;
-                log(`🚫 Skip: არ აქვს რუსული სათაური (${vsName})`, 'skip');
-                continue;
-            }
+            res.status(200).json({ success: true, page, logs: sessionLogs, added: addedCount, skipped: skippedCount });
 
-            const year = tmdbItem.release_date?.split('-')[0] || vsItem.year;
-            let trailerUrl = null;
-            let trailer = tmdbItem.videos?.results?.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
-            
-            if (trailer) trailerUrl = makeYoutubeUrl(trailer.key);
-            else trailerUrl = await fetchEnglishTrailer(tmdbId, finalType);
-            
-            if (!trailerUrl) {
-                trailerUrl = await fetchTrailerViaSearch(finalTitleRu, year);
-                await delay(1000);
-            }
-
-            if (!trailerUrl) {
-                // 🛑 ცვლილება: აღარ ვსკიპავთ, უბრალოდ ვლოგავთ და ვაგრძელებთ
-                log(`⚠️ ტრეილერი ვერ მოიძებნა, მაგრამ ვინახავთ - ${finalTitleRu}`, 'warn');
-                trailerUrl = null; 
-            }
-
-            const success = await upsertMedia(vsItem, tmdbItem, finalType, trailerUrl, finalTitleRu);
-            if (success) {
-                const trailerIcon = trailerUrl ? '🎥' : '🔇';
-                log(`✅ დაემატა: ${trailerIcon} ${finalTitleRu} (${year})`, 'success');
-                addedCount++;
-            }
+        } catch (error) {
+            log(`🔥 Critical Error: ${error.message}`, 'error');
+            res.status(200).json({ success: false, error: error.message, logs: sessionLogs });
         }
-
-        await saveCurrentPage(page);
-        res.status(200).json({ success: true, page, logs: sessionLogs, added: addedCount, skipped: skippedCount });
-
-    } catch (error) {
-        log(`🔥 Critical Error: ${error.message}`, 'error');
-        res.status(200).json({ success: false, error: error.message, logs: sessionLogs });
+    } else {
+        res.status(405).json({ message: 'Method Not Allowed' });
     }
 }

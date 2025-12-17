@@ -25,7 +25,7 @@ export async function getServerSideProps({ query: urlQuery }) {
       WHERE a.profile_path IS NOT NULL 
         AND m.type = 'movie'
         AND m.rating_imdb > 7.0
-        AND ('США' = ANY(m.countries) OR 'Великобритания' = ANY(m.countries))
+         AND ('США' = ANY(m.countries) OR 'Великобритания' = ANY(m.countries))
       ORDER BY a.popularity DESC
       LIMIT $1 OFFSET $2
     `;
