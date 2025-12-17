@@ -267,7 +267,7 @@ export default function MoviePage({ movie, kinopoisk_id, actors, recommendations
                 {movie.runtime && <span>{movie.runtime} мин.</span>}
                 {movie.age_restriction && <span className="border border-gray-400 px-1 rounded text-xs">{movie.age_restriction}+</span>}
               </div>
-              <p className="text-base text-gray-200 mt-3 line-clamp-3">{movie.overview}</p>
+              <p className="text-base text-gray-200 mt-3 line-clamp-7">{movie.overview}</p>
               <div className="flex items-center space-x-3 mt-5">
                 <button onClick={handleShowTrailerModal} className="bg-brand-red text-white font-bold py-2.5 px-6 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><PlayIcon /> Трейлер</button>
                 <button onClick={() => toggleItem(movie.tmdb_id)} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition border-2 ${isFavorite ? 'bg-white/10 border-brand-red text-brand-red' : 'border-gray-500 text-gray-300 hover:text-white'}`}><HeartIcon isFilled={isFavorite} /> {isFavorite ? 'В избранном' : 'В избранное'}</button>
