@@ -28,10 +28,7 @@ export async function getServerSideProps(context) {
   let rawQuery = q ? q.trim() : '';
   let extractedYear = null;
 
-  // pg_trgm ექსტენშენის ჩართვა (თუ გამორთულია)
-  try { await query('CREATE EXTENSION IF NOT EXISTS pg_trgm'); } catch (e) {}
-
-  // წლის ამოღება ძებნის ტექსტიდან (მაგ: "Matrix 1999")
+  // წლის ამოღება ძებნის ტექსტიდან
   const yearMatch = rawQuery.match(/\b(19|20)\d{2}\b/);
   if (yearMatch) {
       extractedYear = parseInt(yearMatch[0]);
@@ -44,48 +41,19 @@ export async function getServerSideProps(context) {
   let queryParams = [];
   let paramIndex = 1;
 
-  // --- 🔍 მთავარი ძებნის ლოგიკა (სათაურები + მსახიობები) ---
+  // --- 🔍 ოპტიმიზირებული ძებნის ლოგიკა (ILIKE + ინდექსები) ---
   if (rawQuery.length > 0) {
-      const words = rawQuery.split(/\s+/).filter(w => w.length > 0);
+      const transWord = transliterate(rawQuery);
       
-      const wordConditions = words.map(word => {
-          const transWord = transliterate(word);
-          
-          // პარამეტრების დამატება მასივში თანმიმდევრობით
-          queryParams.push(`%${word}%`);      const idxEnLike = paramIndex++;
-          queryParams.push(`%${transWord}%`); const idxRuLike = paramIndex++;
-          queryParams.push(word);             const idxEnSim = paramIndex++;
-          queryParams.push(transWord);        const idxRuSim = paramIndex++;
-          
-          // 🆕 მსახიობებისთვის (იგივე სიტყვებს ვიყენებთ)
-          queryParams.push(`%${word}%`);      const idxActorRaw = paramIndex++;
-          queryParams.push(`%${transWord}%`); const idxActorTrans = paramIndex++;
-
-          return `(
-              -- 1. ძებნა სათაურებში
-              title_en ILIKE $${idxEnLike} OR
-              search_slug ILIKE $${idxEnLike} OR
-              title_ru ILIKE $${idxRuLike} OR
-              similarity(title_en, $${idxEnSim}) > 0.3 OR
-              similarity(replace(search_slug, '-', ' '), $${idxEnSim}) > 0.3 OR
-              similarity(title_ru, $${idxRuSim}) > 0.3 OR
-
-              -- 2. 🆕 ძებნა მსახიობებში (სახელი ან ორიგინალი სახელი)
-              EXISTS (
-                SELECT 1 FROM media_actors ma
-                JOIN actors a ON ma.actor_id = a.id
-                WHERE ma.media_id = media.tmdb_id
-                AND (
-                  a.name ILIKE $${idxActorRaw} OR 
-                  a.original_name ILIKE $${idxActorRaw} OR
-                  a.name ILIKE $${idxActorTrans}
-                )
-              )
-          )`;
-      });
+      // ვიყენებთ ILIKE-ს, რომელიც შენს მიერ შექმნილ GIN ინდექსებთან ერთად მუშაობს წამიერად
+      sqlConditions.push(`(
+          title_ru ILIKE $${paramIndex} OR 
+          title_en ILIKE $${paramIndex} OR 
+          search_slug ILIKE $${paramIndex}
+      )`);
       
-      // ყველა სიტყვა უნდა ემთხვეოდეს (AND ლოგიკა სიტყვებს შორის)
-      sqlConditions.push(`(${wordConditions.join(' AND ')})`);
+      queryParams.push(`%${rawQuery}%`);
+      paramIndex++;
   }
 
   // --- ფილტრები ---
@@ -102,39 +70,10 @@ export async function getServerSideProps(context) {
 
   const whereClause = sqlConditions.join(' AND ');
 
-  // --- სორტირება (Relevance) ---
-  let orderBy = 'rating_imdb DESC NULLS LAST'; 
-  
-  // თუ ძებნა ჩართულია, პრიორიტეტი მივანიჭოთ ზუსტ სათაურებს
-  if (rawQuery.length > 0) {
-     const fullTrans = transliterate(rawQuery);
-     queryParams.push(fullTrans); const idxFullTrans = paramIndex++;
-     queryParams.push(rawQuery); const idxFullRaw = paramIndex++;
-     
-     orderBy = `
-       CASE 
-         -- ზუსტი დამთხვევა სათაურში (ყველაზე მაღლა)
-         WHEN title_ru ILIKE $${idxFullTrans} THEN 0       
-         WHEN title_en ILIKE $${idxFullRaw} THEN 0       
-         WHEN search_slug ILIKE '%' || $${idxFullRaw} || '%' THEN 1 
-         
-         -- მსახიობის პრიორიტეტი (თუ მსახიობი ვიპოვეთ, ცოტა ქვემოთ იყოს ვიდრე ზუსტი სათაური)
-         WHEN EXISTS (
-            SELECT 1 FROM media_actors ma
-            JOIN actors a ON ma.actor_id = a.id
-            WHERE ma.media_id = media.tmdb_id
-            AND (a.name ILIKE $${idxFullTrans} OR a.original_name ILIKE $${idxFullRaw})
-         ) THEN 2
-
-         ELSE 3
-       END ASC, release_year DESC NULLS LAST
-     `;
-  }
-  
-  // ფილტრის სორტირება (გადაფარავს რეელევანტურობას თუ მომხმარებელმა აირჩია)
-  if (sort === 'year_desc') orderBy = 'release_year DESC NULLS LAST';
-  if (sort === 'year_asc') orderBy = 'release_year ASC NULLS LAST';
+  // --- სორტირება ---
+  let orderBy = 'release_year DESC NULLS LAST'; 
   if (sort === 'rating_desc') orderBy = 'rating_imdb DESC NULLS LAST';
+  if (sort === 'year_asc') orderBy = 'release_year ASC NULLS LAST';
 
   const columns = `tmdb_id, kinopoisk_id, type, title_ru, title_en, overview, poster_path, release_year, rating_tmdb, rating_imdb, rating_kp, genres_names`;
 
@@ -144,13 +83,7 @@ export async function getServerSideProps(context) {
     const dbResult = await query(sql, queryParams);
     results = dbResult.rows;
   } catch (e) { 
-      // Fallback (თუ რამე რთული ერორი მოხდა, მარტივი ძებნა)
-      try {
-        console.error("Search Error, running fallback:", e.message);
-        const fallbackSql = `SELECT ${columns} FROM media WHERE title_ru ILIKE '%' || $1 || '%' OR title_en ILIKE '%' || $1 || '%' LIMIT 40`;
-        const fbRes = await query(fallbackSql, [rawQuery]); 
-        results = fbRes.rows;
-      } catch(err) {}
+      console.error("Search Error:", e.message);
   }
 
   return { props: { results, query: q || '', filters: { type: type || 'all', genre: genre || 'all', year: year || 'all', rating: rating || 'all', country: country || 'all', sort: sort || 'year_desc' }, genres, countries } };

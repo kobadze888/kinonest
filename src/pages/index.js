@@ -10,103 +10,94 @@ import SeoHead from '@/components/SeoHead';
 
 export async function getServerSideProps() {
   const currentYear = new Date().getFullYear(); 
+  const minYear = 2015; // მინიმალური წელი სექციებისთვის
   
   const columns = `
     tmdb_id, kinopoisk_id, type, title_ru, title_en, overview,
     poster_path, backdrop_path, release_year, rating_tmdb,
-    genres_ids, genres_names,
-    created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp
+    genres_ids, genres_names, created_at::TEXT, updated_at::TEXT, rating_imdb, rating_kp, search_slug, trailer_url, countries
   `;
 
-  // 💡 მაღალი ხარისხის კონტენტის ფილტრი
   const strictCondition = `
     backdrop_path IS NOT NULL 
     AND poster_path IS NOT NULL
     AND title_ru IS NOT NULL AND title_ru != 'No Title'
     AND title_ru ~ '[а-яА-ЯёЁ]'
-    AND kinopoisk_id IS NOT NULL /* აუცილებელი პირობა პლეერისთვის */
+    AND kinopoisk_id IS NOT NULL
     AND rating_imdb > 0
     AND release_year IS NOT NULL AND release_year > 0
   `;
 
   try {
-    // 1. HERO SECTION (პოპულარული + შემთხვევითი)
+    // 1. HERO SECTION (2015+ და RANDOM)
     const heroQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
         AND ${strictCondition}
-        AND release_year = ${currentYear}
+        AND release_year >= ${minYear}
         AND rating_imdb > 6.0
-        AND (
-          'США' = ANY(countries) OR 'Велиკбритания' = ANY(countries)
-        )
+        AND ('США' = ANY(countries) OR 'Великобритания' = ANY(countries))
       ORDER BY RANDOM() 
       LIMIT 10
     `);
 
-    // "В кинотеатрах" - მიმდინარე წლის პოპულარული
+    // 2. "В кинотеатрах" (მიმდინარე წელი და RANDOM)
     const nowPlayingQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'movie' 
         AND ${strictCondition}
         AND release_year = ${currentYear}
-      ORDER BY popularity DESC, rating_imdb DESC
+      ORDER BY RANDOM()
       LIMIT 15
     `);
 
-    // 2. "Свежие поступления" (ფილმები) - 🎯 ცვლილება: მხოლოდ created_at DESC (წელი და რეიტინგი იგნორირებულია)
+    // 3. "Свежие поступления" (მხოლოდ ბოლო დამატებულები ბაზაში)
     const newMoviesQuery = query(`
       SELECT ${columns} FROM media 
-      WHERE type = 'movie' 
-        AND ${strictCondition} 
-      ORDER BY created_at DESC, RANDOM() /* 💡 მთავარი სორტირება: ბაზაში დამატების სიახლე */
+      WHERE ${strictCondition} 
+      ORDER BY created_at DESC
       LIMIT 15
     `);
 
-    // 3. "Новые сериалы" - შეზღუდვა ბოლო 2 წელზე
+    // 4. "Сериалы" (2015+ და RANDOM)
     const newSeriesQuery = query(`
       SELECT ${columns} FROM media 
       WHERE type = 'tv' 
         AND ${strictCondition} 
-        AND release_year >= ${currentYear - 2} 
-      ORDER BY created_at DESC, RANDOM() 
+        AND release_year >= ${minYear} 
+      ORDER BY RANDOM() 
       LIMIT 15
     `);
 
-    // 4. "Ужасы (Последние)" - შეზღუდვა მიმდინარე წელზე
+    // 5. "Ужасы" (2015+ და RANDOM)
     const horrorQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie' 
         AND genres_names && ARRAY['ужасы', 'Horror']
         AND ${strictCondition}
-        AND release_year >= ${currentYear} 
-      ORDER BY created_at DESC, RANDOM()
+        AND release_year >= ${minYear} 
+      ORDER BY RANDOM()
       LIMIT 15
     `);
 
-    // 5. "Комедии (Последние)" - შეზღუდვა მიმდინარე წელზე
+    // 6. "Комедия" (2015+ და RANDOM)
     const comedyQuery = query(`
       SELECT ${columns} FROM media
       WHERE type = 'movie'
         AND genres_names && ARRAY['комедия', 'Comedy']
         AND ${strictCondition}
-        AND release_year >= ${currentYear} 
-      ORDER BY created_at DESC, RANDOM()
+        AND release_year >= ${minYear} 
+      ORDER BY RANDOM()
       LIMIT 15
     `);
 
-    // 6. "Популярные актеры" - შემთხვევითი
+    // 7. "Популярные актеры" (შემთხვევითი შერჩევა პოპულარულებიდან)
     const actorsQuery = query(`
       SELECT * FROM (
-        SELECT DISTINCT ON (a.id) a.id, a.name, a.profile_path, a.popularity 
-        FROM actors a
-        JOIN media_actors ma ON a.id = ma.actor_id
-        JOIN media m ON ma.media_id = m.tmdb_id
-        WHERE a.profile_path IS NOT NULL
-          AND m.type = 'movie'
-          AND m.rating_imdb > 7.0
-          AND ('США' = ANY(m.countries) OR 'Велиკбритания' = ANY(m.countries))
-        ORDER BY a.id, a.popularity DESC 
+        SELECT id, name, profile_path, popularity 
+        FROM actors 
+        WHERE profile_path IS NOT NULL 
+        ORDER BY popularity DESC 
         LIMIT 100
       ) as top_actors
       ORDER BY RANDOM() 
@@ -164,9 +155,7 @@ export default function Home({
     setModalIsLoading(true);
     
     if (movie.kinopoisk_id) {
-        setModalVideoHtml(`
-          <div id="yohoho" data-kinopoisk="${movie.kinopoisk_id}" data-player="videocdn,kodik,collaps" style="width:100%; height:100%;"></div>
-        `);
+        setModalVideoHtml(`<div id="yohoho" data-kinopoisk="${movie.kinopoisk_id}" data-player="videocdn,kodik,collaps" style="width:100%; height:100%;"></div>`);
         const oldScript = document.getElementById('yohoho-script');
         if (oldScript) oldScript.remove();
         const script = document.createElement('script');
@@ -178,10 +167,10 @@ export default function Home({
     }
     
     if (movie.trailer_url) {
-         let embedUrl = movie.trailer_url.replace('watch?v=', 'embed/');
-         setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${embedUrl}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
+        let embedUrl = movie.trailer_url.replace('watch?v=', 'embed/');
+        setModalVideoHtml(`<iframe class="absolute top-0 left-0 w-full h-full" src="${embedUrl}?autoplay=1" frameborder="0" allowfullscreen></iframe>`);
     } else {
-         setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl">Трейлер не найден</p></div>`);
+        setModalVideoHtml(`<div class="flex items-center justify-center w-full h-full absolute inset-0"><p class="text-white text-xl">Трейлер не найден</p></div>`);
     }
     setModalIsLoading(false);
   }, []);
@@ -195,81 +184,74 @@ export default function Home({
 
   return (
     <div className="bg-[#10141A] text-white font-sans">
-      {/* 🚀 SEO Head: მთავარი გვერდის ოპტიმიზაცია */}
       <SeoHead 
-        title={`Фильмы и сериалы онлайн бесплатно`} 
-        description={`KinoNest - ваш онлайн кинотеатр. Смотрите новинки ${currentYear} года, популярные сериалы и классику мирового кино абсолютно бесплатно и без регистрации в высоком качестве HD.`}
+        title="Фильмы и сериалы онлайн бесплатно" 
+        description={`KinoNest - ваш онлайн кинотеатр. Смотрите новинки ${currentYear} года.`}
       />
 
       <Header />
       <TrailerModal isOpen={isModalOpen} onClose={closeModal} isLoading={modalIsLoading} videoHtml={modalVideoHtml} />
 
-      <>
-        <HeroSlider movies={heroMovies} /> 
+      <HeroSlider movies={heroMovies} /> 
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20 pb-16" id="main-container">
-          
-          <MediaCarousel 
-            title={`В кинотеатрах (${currentYear})`}
-            items={nowPlaying}
-            swiperKey="now-playing"
-            cardType="movie"
-            isLoading={loading}
-            link={`/discover?year=${currentYear}&sort=rating_desc`} 
-            onShowTrailer={handleShowTrailer}
-          />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20 pb-16">
+        
+        <MediaCarousel 
+          title={`В кинотеатрах (${currentYear})`}
+          items={nowPlaying}
+          swiperKey="now-playing"
+          isLoading={loading}
+          onShowTrailer={handleShowTrailer}
+          link={`/discover?year=${currentYear}&sort=rating_desc`}
+        />
 
-          <MediaCarousel 
-            title="Свежие поступления"
-            items={newMovies}
-            swiperKey="new-movies"
-            cardType="movie" 
-            isLoading={loading}
-            link="/discover?sort=year_desc&type=movie" 
-            onShowTrailer={handleShowTrailer}
-          />
+        <MediaCarousel 
+          title="Свежие поступления"
+          items={newMovies}
+          swiperKey="new-movies"
+          isLoading={loading}
+          onShowTrailer={handleShowTrailer}
+          link="/discover?sort=year_desc&type=movie"
+        />
 
-          <MediaCarousel 
-            title="Сериалы"
-            items={newSeries}
-            swiperKey="new-series"
-            cardType="movie"
-            isLoading={loading}
-            link="/discover?sort=year_desc&type=tv" 
-            onShowTrailer={handleShowTrailer}
-          />
+        <MediaCarousel 
+          title="Сериалы"
+          items={newSeries}
+          swiperKey="new-series"
+          isLoading={loading}
+          onShowTrailer={handleShowTrailer}
+          link="/discover?sort=year_desc&type=tv"
+        />
 
-          <MediaCarousel 
-            title="Ужасы"
-            items={horrorMovies}
-            swiperKey="horror-movies"
-            cardType="movie"
-            isLoading={loading}
-            link="/discover?genre=ужасы&sort=year_desc" 
-            onShowTrailer={handleShowTrailer}
-          />
+        <MediaCarousel 
+          title="Ужасы"
+          items={horrorMovies}
+          swiperKey="horror-movies"
+          isLoading={loading}
+          onShowTrailer={handleShowTrailer}
+          link="/discover?genre=ужасы&sort=year_desc"
+        />
 
-          <MediaCarousel 
-            title="Комедия"
-            items={comedyMovies}
-            swiperKey="comedy-movies"
-            cardType="movie"
-            isLoading={loading}
-            link="/discover?genre=комедия&sort=year_desc" 
-            onShowTrailer={handleShowTrailer}
-          />
+        <MediaCarousel 
+          title="Комедия"
+          items={comedyMovies}
+          swiperKey="comedy-movies"
+          isLoading={loading}
+          onShowTrailer={handleShowTrailer}
+          link="/discover?genre=комедия&sort=year_desc"
+        />
 
-          <MediaCarousel 
-            title="Популярные актеры"
-            items={popularActors}
-            swiperKey="popular-actors"
-            cardType="actor" 
-            isLoading={loading}
-            link="/actors" 
-          />
+        <MediaCarousel 
+          title="Популярные актеры"
+          items={popularActors}
+          swiperKey="popular-actors"
+          cardType="actor" 
+          isLoading={loading}
+          link="/actors"
+        />
 
-        </main>
-      </>
+      </main>
+
       <Footer />
     </div>
   );
