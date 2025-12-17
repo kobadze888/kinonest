@@ -3,6 +3,14 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay, EffectFade } from 'swiper/modules';
 import Image from 'next/image';
 import Link from 'next/link'; 
+
+// 1. ✅ აუცილებელია ამ სტილების დამატება!
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import 'swiper/css/effect-fade';
+
+// ვიყენებთ ამ ცვლადს, რომ ლინკები ცენტრალიზებული იყოს
 import { BACKDROP_BASE_URL } from '../lib/api';
 import { slugify } from '../lib/utils'; 
 
@@ -30,9 +38,14 @@ export default function HeroSlider({ movies }) {
         className="h-full w-full"
       >
         {movies.map((movie, index) => {
-          const title = movie.title_ru;
-          // ვიყენებთ ორიგინალ ზომას უკეთესი ხარისხისთვის
-          const backdropPath = movie.backdrop_path ? `https://image.tmdb.org/t/p/w500${movie.backdrop_path}` : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
+          const title = movie.title_ru || movie.title_en || 'ფილმი'; // დაზღვევა თუ სათაური არ არის
+          
+          // 2. ✅ აქ გამოვიყენოთ BACKDROP_BASE_URL (შეცდომის თავიდან ასაცილებლად)
+          // თუ მაინცდამაინც 'original' ზომა გინდათ, src/lib/api.js-ში შეცვალეთ ეს ცვლადი.
+          const backdropPath = movie.backdrop_path 
+            ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` 
+            : 'https://placehold.co/1280x720/10141A/6b7280?text=KinoNest';
+            
           const linkHref = `/${movie.type}/${movie.tmdb_id}-${slugify(title)}-smotret-onlain-besplatno`;
 
           return (
@@ -45,7 +58,6 @@ export default function HeroSlider({ movies }) {
                 priority={index === 0}
                 className="opacity-100"
                 sizes="100vw"
-                // ⚠️ სწრაფი ჩატვირთვისთვის:
                 unoptimized={true}
                 fetchPriority={index === 0 ? "high" : "auto"}
               />
